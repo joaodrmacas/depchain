@@ -3,10 +3,6 @@ package pt.tecnico.ulisboa;
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.network.UdpFairLossLink;
 
-/**
- * Hello world!
- *
- */
 public class App 
 {
     public static void main( String[] args )
