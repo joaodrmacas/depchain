@@ -7,9 +7,19 @@ public class UdpFairLossLink implements FairLossLink {
     private MessageHandler handler;
     static private int BUFFER_SIZE_DEFAULT = 1024;
 
-    public UdpFairLossLink(int port) throws SocketException {
+    public UdpFairLossLink(String IP, int port) throws SocketException {
+        // TODO: ignoring ip cause using localhost
         this.socket = new DatagramSocket(port);
         startListening();
+    }
+
+    public int getPort() {
+        return socket.getLocalPort();
+    }
+
+    public String getIP() {
+        // TODO: ignoring ip cause using localhost
+        return socket.getLocalAddress().getHostAddress();
     }
 
     @Override
@@ -17,11 +27,13 @@ public class UdpFairLossLink implements FairLossLink {
         try {
             InetAddress address = InetAddress.getByName(destination);
             DatagramPacket packet = new DatagramPacket(message, message.length, address, port);
+
             // TODO: delete this print of the message being sent and its content
             System.out.println("Sending message: ");
             Message msg = Message.deserialize(message);
             msg.printMessage();
             System.out.println();
+
             socket.send(packet);
         } catch (Exception e) {
             e.printStackTrace();
@@ -42,7 +54,9 @@ public class UdpFairLossLink implements FairLossLink {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     socket.receive(packet);
                     if (handler != null) {
-                        handler.onMessage(packet.getAddress().getHostAddress(), packet.getData());
+                        String sender = packet.getAddress().getHostAddress() + ":" + packet.getPort();
+                        byte[] data = packet.getData();
+                        handler.onMessage(sender, data);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

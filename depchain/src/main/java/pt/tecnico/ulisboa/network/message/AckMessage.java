@@ -82,6 +82,6 @@ class AckMessage implements Message {
     }
 
     public void printMessage() {
-        System.out.println("AckMessage: Destination=" + destination + ", Port=" + port + ", Sequence Number=" + seqNum + ", Type=" + TYPE_INDICATOR);
+		System.out.println("AckMessage: Destination=" + destination + ", Port=" + port + ", Sequence Number=" + seqNum + ", Type=" + TYPE_INDICATOR);
     }
 }
