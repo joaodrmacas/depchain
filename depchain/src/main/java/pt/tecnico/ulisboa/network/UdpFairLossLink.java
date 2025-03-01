@@ -17,6 +17,11 @@ public class UdpFairLossLink implements FairLossLink {
         try {
             InetAddress address = InetAddress.getByName(destination);
             DatagramPacket packet = new DatagramPacket(message, message.length, address, port);
+            // TODO: delete this print of the message being sent and its content
+            System.out.println("Sending message: ");
+            Message msg = Message.deserialize(message);
+            msg.printMessage();
+            System.out.println();
             socket.send(packet);
         } catch (Exception e) {
             e.printStackTrace();
