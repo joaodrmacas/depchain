@@ -9,10 +9,12 @@ public class App
         StubbornLink sv2;
         try {
             sv1 = new StubbornLinkImpl(8080);
+
             sv2 = new StubbornLinkImpl(8081);
             sv1.setMessageHandler((sender, data) -> {
                 System.out.println("sv1 received: " + new String(data));
-            });
+                }
+            );
 
             sv2.setMessageHandler((sender, data) -> {
                 System.out.println("sv2 received: " + new String(data));
