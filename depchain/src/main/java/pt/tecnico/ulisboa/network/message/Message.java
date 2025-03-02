@@ -5,8 +5,6 @@ import java.nio.ByteBuffer;
 
 public interface Message {
     byte[] serialize();
-    String getDestination();
-    int getPort();
     long getSeqNum();
     String getId();
     void printMessage();

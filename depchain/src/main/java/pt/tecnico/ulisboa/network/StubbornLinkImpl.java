@@ -59,7 +59,7 @@ public class StubbornLinkImpl implements StubbornLink {
                 String sourceIP = sourceParts[0];
                 int sourcePort = Integer.parseInt(sourceParts[1]);
 
-                AckMessage ack = new AckMessage(sourceIP, sourcePort, seqNum);
+                AckMessage ack = new AckMessage(seqNum);
                 fairLossLink.send(sourceIP, sourcePort, ack.serialize());
                 
                 // Check if this is a duplicate or out of window

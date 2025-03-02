@@ -30,12 +30,10 @@ class DataMessage implements Message, Serializable {
 		return TYPE_INDICATOR;
 	}
 	
-	@Override
 	public String getDestination() {
 		return destination;
 	}
 	
-	@Override
 	public int getPort() {
 		return port;
 	}
