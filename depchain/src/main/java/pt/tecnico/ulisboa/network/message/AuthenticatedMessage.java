@@ -3,13 +3,12 @@ package pt.tecnico.ulisboa.network.message;
 import java.io.*;
 import java.util.Arrays;
 
-public class AuthenticatedMessage implements Message {
-    public static final byte TYPE_INDICATOR = 3;
+public class AuthenticatedMessage extends Message {
 
     private final byte[] content;
     private final byte[] mac;
     private final String senderId;
-    private final long seqNum;
+    private long seqNum;
 
     public AuthenticatedMessage(byte[] content, byte[] mac, String senderId) {
         this.content = content;
@@ -27,7 +26,7 @@ public class AuthenticatedMessage implements Message {
 
     @Override
     public byte getType() {
-        return TYPE_INDICATOR;
+        return AUTH_TYPE;
     }
 
     @Override
@@ -55,53 +54,48 @@ public class AuthenticatedMessage implements Message {
     @Override
     public byte[] serialize() {
         try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-            byteStream.write(TYPE_INDICATOR);
-
+            byteStream.write(getType());
             try (DataOutputStream dataStream = new DataOutputStream(byteStream)) {
                 // Write sender ID
                 dataStream.writeUTF(senderId);
-
                 // Write sequence number
                 dataStream.writeLong(seqNum);
-                AckMessage ack = new AckMessage(seqNum);
                 // Write content
                 dataStream.writeInt(content.length);
                 dataStream.write(content);
-
                 // Write MAC
                 dataStream.writeInt(mac.length);
                 dataStream.write(mac);
-            }
 
-            return byteStream.toByteArray();
+                return byteStream.toByteArray();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
         } catch (IOException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
     public static AuthenticatedMessage fromByteArray(byte[] data) {
-        try (ByteArrayInputStream byteStream = new ByteArrayInputStream(data);
-                DataInputStream dataStream = new DataInputStream(byteStream)) {
-
+        try {
+            ByteArrayInputStream byteStream = new ByteArrayInputStream(data);
+            // Skip the type byte since we already know what type it is
+            byteStream.read();
+            DataInputStream dataStream = new DataInputStream(byteStream);
             // Read sender ID
             String senderId = dataStream.readUTF();
-
             // Read sequence number
             long seqNum = dataStream.readLong();
-
             // Read content
             int contentLength = dataStream.readInt();
             byte[] content = new byte[contentLength];
             dataStream.readFully(content);
-
             // Read MAC
             int macLength = dataStream.readInt();
             byte[] mac = new byte[macLength];
             dataStream.readFully(mac);
-
             return new AuthenticatedMessage(content, mac, senderId, seqNum);
-
         } catch (IOException e) {
             System.err.println("Error during AuthenticatedMessage deserialization: " + e.getMessage());
             e.printStackTrace();
@@ -109,11 +103,12 @@ public class AuthenticatedMessage implements Message {
         }
     }
 
+    @Override
     public void printMessage() {
         System.out.println("AuthenticatedMessage: SenderId=" + senderId +
                 ", Sequence Number=" + seqNum +
                 ", Content Length=" + (content != null ? content.length : 0) +
                 ", MAC Length=" + (mac != null ? mac.length : 0) +
-                ", Type=" + TYPE_INDICATOR);
+                ", Type=" + getType());
     }
 }

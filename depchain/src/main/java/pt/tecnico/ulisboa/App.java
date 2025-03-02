@@ -19,7 +19,7 @@ public class App {
 
     public static void main(String[] args) {
         final int N = 3;
-        final String IP = "127.0.0.1";
+        final String IP = "localhost";
 
         try {
             List<KeyPair> keyPairs = generateKeyPairs(N);
@@ -66,19 +66,21 @@ public class App {
         
         try {
             for (int i = 0; i < n; i++) {
-                final int processId = i;
+                int index = i;
                 final int port = 8080 + i;
+                final String processId = ip + ":" + port;
                 
                 executor.submit(() -> {
                     try {
                         AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
-                            ip, 
+                            ip,
                             port, 
-                            keyPairs.get(processId).getPrivate(), 
+                            processId,
+                            keyPairs.get(index).getPrivate(), 
                             processIdToPublicKey
                         );
                         
-                        processes.put(processId, process);
+                        processes.put(index, process);
                         
                         process.setMessageHandler((sender, data) -> {
                             System.out.println("Process " + processId + " received: " + new String(data));
