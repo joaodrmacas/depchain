@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa;
 
-import pt.tecnico.ulisboa.network.*;
+import pt.tecnico.ulisboa.network.layers.StubbornLink;
+import pt.tecnico.ulisboa.network.layers.StubbornLinkImpl;
 public class App 
 {
     public static void main( String[] args )

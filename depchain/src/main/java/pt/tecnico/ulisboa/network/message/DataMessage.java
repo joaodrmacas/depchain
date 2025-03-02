@@ -1,10 +1,9 @@
-package pt.tecnico.ulisboa.network;
+package pt.tecnico.ulisboa.network.message;
+
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
 
-class DataMessage implements Message, Serializable {
+public class DataMessage implements Message, Serializable {
 	private static final long serialVersionUID = 1L;
 	public static final byte TYPE_INDICATOR = 1;
 	private static final byte[] EOF_INDICATOR = "EOF".getBytes();

@@ -1,7 +1,4 @@
-package pt.tecnico.ulisboa.network;
-
-import java.io.*;
-import java.nio.ByteBuffer;
+package pt.tecnico.ulisboa.network.message;
 
 public interface Message {
     byte[] serialize();

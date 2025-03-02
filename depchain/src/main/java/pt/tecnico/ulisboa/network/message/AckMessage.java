@@ -1,8 +1,8 @@
-package pt.tecnico.ulisboa.network;
+package pt.tecnico.ulisboa.network.message;
 
 import java.nio.ByteBuffer;
 
-class AckMessage implements Message {
+public class AckMessage implements Message {
     public static final byte TYPE_INDICATOR = 2;
     
     private final long seqNum;
