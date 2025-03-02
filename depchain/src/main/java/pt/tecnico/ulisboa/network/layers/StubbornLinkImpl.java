@@ -3,7 +3,7 @@ package pt.tecnico.ulisboa.network.layers;
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.network.message.*;
 import java.util.concurrent.*;
-import java.util.*;
+// import java.util.*;
 import java.net.*;
 
 public class StubbornLinkImpl implements StubbornLink {
@@ -12,13 +12,13 @@ public class StubbornLinkImpl implements StubbornLink {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     private final ConcurrentMap<String, Long> nextSeqNum = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Long> lastDelivered = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Set<Long>> receivedSet = new ConcurrentHashMap<>();
+    // private final ConcurrentMap<String, Long> lastDelivered = new ConcurrentHashMap<>();
+    // private final ConcurrentMap<String, Set<Long>> receivedSet = new ConcurrentHashMap<>();
 
-    private static final int WINDOW_SIZE = 1000; // TODO: what val?
+    // private static final int WINDOW_SIZE = 1000; // TODO: what val?
 
     public StubbornLinkImpl(String destIP, int destPort) throws SocketException {
-        this.fairLossLink = new UdpFairLossLink(destIP, destPort);
+        this.fairLossLink = new FairLossLinkImpl(destIP, destPort);
         startRetransmissionLoop();
     }
 
@@ -60,8 +60,8 @@ public class StubbornLinkImpl implements StubbornLink {
         long seqNum = msg.getSeqNum();
         
         // Initialize tracking structures if needed
-        lastDelivered.putIfAbsent(source, 0L);
-        receivedSet.putIfAbsent(source, ConcurrentHashMap.newKeySet());
+        // lastDelivered.putIfAbsent(source, 0L);
+        // receivedSet.putIfAbsent(source, ConcurrentHashMap.newKeySet());
         
         // Send ACK
         String[] sourceParts = source.split(":");
@@ -71,10 +71,11 @@ public class StubbornLinkImpl implements StubbornLink {
         AckMessage ack = new AckMessage(seqNum);
         fairLossLink.send(sourceIP, sourcePort, ack.serialize());
         
-        // Check if this is a duplicate dataMsgor out of window
-        long lastDeliveredSeq = lastDelivered.get(source);
+        // Check if this is a duplicate dataMsg or out of window
+        // long lastDeliveredSeq = lastDelivered.get(source);
         
         // Duplicate, already delivered, ignore
+        /*
         if (seqNum <= lastDeliveredSeq) {
             return;
         }
@@ -86,14 +87,16 @@ public class StubbornLinkImpl implements StubbornLink {
         
         // Add to received set
         receivedSet.get(source).add(seqNum);
+        */
         
         // Deliver the message to the handler
         handler.onMessage(source, dataMsg.getContent());
         
         // Update lastDelivered
+        /*
         lastDelivered.put(source, seqNum);
+        */
     }
-
 
     private void handleAckMessage(String source, long ackSeqNum) {
         String sourceId = source + ":" + ackSeqNum;

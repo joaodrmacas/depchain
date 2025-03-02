@@ -22,6 +22,8 @@ public interface Message {
                     return DataMessage.fromByteArray(messageData);
                 case AckMessage.TYPE_INDICATOR:
                     return AckMessage.fromByteArray(messageData);
+                case AuthenticatedMessage.TYPE_INDICATOR:
+                    return AuthenticatedMessage.fromByteArray(messageData);
                 default:
                     System.err.println("Unknown message type: " + messageType);
                     return null;

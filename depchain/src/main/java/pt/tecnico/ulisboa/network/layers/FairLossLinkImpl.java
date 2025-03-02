@@ -6,12 +6,12 @@ import pt.tecnico.ulisboa.network.message.*;
 
 import java.net.*;
 
-public class UdpFairLossLink implements FairLossLink {
+public class FairLossLinkImpl implements FairLossLink {
     private DatagramSocket socket;
     private MessageHandler handler;
     static private int BUFFER_SIZE_DEFAULT = 1024;
 
-    public UdpFairLossLink(String IP, int port) throws SocketException {
+    public FairLossLinkImpl(String IP, int port) throws SocketException {
         // TODO: ignoring ip cause using localhost
         this.socket = new DatagramSocket(port);
         startListening();
@@ -32,11 +32,10 @@ public class UdpFairLossLink implements FairLossLink {
             InetAddress address = InetAddress.getByName(destination);
             DatagramPacket packet = new DatagramPacket(message, message.length, address, port);
 
-            // TODO: delete this print of the message being sent and its content
-            System.out.println("Sending message: ");
             Message msg = Message.deserialize(message);
             msg.printMessage();
-            System.out.println();
+            System.out.println("Sending message to " + destination + ":" + port);
+            System.out.println(new String(packet.getData()));
 
             socket.send(packet);
         } catch (Exception e) {

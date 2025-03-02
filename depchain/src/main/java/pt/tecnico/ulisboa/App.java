@@ -1,53 +1,123 @@
 package pt.tecnico.ulisboa;
 
-import pt.tecnico.ulisboa.network.layers.StubbornLink;
-import pt.tecnico.ulisboa.network.layers.StubbornLinkImpl;
-public class App 
-{
-    public static void main( String[] args )
-    {
-        // StubbornLink sv1;
-        // StubbornLink sv2;
-        // try {
-        //     sv1 = new StubbornLinkImpl("127.0.0.1", 8080);
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-        //     sv2 = new StubbornLinkImpl("12", 8081);
-        //     sv1.setMessageHandler((sender, data) -> {
-        //         System.out.println("sv1 received: " + new String(data));
-        //         }
-        //     );
+import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLinkImpl;
 
-        //     sv2.setMessageHandler((sender, data) -> {
-        //         System.out.println("sv2 received: " + new String(data));
-        //     });
+public class App {
 
-        //     sv1.send("127.0.0.1", 8081, "Boaaa taaardddeee from sv1".getBytes());
-        //     // sv2.send("127.0.0.1", 8080, "Boomm ddiiiaaa from sv2".getBytes());
-            
-        // } catch (Exception e) {
-        //     System.out.println("Error creating server");
-        //     e.printStackTrace();
-        // }
-        //make a case where the message is not delivered
-        // there is only one guy sending to an unexinting server
-        StubbornLink sv3;
+    public static void main(String[] args) {
+        final int N = 3;
+        final String IP = "127.0.0.1";
+
         try {
-            sv3 = new StubbornLinkImpl("127.0.0.1", 8082);
-            sv3.setMessageHandler((sender, data) -> {
-                System.out.println("sv3 received: " + new String(data));
-            });
-            sv3.send("127.0.0.1", 8083, "Boaaa nooooiittteeee from sv3".getBytes());
-            // wait for ome time and then create new server to receive
-            Thread.sleep(5000);
-            StubbornLink sv4 = new StubbornLinkImpl("127.0.0.1", 8083);
-            sv4.setMessageHandler((sender, data) -> {
-                System.out.println("sv4 received: " + new String(data));
-            });
-            System.out.println("sv4 created");
+            List<KeyPair> keyPairs = generateKeyPairs(N);
+            System.out.println("Generated " + N + " key pairs successfully");
+            
+            Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
+            
+            startProcesses(N, IP, keyPairs, processIdToPublicKey);
+            
         } catch (Exception e) {
-            System.out.println("Error creating server");
+            System.out.println("Error in main execution");
             e.printStackTrace();
         }
     }
-}
 
+    private static List<KeyPair> generateKeyPairs(int n) throws NoSuchAlgorithmException {
+        List<KeyPair> keyPairs = new ArrayList<>();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+
+        for (int i = 0; i < n; i++) {
+            KeyPair keyPair = keyGen.generateKeyPair();
+            keyPairs.add(keyPair);
+        }
+
+        return keyPairs;
+    }
+
+    private static Map<String, PublicKey> createProcessIdToPublicKeyMap(String ip, int n, List<KeyPair> keyPairs) {
+        Map<String, PublicKey> processIdToPublicKey = new HashMap<>();
+
+        for (int i = 0; i < n; i++) {
+            int port = 8080 + i;
+            String processId = ip + ":" + port;
+            processIdToPublicKey.put(processId, keyPairs.get(i).getPublic());
+        }
+
+        return processIdToPublicKey;
+    }
+
+    private static void startProcesses(int n, String ip, List<KeyPair> keyPairs, Map<String, PublicKey> processIdToPublicKey) {
+        ExecutorService executor = Executors.newFixedThreadPool(n);
+        Map<Integer, AuthenticatedPerfectLink> processes = new ConcurrentHashMap<>();
+        
+        try {
+            for (int i = 0; i < n; i++) {
+                final int processId = i;
+                final int port = 8080 + i;
+                
+                executor.submit(() -> {
+                    try {
+                        AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
+                            ip, 
+                            port, 
+                            keyPairs.get(processId).getPrivate(), 
+                            processIdToPublicKey
+                        );
+                        
+                        processes.put(processId, process);
+                        
+                        process.setMessageHandler((sender, data) -> {
+                            System.out.println("Process " + processId + " received: " + new String(data));
+                        });
+                        
+                        System.out.println("Process " + processId + " started at port " + port);
+                                                
+                    } catch (Exception e) {
+                        System.out.println("Error creating process " + processId);
+                        e.printStackTrace();
+                    }
+                });
+                
+                Thread.sleep(100);
+            }
+            
+            Thread.sleep(1000);
+            
+            //sends messages in a ring
+            for (int i = 0; i < n; i++) {
+                final int senderId = i;
+                final int targetId = (i + 1) % n;
+                final int targetPort = 8080 + targetId;
+                
+                if (processes.containsKey(senderId)) {
+                    AuthenticatedPerfectLink sender = processes.get(senderId);
+                    String message = "Hello";
+                    sender.send(ip, targetPort, message.getBytes());
+                    System.out.println("Process " + senderId + " sent message to process " + targetId);
+                }
+            }
+            
+            Thread.sleep(10000);
+            
+        } catch (Exception e) {
+            System.out.println("Error in process execution");
+            e.printStackTrace();
+        } finally {
+            executor.shutdown();
+        }
+    }
+}

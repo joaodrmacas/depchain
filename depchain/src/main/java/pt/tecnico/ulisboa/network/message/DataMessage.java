@@ -3,8 +3,7 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.*;
 
-public class DataMessage implements Message, Serializable {
-	private static final long serialVersionUID = 1L;
+public class DataMessage implements Message {
 	public static final byte TYPE_INDICATOR = 1;
 	private static final byte[] EOF_INDICATOR = "EOF".getBytes();
 	
