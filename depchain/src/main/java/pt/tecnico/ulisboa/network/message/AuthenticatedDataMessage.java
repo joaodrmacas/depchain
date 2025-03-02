@@ -1,4 +1,4 @@
-ackage pt.tecnico.ulisboa.network.message;
+package pt.tecnico.ulisboa.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
