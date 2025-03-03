@@ -2,46 +2,35 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 
 public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;
-    
-    public DataMessage(byte[] content, int port, String senderId, String destinationId, 
-                        long seqNum, byte[] hmac) {
-        super(content, port, senderId, destinationId, seqNum, hmac);
+
+    public DataMessage(byte[] content, long seqNum, byte[] hmac) {
+        super(content, seqNum, hmac);
     }
-    
-    public DataMessage(byte[] content, int port, String senderId, String destinationId, 
-                        long seqNum, Key secretKey) throws NoSuchAlgorithmException, InvalidKeyException {
-        super(content, port, senderId, destinationId, seqNum, secretKey);
-    }
-    
+
     @Override
     public byte getType() {
         return TYPE_INDICATOR;
     }
-    
-    public static DataMessage deserialize(DataInputStream dis) throws IOException {    
-        // Read fields in the correct order
-        String senderId = dis.readUTF();
-        String destinationId = dis.readUTF();
+
+    // TODO this method is exactly the same as the one in AckMessage, maybe move to
+    // the parent and find a way to return the correct type
+    public static DataMessage deserialize(DataInputStream dis) throws IOException {
         long seqNum = dis.readLong();
-        int port = dis.readInt();
-    
-        // Read content length
+
+        // Read content
         int contentLength = dis.readInt();
         byte[] content = new byte[contentLength];
         dis.readFully(content);
-    
+
         // Read HMAC
         int hmacLength = dis.readInt();
         byte[] hmac = new byte[hmacLength];
         dis.readFully(hmac);
-    
-        return new DataMessage(content, port, senderId, destinationId, seqNum, hmac);
+
+        return new DataMessage(content, seqNum, hmac);
     }
-    
+
 }

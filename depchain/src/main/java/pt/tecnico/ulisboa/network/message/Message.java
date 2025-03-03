@@ -9,28 +9,20 @@ public abstract class Message {
     public static final byte ACK_MESSAGE_TYPE = 2;
 
     private final byte[] content;
-    private final int port;
-    private final String senderId;
-    private final String destinationId;
     private final long seqNum;
-    private String key;
 
     // For retransmission mechanism
     private int counter = 1;
     private int cooldown = 1;
 
-    public Message(byte[] content, int port, String senderId, String destinationId, long seqNum) {
-        // print all the arguments
-        System.out.println("content: " + content);
-        System.out.println("port: " + port);
-        System.out.println("senderId: " + senderId);
-        System.out.println("destinationId: " + destinationId);
-        System.out.println("seqNum: " + seqNum);
-
+    public Message(byte[] content, long seqNum) {
         this.content = content;
-        this.port = port;
-        this.senderId = senderId;
-        this.destinationId = destinationId;
+        this.seqNum = seqNum;
+    }
+
+    // This is just a way to create a message from a ip:port string -> Duarte
+    public Message(byte[] content, String senderId, long seqNum) {
+        this.content = content;
         this.seqNum = seqNum;
     }
 
@@ -42,28 +34,8 @@ public abstract class Message {
         return content;
     }
 
-    public int getPort() {
-        return port;
-    }
-
-    public String getSenderId() {
-        return senderId;
-    }
-
-    public String getDestinationId() {
-        return destinationId;
-    }
-
     public long getSeqNum() {
         return seqNum;
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    public void setKey(String key) {
-        this.key = key;
     }
 
     public int getCounter() {

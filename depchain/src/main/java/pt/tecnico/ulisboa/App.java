@@ -19,16 +19,16 @@ public class App {
 
     public static void main(String[] args) {
         final int N = 3;
-        final String IP = "localhost";
+        final String IP = "127.0.0.1";
 
         try {
             List<KeyPair> keyPairs = generateKeyPairs(N);
             System.out.println("Generated " + N + " key pairs successfully");
-            
+
             Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
-            
+
             startProcesses(N, IP, keyPairs, processIdToPublicKey);
-            
+
         } catch (Exception e) {
             System.out.println("Error in main execution");
             e.printStackTrace();
@@ -60,51 +60,51 @@ public class App {
         return processIdToPublicKey;
     }
 
-    private static void startProcesses(int n, String ip, List<KeyPair> keyPairs, Map<String, PublicKey> processIdToPublicKey) {
+    private static void startProcesses(int n, String ip, List<KeyPair> keyPairs,
+            Map<String, PublicKey> processIdToPublicKey) {
         ExecutorService executor = Executors.newFixedThreadPool(n);
         Map<Integer, AuthenticatedPerfectLink> processes = new ConcurrentHashMap<>();
-        
+
         try {
             for (int i = 0; i < n; i++) {
                 int index = i;
                 final int port = 8080 + i;
                 final String processId = ip + ":" + port;
-                
+
                 executor.submit(() -> {
                     try {
                         AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
-                            ip,
-                            port, 
-                            processId,
-                            keyPairs.get(index).getPrivate(), 
-                            processIdToPublicKey
-                        );
-                        
+                                ip,
+                                port,
+                                processId,
+                                keyPairs.get(index).getPrivate(),
+                                processIdToPublicKey);
+
                         processes.put(index, process);
-                        
+
                         process.setMessageHandler((sender, data) -> {
                             System.out.println("Process " + processId + " received: " + new String(data));
                         });
-                        
+
                         System.out.println("Process " + processId + " started at port " + port);
-                                                
+
                     } catch (Exception e) {
                         System.out.println("Error creating process " + processId);
                         e.printStackTrace();
                     }
                 });
-                
+
                 Thread.sleep(100);
             }
-            
+
             Thread.sleep(1000);
-            
-            //sends messages in a ring
+
+            // sends messages in a ring
             for (int i = 0; i < n; i++) {
                 final int senderId = i;
                 final int targetId = (i + 1) % n;
                 final int targetPort = 8080 + targetId;
-                
+
                 if (processes.containsKey(senderId)) {
                     AuthenticatedPerfectLink sender = processes.get(senderId);
                     String message = "Hello";
@@ -112,9 +112,9 @@ public class App {
                     System.out.println("Process " + senderId + " sent message to process " + targetId);
                 }
             }
-            
+
             Thread.sleep(10000);
-            
+
         } catch (Exception e) {
             System.out.println("Error in process execution");
             e.printStackTrace();

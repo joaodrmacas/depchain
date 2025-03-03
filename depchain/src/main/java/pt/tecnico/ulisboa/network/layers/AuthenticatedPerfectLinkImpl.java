@@ -14,6 +14,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private MessageHandler messageHandler;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
+    // Map of pending messages, indexed by the destination ID and sequence number
     private final ConcurrentMap<String, AuthenticatedMessage> pendingMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Set<Long>> receivedMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Long> nextSeqNum = new ConcurrentHashMap<>();
@@ -37,24 +38,29 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         System.out.println("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
     }
 
+    // TODO maybe remove this method and only use the other one
     @Override
     public void send(String destination, int port, byte[] message) {
         String destId = destination + ":" + port;
+        send(destId, message);
 
-        // Assign sequence number for this message
+    }
+
+    public void send(String destId, byte[] message) {
+        // Get sequence number for this message
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
         nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            byte[] mac = createSignature(nodeId, destId, message, seqNum);
+            byte[] hmac = createSignature(nodeId, destId, message, seqNum);
 
-            DataMessage dataMsg = new DataMessage(message, port, nodeId, destId, seqNum, mac);
-            String messageId = nodeId + ":" + destId + ":" + seqNum;
-            dataMsg.setKey(messageId);
+            DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
+            // Store the message in the pending list
+            String messageId = destId + ":" + seqNum;
             pendingMessages.put(messageId, dataMsg);
 
-            sendUdpPacket(destination, port, dataMsg.serialize());
+            sendUdpPacket(destId, dataMsg.serialize());
         } catch (Exception e) {
             System.err.println("Failed to sign and send message: " + e.getMessage());
             e.printStackTrace();
@@ -78,6 +84,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     // Process received packet
                     byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                     String sender = packet.getAddress().getHostAddress() + ":" + packet.getPort();
+                    // print the sender
+                    System.out.println("Received message from: " + sender);
 
                     processReceivedPacket(sender, data);
                 } catch (Exception e) {
@@ -95,50 +103,53 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
                 DataMessage dataMessage = (DataMessage) message;
-                handle_Data(dataMessage, sender);
+                handleData(dataMessage, sender);
                 break;
             case Message.ACK_MESSAGE_TYPE:
                 AckMessage ackMessage = (AckMessage) message;
-                handle_ACK(ackMessage);
+                handleACK(ackMessage, sender);
                 break;
             default:
                 System.err.println("Unknown message type: " + message.getType());
         }
     }
 
-    private void handle_ACK(AckMessage ackMessage) {
-        String senderId = ackMessage.getSenderId();
-        String destinationId = ackMessage.getDestinationId();
-        byte[] mac = ackMessage.getMac();
+    private void handleACK(AckMessage ackMessage, String senderId) {
+        byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
+        byte[] mac = ackMessage.getMac();
 
         // Verify the signature (APL3: Authenticity)
-        if (!verifySignature(senderId, destinationId, ackMessage.getContent(), seqNum, mac)) {
+        if (!verifySignature(senderId, nodeId, content, seqNum, mac)) {
             System.err.println("Authentication failed for ACK from " + senderId);
             return;
         }
 
         // Remove the message from the pending list
-        String messageId = destinationId + ":" + senderId + ":" + seqNum;
+        String messageId = senderId + ":" + seqNum;
+
+        // print when receiving ack foe unsent message
+        if (!pendingMessages.containsKey(messageId)) {
+            System.out.println("Received ACK for unsent message: " + messageId);
+        }
+
         pendingMessages.remove(messageId);
     }
 
-    private void handle_Data(DataMessage dataMessage, String sender) {
-        long seqNum = dataMessage.getSeqNum();
-        String senderId = dataMessage.getSenderId();
-        String destinationId = dataMessage.getDestinationId();
-        byte[] mac = dataMessage.getMac();
+    private void handleData(DataMessage dataMessage, String senderId) {
         byte[] content = dataMessage.getContent();
+        long seqNum = dataMessage.getSeqNum();
+        byte[] hmac = dataMessage.getMac();
 
         // Verify the signature (APL3: Authenticity)
-        if (!verifySignature(senderId, destinationId, content, seqNum, mac)) {
+        if (!verifySignature(senderId, nodeId, content, seqNum, hmac)) {
             System.err.println("Authentication failed for message from " + senderId);
             return;
         }
 
         // Send authenticated acknowledgment
         try {
-            sendAuthenticatedAcknowledgment(sender, senderId, seqNum);
+            sendAuthenticatedAcknowledgment(senderId, seqNum);
         } catch (Exception e) {
             System.err.println("Failed to send acknowledgment: " + e.getMessage());
         }
@@ -159,29 +170,28 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         return !received.add(seqNum);
     }
 
-    private void sendAuthenticatedAcknowledgment(String receiver, String senderId, long seqNum) throws Exception {
+    private void sendAuthenticatedAcknowledgment(String destID, long seqNum) throws Exception {
         try {
-            String[] parts = receiver.split(":");
-            String destIP = parts[0];
-            int destPort = Integer.parseInt(parts[1]);
-
             // Sign the ACK with our private key
-            byte[] mac = createSignature(nodeId, senderId, seqNum);
+            byte[] hmac = createSignature(nodeId, destID, seqNum);
 
             // Create authenticated ACK message
-            AckMessage ackMessage = new AckMessage(destPort, nodeId, senderId, seqNum, mac);
+            AckMessage ackMessage = new AckMessage(seqNum, hmac);
 
             // Send it
-            sendUdpPacket(destIP, destPort, ackMessage.serialize());
+            sendUdpPacket(destID, ackMessage.serialize());
         } catch (Exception e) {
             System.err.println("Failed to sign and send ACK: " + e.getMessage());
             throw e;
         }
     }
 
-    private void sendUdpPacket(String destination, int port, byte[] data) {
+    private void sendUdpPacket(String destId, byte[] data) {
         try {
-            InetAddress address = InetAddress.getByName(destination);
+            String[] parts = destId.split(":");
+            InetAddress address = InetAddress.getByName(parts[0]); // IP address of the destination
+            int port = Integer.parseInt(parts[1]);
+
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
         } catch (Exception e) {
@@ -191,23 +201,23 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
-            for (AuthenticatedMessage message : pendingMessages.values()) {
+            // loop through all pending messages and retransmit if necessary
+            pendingMessages.forEach((messageId, message) -> {
                 if (message.getCounter() >= message.getCooldown()) {
-                    message.setCounter(1);
-                    String destinationId = message.getDestinationId();
-                    String[] parts = destinationId.split(":");
-                    if (parts.length >= 2) {
-                        String destination = parts[0];
-                        int port = Integer.parseInt(parts[1]);
-                        System.out.println("Retransmitting message: " + message.getKey() + "\nWaited cooldown: "
-                                + message.getCooldown() * 0.5 + "s");
-                        sendUdpPacket(destination, port, message.serialize());
+                    String destinationId = messageId.split(":")[0] + ":" + messageId.split(":")[1];
+                    System.out.println("Retransmitting message: " + messageId + "\nWaited cooldown: "
+                            + message.getCooldown() * 0.5 + "s");
+                    try {
+                        sendUdpPacket(destinationId, message.serialize());
+                    } catch (Exception e) {
+                        System.err.println("Failed to retransmit message: " + e.getMessage());
                     }
+                    message.setCounter(1);
                     message.doubleCooldown(); // Exponential backoff
                 } else {
                     message.incrementCounter();
                 }
-            }
+            });
         }, 500, 500, TimeUnit.MILLISECONDS);
     }
 
@@ -217,7 +227,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     /**
-     * Creates a signature for the message using the format: SenderId + ReceivedId +
+     * Creates a signature for the message using the format: SenderId + ReceiverId +
      * Message + SeqNum
      */
     private byte[] createSignature(String senderId, String receiverId, byte[] message, long seqNum)
