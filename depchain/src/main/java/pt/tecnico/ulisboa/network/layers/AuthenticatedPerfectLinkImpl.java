@@ -190,10 +190,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
     
     private void startRetransmissionScheduler() {
-        // Implement APL1: Reliable delivery through retransmission
         scheduler.scheduleAtFixedRate(() -> {
             for (AuthenticatedMessage message : pendingMessages.values()) {
-                // Retransmit messages that haven't been acknowledged
                 if (message.getCounter() >= message.getCooldown()) {
                     message.setCounter(1);
                     String destinationId = message.getDestinationId();
@@ -201,6 +199,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     if (parts.length >= 2) {
                         String destination = parts[0];
                         int port = Integer.parseInt(parts[1]);
+                        System.out.println("Retransmitting message: " + message.getKey() + "\nWaited cooldown: " + message.getCooldown()*0.5 + "s");
                         sendUdpPacket(destination, port, message.serialize());
                     }
                     message.doubleCooldown(); // Exponential backoff

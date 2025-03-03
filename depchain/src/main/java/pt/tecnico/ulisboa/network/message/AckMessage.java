@@ -36,27 +36,19 @@ public class AckMessage extends AuthenticatedMessage {
     
     public static AckMessage deserialize(DataInputStream dis) throws IOException {    
         String senderId = dis.readUTF();
-        System.out.println("Sender ID: " + senderId);
         String destinationId = dis.readUTF();
-        System.out.println("Destination ID: " + destinationId);
         long seqNum = dis.readLong();
-        System.out.println("SeqNum: " + seqNum);
         int port = dis.readInt();
-        System.out.println("Port: " + port);
     
         // Read content length
         int contentLength = dis.readInt();
-        System.out.println("Content Length: " + contentLength);
         byte[] content = new byte[contentLength];
         dis.readFully(content);
-        System.out.println("Content: " + new String(content));
     
         // Read HMAC
         int hmacLength = dis.readInt();
-        System.out.println("HMAC Length: " + hmacLength);
         byte[] hmac = new byte[hmacLength];
         dis.readFully(hmac);
-        System.out.println("HMAC: " + new String(hmac));
     
         return new AckMessage(port, senderId, destinationId, seqNum, hmac);
     }
