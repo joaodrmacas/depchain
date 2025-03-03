@@ -6,17 +6,17 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 
-public class HelloMessage extends AuthenticatedMessage {
+public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;
     
-    public HelloMessage(int port, String senderId, String destinationId, 
+    public DataMessage(byte[] content, int port, String senderId, String destinationId, 
                         long seqNum, byte[] hmac) {
-        super("Hello".getBytes(), port, senderId, destinationId, seqNum, hmac);
+        super(content, port, senderId, destinationId, seqNum, hmac);
     }
     
-    public HelloMessage(int port, String senderId, String destinationId, 
+    public DataMessage(byte[] content, int port, String senderId, String destinationId, 
                         long seqNum, Key secretKey) throws NoSuchAlgorithmException, InvalidKeyException {
-        super("Hello".getBytes(), port, senderId, destinationId, seqNum, secretKey);
+        super(content, port, senderId, destinationId, seqNum, secretKey);
     }
     
     @Override
@@ -24,7 +24,7 @@ public class HelloMessage extends AuthenticatedMessage {
         return TYPE_INDICATOR;
     }
     
-    public static HelloMessage deserialize(DataInputStream dis) throws IOException {    
+    public static DataMessage deserialize(DataInputStream dis) throws IOException {    
         // Read fields in the correct order
         String senderId = dis.readUTF();
         System.out.println("Sender ID: " + senderId);
@@ -49,7 +49,7 @@ public class HelloMessage extends AuthenticatedMessage {
         dis.readFully(hmac);
         System.out.println("HMAC: " + new String(hmac));
     
-        return new HelloMessage(port, senderId, destinationId, seqNum, hmac);
+        return new DataMessage(content, port, senderId, destinationId, seqNum, hmac);
     }
     
 }

@@ -86,7 +86,7 @@ public abstract class Message {
             switch (type) {
                 case DATA_MESSAGE_TYPE:
                     tipo = "Hello";
-                    return HelloMessage.deserialize(dis);
+                    return DataMessage.deserialize(dis);
                 case ACK_MESSAGE_TYPE:
                     tipo = "Ack";
                     return AckMessage.deserialize(dis);

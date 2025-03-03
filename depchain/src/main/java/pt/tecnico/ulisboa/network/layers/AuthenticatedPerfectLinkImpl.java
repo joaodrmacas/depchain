@@ -47,7 +47,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         try {
             byte[] mac = createSignature(nodeId, destId, message, seqNum);
             
-            HelloMessage dataMsg = new HelloMessage(port, nodeId, destId, seqNum, mac);
+            DataMessage dataMsg = new DataMessage(message, port, nodeId, destId, seqNum, mac);
             String messageId = nodeId + ":" + destId + ":" + seqNum;
             dataMsg.setKey(messageId);
             
@@ -111,8 +111,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
         
         // Handle authenticated data messages from other processes
-        if (message.getType() == HelloMessage.TYPE_INDICATOR) {
-            HelloMessage dataMessage = (HelloMessage) message;
+        if (message.getType() == DataMessage.TYPE_INDICATOR) {
+            DataMessage dataMessage = (DataMessage) message;
             long seqNum = dataMessage.getSeqNum();
             String senderId = dataMessage.getSenderId();
             String destinationId = dataMessage.getDestinationId();
