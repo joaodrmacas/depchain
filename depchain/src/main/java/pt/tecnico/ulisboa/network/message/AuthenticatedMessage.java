@@ -16,7 +16,7 @@ public class AuthenticatedMessage extends Message {
     public AuthenticatedMessage(byte[] content, int port, String senderId, String destinationId, 
                                long seqNum, byte[] hmac) {
         super(content, port, senderId, destinationId, seqNum);
-        this.hmac = hmac;  // Fixed the missing assignment
+        this.hmac = hmac;
     }
     
     public AuthenticatedMessage(byte[] content, int port, String senderId, String destinationId, 
