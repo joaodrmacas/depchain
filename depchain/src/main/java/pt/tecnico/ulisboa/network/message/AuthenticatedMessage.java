@@ -1,14 +1,7 @@
 package pt.tecnico.ulisboa.network.message;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 import java.io.IOException;
 
 public abstract class AuthenticatedMessage extends Message {
@@ -27,6 +20,7 @@ public abstract class AuthenticatedMessage extends Message {
 
     // TODO: This is shit cause it forces ack messages to have content, maybe move
     // to the children
+    // por mim é bue ok ter content vazio - Massas
     @Override
     public byte[] serialize() {
         try {

@@ -38,14 +38,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         System.out.println("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
     }
 
-    // TODO maybe remove this method and only use the other one
-    @Override
-    public void send(String destination, int port, byte[] message) {
-        String destId = destination + ":" + port;
-        send(destId, message);
-
-    }
-
     public void send(String destId, byte[] message) {
         // Get sequence number for this message
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
@@ -119,7 +111,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         long seqNum = ackMessage.getSeqNum();
         byte[] mac = ackMessage.getMac();
 
-        // Verify the signature (APL3: Authenticity)
+        // Verify the signature
         if (!verifySignature(senderId, nodeId, content, seqNum, mac)) {
             System.err.println("Authentication failed for ACK from " + senderId);
             return;

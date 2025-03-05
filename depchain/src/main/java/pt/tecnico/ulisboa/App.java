@@ -104,11 +104,12 @@ public class App {
                 final int senderId = i;
                 final int targetId = (i + 1) % n;
                 final int targetPort = 8080 + targetId;
+                final String targetIdStr = ip + ":" + targetPort;
 
                 if (processes.containsKey(senderId)) {
                     AuthenticatedPerfectLink sender = processes.get(senderId);
                     String message = "Hello";
-                    sender.send(ip, targetPort, message.getBytes());
+                    sender.send(targetIdStr, message.getBytes());
                     System.out.println("Process " + senderId + " sent message to process " + targetId);
                 }
             }

@@ -2,9 +2,6 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 
 public class AckMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.ACK_MESSAGE_TYPE;
