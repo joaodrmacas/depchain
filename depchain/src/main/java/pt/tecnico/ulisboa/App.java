@@ -11,14 +11,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLink;
 import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLinkImpl;
-
 public class App {
 
     public static void main(String[] args) {
-        final int N = 3;
+        final int N = 3*ConfigLoader.ALLOWED_FAILURES + 1;
+        final int Q = 2*ConfigLoader.ALLOWED_FAILURES + 1;
         final String IP = "127.0.0.1";
 
         try {

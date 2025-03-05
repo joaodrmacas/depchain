@@ -8,3 +8,6 @@ run:
 
 clean:
 	mvn clean
+
+keys:
+	bash ./src/main/resources/generate_keys.sh
