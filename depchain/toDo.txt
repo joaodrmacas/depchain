@@ -1,0 +1,5 @@
+> transaction queue
+> one-to-one links
+> modificar o app para iniciar um processo com processId (recebido na consola)
+> na app dar set do message handler para adicionar a mensagem a uma queue
+

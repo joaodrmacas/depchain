@@ -16,16 +16,14 @@ import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 public class App {
 
     public static void main(String[] args) {
-        final int N = Config.NUM_PROCESSES;
-        final int Q = 2*Config.ALLOWED_FAILURES + 1;
-        final String IP = "127.0.0.1";
-
         try {
             List<KeyPair> keyPairs = generateKeyPairs(N);
             System.out.println("Generated " + N + " key pairs successfully");
 
+            // TODO: @massssssssssssssssssssssssssssinhas
             Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
 
+            // TODO: @massssssssssssssssssssssssssssinhas
             startProcesses(N, IP, keyPairs, processIdToPublicKey);
 
         } catch (Exception e) {
@@ -73,9 +71,7 @@ public class App {
                 executor.submit(() -> {
                     try {
                         AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
-                                ip,
-                                port,
-                                processId,
+                                index,
                                 keyPairs.get(index).getPrivate(),
                                 processIdToPublicKey);
 

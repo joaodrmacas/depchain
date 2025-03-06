@@ -8,6 +8,8 @@ public class EpochConsensus<T> {
     private int processId;
     private int epochNumber;
     private T value;
+    private ConsensusState<T> state;
+    private int index;
 
     public enum MESSAGE {
         READ,
@@ -17,14 +19,17 @@ public class EpochConsensus<T> {
         ACCEPT,
     }
 
-    public EpochConsensus(AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state) {
+    public EpochConsensus(int index, AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state) {
         this.link = link;
         this.processId = processId;
         this.epochNumber = epochNumber;
+        this.state = state;
+        this.index = index;
+
         System.out.println("Creating epoch consensus");
     }
 
-    public T start() throws AbortedSignal {
+    public T start() throws AbortedSignal, UnsynchronizedNodeException {
         System.out.println("Starting epoch");
 
         if (getLeader(epochNumber) == processId) {

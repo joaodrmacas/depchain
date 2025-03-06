@@ -5,8 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ConsensusState<T> {
-    private T value;
-    private int ts;
+    private WriteTuple mostRecentQuorumWritten;
     private Map<T, Integer> writeSet =  new HashMap<>();
 
     public getState() {

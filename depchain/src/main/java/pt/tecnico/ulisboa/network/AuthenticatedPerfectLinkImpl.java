@@ -2,6 +2,9 @@ package pt.tecnico.ulisboa.network;
 
 import pt.tecnico.ulisboa.network.message.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.*;
 import java.net.*;
 import java.security.*;
@@ -10,8 +13,8 @@ import java.nio.ByteBuffer;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.crypto.CryptoUtils;
 
+import java.util.Map;
 import javax.crypto.SecretKey;
-
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final DatagramSocket socket;
@@ -20,18 +23,27 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     // Map of pending messages, indexed by the destination ID and sequence number
     private final ConcurrentMap<String, Message> pendingMessages = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Set<Long>> receivedMessages = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Long> nextSeqNum = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, Set<Long>> receivedMessages = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, Long> nextSeqNum = new ConcurrentHashMap<>();
 
     private static final int BUFFER_SIZE = 4096;
 
     private final PrivateKey privateKey;
-    private final ConcurrentMap<String, PublicKey> publicKeys = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, SecretKey> secretKeys = new ConcurrentHashMap<>();
-    private final String nodeId;
+    private final ConcurrentMap<Integer, PublicKey> publicKeys = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, SecretKey> secretKeys = new ConcurrentHashMap<>();
+    private final int nodeId;
 
-    public AuthenticatedPerfectLinkImpl(String destination, int port, String nodeId, PrivateKey privateKey,
-            Map<String, PublicKey> publicKeys) throws SocketException, GeneralSecurityException, IOException {
+    private int waitingFor = -1;
+    private final Lock messageReceivedLock = new ReentrantLock();
+    private final Condition messageReceived = messageReceivedLock.newCondition();
+
+    public AuthenticatedPerfectLinkImpl(int nodeId, PrivateKey privateKey, Map<Integer, PublicKey> publicKeys)
+            throws SocketException, GeneralSecurityException, IOException {
+
+        String address = Config.id2addr.get(nodeId);
+        String destination = address.split(":")[0];
+        int port = Integer.parseInt(address.split(":")[1]);
+
         this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
         this.nodeId = nodeId;
 
@@ -44,7 +56,38 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         System.out.println("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
     }
 
-    public void send(String destId, byte[] message) {
+    public void receivedFrom(int senderId) {
+        messageReceivedLock.lock();
+        try {
+            if (senderId == waitingFor) {
+                this.waitingFor = senderId;
+                messageReceived.signal();
+            }
+        } finally {
+            messageReceivedLock.unlock();
+        }
+    }
+
+    public boolean waitFor(int senderId) {
+        messageReceivedLock.lock();
+        try {
+            if (this.waitingFor != senderId) {
+                messageReceived.await(Config.LINK_TIMEOUT, TimeUnit.MILLISECONDS);
+                if (this.waitingFor != senderId) {
+                    return false;
+                }
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            messageReceivedLock.unlock();
+        }
+
+        this.waitingFor = -1;
+        return true;
+    }
+
+    public void send(int destId, byte[] message) {
         // Get sequence number for this message
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
         nextSeqNum.put(destId, seqNum + 1);
@@ -81,11 +124,15 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
                     // Process received packet
                     byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
-                    String sender = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    // print the sender
-                    System.out.println("Received message from: " + sender);
+                    String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
+                    int senderId = Config.addr2id.get(senderaddr);
 
-                    processReceivedPacket(sender, data);
+                    receivedFrom(Config.addr2id.get(senderId));
+
+                    // print the sender
+                    System.out.println("Received message from: " + senderId);
+
+                    processReceivedPacket(senderId, data);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -93,7 +140,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }).start();
     }
 
-    private void processReceivedPacket(String sender, byte[] data) {
+    private void processReceivedPacket(int senderId, byte[] data) {
         Message message = Message.deserialize(data);
         if (message == null)
             return;
@@ -101,27 +148,26 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
                 DataMessage dataMessage = (DataMessage) message;
-                handleData(dataMessage, sender);
+                handleData(dataMessage, senderId);
                 break;
             case Message.ACK_MESSAGE_TYPE:
                 AckMessage ackMessage = (AckMessage) message;
-                handleACK(ackMessage, sender);
+                handleACK(ackMessage, senderId);
                 break;
             case Message.KEY_MESSAGE_TYPE:
                 KeyMessage keyMessage = (KeyMessage) message;
-                handleKey(keyMessage, sender);
+                handleKey(keyMessage, senderId);
                 break;
             default:
                 System.err.println("Unknown message type: " + message.getType());
         }
     }
 
-    private void handleKey(KeyMessage keyMessage, String senderId) {
+    private void handleKey(KeyMessage keyMessage, int senderId) {
         SecretKey secretKey = null;
         try {
             secretKey = CryptoUtils.decryptSecretKey(keyMessage.getContent(), privateKey);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.err.println("Failed to decrypt symmetric key: " + e.getMessage());
             return;
         }
@@ -140,9 +186,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         secretKeys.put(senderId, secretKey);
     }
-        
 
-    private void handleACK(AckMessage ackMessage, String senderId) {
+    private void handleACK(AckMessage ackMessage, int senderId) {
         byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
         byte[] mac = ackMessage.getMac();
@@ -164,7 +209,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         pendingMessages.remove(messageId);
     }
 
-    private void handleData(DataMessage dataMessage, String senderId) {
+    private void handleData(DataMessage dataMessage, int senderId) {
         byte[] content = dataMessage.getContent();
         long seqNum = dataMessage.getSeqNum();
         byte[] hmac = dataMessage.getMac();
@@ -189,34 +234,34 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         // Deliver to application if not a duplicate and signature is valid
         if (messageHandler != null) {
-            messageHandler.onMessage(senderId, content);
+            messageHandler.onMessage(Config.addr2id.get(senderId), content);
         }
     }
 
-    private boolean isDuplicate(String sender, long seqNum) {
+    private boolean isDuplicate(int senderId, long seqNum) {
         Set<Long> received = receivedMessages.computeIfAbsent(sender, k -> ConcurrentHashMap.newKeySet());
         return !received.add(seqNum);
     }
 
-    private void sendAuthenticatedAcknowledgment(String destID, long seqNum) throws Exception {
+    private void sendAuthenticatedAcknowledgment(int destId, long seqNum) throws Exception {
         try {
             // Sign the ACK with our private key
-            byte[] hmac = createSignature(nodeId, destID, seqNum);
+            byte[] hmac = createSignature(nodeId, destId, seqNum);
 
             // Create authenticated ACK message
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
 
             // Send it
-            sendUdpPacket(destID, ackMessage.serialize());
+            sendUdpPacket(destId, ackMessage.serialize());
         } catch (Exception e) {
             System.err.println("Failed to sign and send ACK: " + e.getMessage());
             throw e;
         }
     }
 
-    private void sendUdpPacket(String destId, byte[] data) {
+    private void sendUdpPacket(int destId, byte[] data) {
         try {
-            String[] parts = destId.split(":");
+            String[] parts = Config.id2addr.get(destId).split(":");
             InetAddress address = InetAddress.getByName(parts[0]); // IP address of the destination
             int port = Integer.parseInt(parts[1]);
 
@@ -232,11 +277,12 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             // loop through all pending messages and retransmit if necessary
             pendingMessages.forEach((messageId, message) -> {
                 if (message.getCounter() >= message.getCooldown()) {
-                    String destinationId = messageId.split(":")[0] + ":" + messageId.split(":")[1];
+                    int nodeId = Integer.parseInt(messageId.split(":")[0]);
+
                     System.out.println("Retransmitting message: " + messageId + "\nWaited cooldown: "
                             + message.getCooldown() * 0.5 + "s");
                     try {
-                        sendUdpPacket(destinationId, message.serialize());
+                        sendUdpPacket(nodeId, message.serialize());
                     } catch (Exception e) {
                         System.err.println("Failed to retransmit message: " + e.getMessage());
                     }
@@ -253,71 +299,3 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
         return createSignature(senderId, receiverId, new byte[0], seqNum);
     }
-
-    /**
-     * Creates a signature for the message using the format: SenderId + ReceiverId +
-     * Message + SeqNum
-     */
-    private byte[] createSignature(String senderId, String receiverId, byte[] message, long seqNum)
-            throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        try {
-            Signature signature = Signature.getInstance("SHA256withRSA");
-            signature.initSign(privateKey);
-
-            // Create the byte array with the requested format: SenderId + ReceivedId +
-            // Message + SeqNum
-            ByteBuffer buffer = ByteBuffer.allocate(
-                    senderId.getBytes().length +
-                            receiverId.getBytes().length +
-                            message.length +
-                            8 // 8 bytes for long seqNum
-            );
-
-            buffer.put(senderId.getBytes());
-            buffer.put(receiverId.getBytes());
-            buffer.put(message);
-            buffer.putLong(seqNum);
-
-            signature.update(buffer.array());
-            return signature.sign();
-        } catch (Exception e) {
-            System.err.println("Failed to create signature: " + e.getMessage());
-            throw e;
-        }
-    }
-
-    /**
-     * Verifies a signature for the message using the format: SenderId + ReceivedId
-     * + Message + SeqNum
-     */
-    private boolean verifySignature(String senderId, String receiverId, byte[] message, long seqNum,
-            byte[] signatureBytes) {
-        try {
-            PublicKey publicKey = publicKeys.get(senderId);
-            if (publicKey == null) {
-                System.err.println("No public key found for sender: " + senderId);
-                return false;
-            }
-
-            Signature verifier = Signature.getInstance("SHA256withRSA");
-            verifier.initVerify(publicKey);
-
-            // Create the byte array with the same format used for signing
-            ByteBuffer buffer = ByteBuffer
-                    .allocate(senderId.getBytes().length +
-                            receiverId.getBytes().length +
-                            message.length + 8);
-
-            buffer.put(senderId.getBytes());
-            buffer.put(receiverId.getBytes());
-            buffer.put(message);
-            buffer.putLong(seqNum);
-
-            verifier.update(buffer.array());
-            return verifier.verify(signatureBytes);
-        } catch (Exception e) {
-            System.err.println("Signature verification failed: " + e.getMessage());
-            return false;
-        }
-    }
-}
