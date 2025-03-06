@@ -8,6 +8,7 @@ import pt.tecnico.ulisboa.Config;
 public abstract class Message {
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
+    public static final byte KEY_MESSAGE_TYPE = 3;
 
     private final byte[] content;
     private final long seqNum;

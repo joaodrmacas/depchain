@@ -1,42 +1,46 @@
 package pt.tecnico.ulisboa.consensus;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
 
-public class BFT {
-
-    public void start() {
-        while (true) {
-            EpochConsensus epoch = new EpochConsensus();
-            epoch.start();
-            epoch.sendWrite("value");
-            epoch.sendRead();
-            epoch.sendAccept("value");
-            epoch.endEpoch();
-        }
-    }
-
-    public void getLeader(int epochNumber) {
-        return Config.LEADER_ID;
-    }
-}
-
-
-public class EpochConsensus {
+public class EpochConsensus<T> {
+    private AuthenticatedPerfectLink link;
+    private int processId;
     private int epochNumber;
+    private T value;
 
-    public EpochConsensus() {
+    public enum MESSAGE {
+        READ,
+        STATE,
+        COLLECTED,
+        WRITE,
+        ACCEPT,
+    }
+
+    public EpochConsensus(AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state) {
+        this.link = link;
+        this.processId = processId;
+        this.epochNumber = epochNumber;
         System.out.println("Creating epoch consensus");
     }
 
-    public void start() {
+    public T start() throws AbortedSignal {
         System.out.println("Starting epoch");
+
+        if (getLeader(epochNumber) == processId) {
+            sendWrite(value);
+        } else {
+            sendRead();
+        }
+
+        return value;
     }
 
     public void endEpoch() {
         System.out.println("Ending epoch");
     }
 
-    public void sendWrite(String value) {
+    public void sendWrite(T value) {
         System.out.println("Sending write: " + value);
     }
 
@@ -44,7 +48,11 @@ public class EpochConsensus {
         System.out.println("Sending read");
     }
 
-    public void sendAccept(String value) {
+    public void sendAccept(T value) {
         System.out.println("Sending accept: " + value);
+    }
+
+    public int getLeader(int epocNumber) {
+        return epocNumber % Config.NUM_PROCESSES;
     }
 }

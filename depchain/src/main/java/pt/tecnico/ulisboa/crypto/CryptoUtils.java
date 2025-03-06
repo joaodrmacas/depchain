@@ -1,85 +1,70 @@
-import java.security.KeyFactory;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
+package pt.tecnico.ulisboa.crypto;
 
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.nio.charset.StandardCharsets;
+
 public class CryptoUtils {
 
-    // Generate a new AES key
     public static SecretKey generateSymmetricKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(256); // AES-256
-        return keyGen.generateKey();
+        return new SecretKeySpec(new byte[32], "HmacSHA256"); // 256-bit key for HMAC
     }
 
-    // Encrypt data using AES
-    public static byte[] encryptData(byte[] data, SecretKey secretKey) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-        return cipher.doFinal(data);
+    public static byte[] generateHMAC(String data, SecretKey secretKey) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(secretKey);
+
+        return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Decrypt data using AES
-    public static byte[] decryptData(byte[] encryptedData, SecretKey secretKey) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-        return cipher.doFinal(encryptedData);
-    }
-
-    // Encrypt symmetric key using RSA public key
-    public static byte[] encryptSymmetricKey(SecretKey secretKey, PublicKey publicKey) throws Exception {
+    public static byte[] encryptWithPublicKey(SecretKey secretKey, PublicKey publicKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
         return cipher.doFinal(secretKey.getEncoded());
     }
 
-    // Decrypt symmetric key using RSA private key
-    public static SecretKey decryptSymmetricKey(byte[] encryptedKey, PrivateKey privateKey) throws Exception {
+    public static byte[] decryptWithPrivateKey(byte[] encryptedKey, PrivateKey privateKey) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
-        byte[] decryptedKey = cipher.doFinal(encryptedKey);
-        return new SecretKeySpec(decryptedKey, "AES");
+
+        return cipher.doFinal(encryptedKey);
     }
 
-    // Generate RSA Key Pair
-    public static KeyPair generateRSAKeyPair() throws Exception {
-        KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
-        keyPairGen.initialize(2048);
-        return keyPairGen.generateKeyPair();
+    public static SecretKey decryptSecretKey(byte[] encryptedKey, PrivateKey privateKey) throws Exception {
+        byte[] decryptedKeyBytes = decryptWithPrivateKey(encryptedKey, privateKey);
+        return new SecretKeySpec(decryptedKeyBytes, "HmacSHA256");
     }
 
-    // Convert PublicKey to Base64 String
-    public static String publicKeyToString(PublicKey publicKey) {
-        return Base64.getEncoder().encodeToString(publicKey.getEncoded());
+    public static byte[] encryptSecretKey(SecretKey secretKey, PublicKey publicKey) throws Exception {
+        return encryptWithPublicKey(secretKey, publicKey);
     }
 
-    // Convert PrivateKey to Base64 String
-    public static String privateKeyToString(PrivateKey privateKey) {
-        return Base64.getEncoder().encodeToString(privateKey.getEncoded());
+    public static byte[] publicKeyToBytes(PublicKey publicKey) {
+        return publicKey.getEncoded();
     }
 
-    // Convert Base64 String to PublicKey
-    public static PublicKey stringToPublicKey(String key) throws Exception {
-        byte[] decodedKey = Base64.getDecoder().decode(key);
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(decodedKey);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        return keyFactory.generatePublic(spec);
+    public static byte[] privateKeyToBytes(PrivateKey privateKey) {
+        return privateKey.getEncoded();
     }
 
-    // Convert Base64 String to PrivateKey
-    public static PrivateKey stringToPrivateKey(String key) throws Exception {
-        byte[] decodedKey = Base64.getDecoder().decode(key);
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decodedKey);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        return keyFactory.generatePrivate(spec);
+     public static byte[] signData(String data, PrivateKey privateKey) throws Exception {
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initSign(privateKey);
+        signature.update(data.getBytes(StandardCharsets.UTF_8));
+        return signature.sign();
     }
+
+    public static boolean verifySignature(String data, byte[] signatureBytes, PublicKey publicKey) throws Exception {
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initVerify(publicKey);
+        signature.update(data.getBytes(StandardCharsets.UTF_8));
+        return signature.verify(signatureBytes);
+    }
+
 }

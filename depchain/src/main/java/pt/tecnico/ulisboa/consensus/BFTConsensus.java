@@ -1,85 +1,37 @@
 package pt.tecnico.ulisboa.consensus;
 
-import Config;
+import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
 
-public claConfig{
+public class BFTConsensus<T> {
+    private AuthenticatedPerfectLink link;
+    private int processId;
+    private ConsensusState<T> state = new ConsensusState<>();
 
-    public void start() {
-        int epochNumber;
+    public BFTConsensus(AuthenticatedPerfectLink link, int processId) {
+        this.processId = processId;
+        this.link = link;
+    }
+
+    public T start() {
+        int epochNumber = 0;
+        T value;
         
         while (true) {
-            EpochConsensus epoch = new EpochConsensus();
-            if (!epoch.start()) {
-                EpochChange epochChange = new EpochChange();
+            EpochConsensus<T> epoch = new EpochConsensus<>(link, processId, epochNumber, state);
+
+            try {
+                value = epoch.start();
+            } catch (AbortedSignal abs) {
+                System.out.println("Aborted: " + abs.getMessage());
+
+                EpochChange epochChange = new EpochChange(link, processId, epochNumber);
                 epochNumber = epochChange.start();
+
+                continue;
             }
-        }
-    }
-
-    public void getLeader(int epoc             {
-        return Config.        E
-
-        public class EpochConsensus {
-        private int epochNumber;
-
-        public EpochConsensus() {
-            System.out.println("Creating epoch consensus");
+            break;
         }
 
-        public void start() {
-            System.out.println("Starting epoch");
-        }
-
-        public void endEpoch() {
-            System.out.println("Ending epoch");
-        }
-
-        public void sendWrite(String value) {
-            System.out.println("Sending write: " + value);
-        }
-
-        public void sendRead() {
-            System.out.println("Sending read");
-        }
-
-        public void sendAccept(String value) {
-            System.out.println("Sending accept: " + value);
-        }
-    }
-R_
-
-class EpochConsensus {
-    private int epochNumber;
-
-    public EpochConsensus() {
-        System.out.println("Creating epoch consensus");
-    }
-
-    public void start() {
-        System.out.println("Starting epoch");
-    }
-
-    public void endEpoch() {
-        System.out.println("Ending epoch");
-    }
-
-    public void sendWrite(String value) {
-        System.out.println("Sending write: " + value);
-    }
-
-    public void sendRead() {
-        System.out.println("Sending read");
-    }
-
-    public void sendAccept(String value) {
-        System.out.println("Sending accept: " + value);
-    }
-}public void sendRead() {
-            System.out.println("Sending read");
-        }
-
-        public void sendAccept(String value) {
-            System.out.println("Sending accept: " + value);
-        }
+        return value;
     }
 }

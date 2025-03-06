@@ -8,6 +8,9 @@ import java.security.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.crypto.CryptoUtils;
+
+import javax.crypto.SecretKey;
 
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
@@ -16,7 +19,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     // Map of pending messages, indexed by the destination ID and sequence number
-    private final ConcurrentMap<String, AuthenticatedMessage> pendingMessages = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Message> pendingMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Set<Long>> receivedMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Long> nextSeqNum = new ConcurrentHashMap<>();
 
@@ -24,6 +27,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private final PrivateKey privateKey;
     private final ConcurrentMap<String, PublicKey> publicKeys = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, SecretKey> secretKeys = new ConcurrentHashMap<>();
     private final String nodeId;
 
     public AuthenticatedPerfectLinkImpl(String destination, int port, String nodeId, PrivateKey privateKey,
@@ -35,6 +39,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         this.publicKeys.putAll(publicKeys);
 
         startListening();
+
         startRetransmissionScheduler();
         System.out.println("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
     }
@@ -102,10 +107,40 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                 AckMessage ackMessage = (AckMessage) message;
                 handleACK(ackMessage, sender);
                 break;
+            case Message.KEY_MESSAGE_TYPE:
+                KeyMessage keyMessage = (KeyMessage) message;
+                handleKey(keyMessage, sender);
+                break;
             default:
                 System.err.println("Unknown message type: " + message.getType());
         }
     }
+
+    private void handleKey(KeyMessage keyMessage, String senderId) {
+        SecretKey secretKey = null;
+        try {
+            secretKey = CryptoUtils.decryptSecretKey(keyMessage.getContent(), privateKey);
+        }
+        catch (Exception e) {
+            System.err.println("Failed to decrypt symmetric key: " + e.getMessage());
+            return;
+        }
+
+        // Send authenticated acknowledgment
+        try {
+            sendAuthenticatedAcknowledgment(senderId, keyMessage.getSeqNum());
+        } catch (Exception e) {
+            System.err.println("Failed to send acknowledgment: " + e.getMessage());
+        }
+
+        // Check for duplicates
+        if (isDuplicate(senderId, keyMessage.getSeqNum())) {
+            return;
+        }
+
+        secretKeys.put(senderId, secretKey);
+    }
+        
 
     private void handleACK(AckMessage ackMessage, String senderId) {
         byte[] content = ackMessage.getContent();

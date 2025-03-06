@@ -4,8 +4,6 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.Key;
-import java.security.
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,7 +16,7 @@ import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 public class App {
 
     public static void main(String[] args) {
-        final int N = 3*Config.ALLOWED_FAILURES + 1;
+        final int N = Config.NUM_PROCESSES;
         final int Q = 2*Config.ALLOWED_FAILURES + 1;
         final String IP = "127.0.0.1";
 
