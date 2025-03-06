@@ -3,6 +3,7 @@ package pt.tecnico.ulisboa.network.message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import pt.tecnico.ulisboa.Config;
 
 public abstract class Message {
     public static final byte DATA_MESSAGE_TYPE = 1;
@@ -55,7 +56,8 @@ public abstract class Message {
     }
 
     public void doubleCooldown() {
-        this.cooldown *= 2;
+        if (this.cooldown < Config.MAX_COOLDOWN)
+            this.cooldown *= 2;
     }
 
     public static Message deserialize(byte[] data) {

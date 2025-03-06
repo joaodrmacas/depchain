@@ -1,6 +1,5 @@
-package pt.tecnico.ulisboa.network.layers;
+package pt.tecnico.ulisboa.network;
 
-import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.network.message.*;
 import java.util.concurrent.*;
 import java.util.*;
@@ -8,6 +7,8 @@ import java.net.*;
 import java.security.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import pt.tecnico.ulisboa.Config;
+
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final DatagramSocket socket;
@@ -210,7 +211,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     message.incrementCounter();
                 }
             });
-        }, 500, 500, TimeUnit.MILLISECONDS);
+        }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
     private byte[] createSignature(String senderId, String receiverId, long seqNum)

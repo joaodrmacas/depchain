@@ -1,6 +1,4 @@
-package pt.tecnico.ulisboa.network.layers;
-
-import pt.tecnico.ulisboa.network.MessageHandler;
+package pt.tecnico.ulisboa.network;
 
 public interface AuthenticatedPerfectLink {
     void send(String destId,  byte[] message);

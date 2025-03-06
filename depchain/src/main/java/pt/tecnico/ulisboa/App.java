@@ -4,6 +4,8 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.Key;
+import java.security.
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,13 +13,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLink;
-import pt.tecnico.ulisboa.network.layers.AuthenticatedPerfectLinkImpl;
+import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 public class App {
 
     public static void main(String[] args) {
-        final int N = 3*ConfigLoader.ALLOWED_FAILURES + 1;
-        final int Q = 2*ConfigLoader.ALLOWED_FAILURES + 1;
+        final int N = 3*Config.ALLOWED_FAILURES + 1;
+        final int Q = 2*Config.ALLOWED_FAILURES + 1;
         final String IP = "127.0.0.1";
 
         try {
