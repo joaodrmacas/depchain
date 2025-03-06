@@ -1,4 +1,4 @@
-.PHONY: build run clean
+.PHONY: build run clean keys
 
 build:
 	mvn package
@@ -9,5 +9,6 @@ run:
 clean:
 	mvn clean
 
+#TO SPECIFY THE NUMBER OF KEYS TO GENERATE, USE N=number_of_keys
 keys:
-	bash ./src/main/resources/generate_keys.sh
+	bash ./src/main/java/pt/tecnico/ulisboa/scripts/generate_keys.sh $(if $(N),$(N),5) $(CURDIR)/src/main/java/pt/tecnico/ulisboa/keys

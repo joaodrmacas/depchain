@@ -1,20 +1,33 @@
 package pt.tecnico.ulisboa.network;
 
-import pt.tecnico.ulisboa.network.message.*;
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.security.GeneralSecurityException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.*;
-import java.net.*;
-import java.security.*;
-import java.io.IOException;
-import java.nio.ByteBuffer;
+
+import javax.crypto.SecretKey;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.crypto.CryptoUtils;
-
-import java.util.Map;
-import javax.crypto.SecretKey;
+import pt.tecnico.ulisboa.network.message.AckMessage;
+import pt.tecnico.ulisboa.network.message.DataMessage;
+import pt.tecnico.ulisboa.network.message.KeyMessage;
+import pt.tecnico.ulisboa.network.message.Message;
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final DatagramSocket socket;
@@ -93,7 +106,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            byte[] hmac = createSignature(nodeId, destId, message, seqNum);
+            SecretKey secretKey = getOrGenerateSecretKey(destId);
+            String data = Integer.toString(destId) + Integer.toString(nodeId) + Arrays.toString(message)
+                    + Long.toString(seqNum);
+            byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
 
             DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
@@ -190,10 +206,9 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private void handleACK(AckMessage ackMessage, int senderId) {
         byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
-        byte[] mac = ackMessage.getMac();
+        byte[] hmac = ackMessage.getMac();
 
-        // Verify the signature
-        if (!verifySignature(senderId, nodeId, content, seqNum, mac)) {
+        if (!verifyHMAC(senderId, content, seqNum, hmac)) {
             System.err.println("Authentication failed for ACK from " + senderId);
             return;
         }
@@ -214,8 +229,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         long seqNum = dataMessage.getSeqNum();
         byte[] hmac = dataMessage.getMac();
 
-        // Verify the signature (APL3: Authenticity)
-        if (!verifySignature(senderId, nodeId, content, seqNum, hmac)) {
+        if (!verifyHMAC(senderId, content, seqNum, hmac)) {
             System.err.println("Authentication failed for message from " + senderId);
             return;
         }
@@ -239,14 +253,16 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private boolean isDuplicate(int senderId, long seqNum) {
-        Set<Long> received = receivedMessages.computeIfAbsent(sender, k -> ConcurrentHashMap.newKeySet());
+        Set<Long> received = receivedMessages.computeIfAbsent(senderId, k -> ConcurrentHashMap.newKeySet());
         return !received.add(seqNum);
     }
 
     private void sendAuthenticatedAcknowledgment(int destId, long seqNum) throws Exception {
         try {
-            // Sign the ACK with our private key
-            byte[] hmac = createSignature(nodeId, destId, seqNum);
+
+            SecretKey secretKey = getOrGenerateSecretKey(destId);
+            String data = Integer.toString(destId) + Integer.toString(nodeId) + Long.toString(seqNum);
+            byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
 
             // Create authenticated ACK message
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
@@ -295,7 +311,36 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
-    private byte[] createSignature(String senderId, String receiverId, long seqNum)
-            throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        return createSignature(senderId, receiverId, new byte[0], seqNum);
+    private boolean verifyHMAC(int senderId, byte[] content, long seqNum, byte[] hmac) {
+        try {
+            SecretKey secretKey = getOrGenerateSecretKey(senderId);
+
+            // Converts data fields to string
+            String data = Integer.toString(senderId) + Integer.toString(nodeId) + Arrays.toString(content)
+                    + Long.toString(seqNum);
+
+            // Verifies the HMAC
+            return CryptoUtils.verifyHMAC(data, secretKey, hmac);
+
+        } catch (Exception e) {
+            System.err.println("Failed to verify HMAC: " + e.getMessage());
+            return false; // or handle the error as needed
+        }
     }
+
+    private SecretKey getOrGenerateSecretKey(int destId) {
+        return secretKeys.computeIfAbsent(destId, k -> {
+            try {
+                return CryptoUtils.generateSymmetricKey();
+            } catch (Exception e) {
+                System.err.println("Failed to generate symmetric key: " + e.getMessage());
+                return null;
+            }
+        });
+    }
+
+    private SecretKey getSecretKey(int destId) {
+        return secretKeys.get(destId);
+    }
+
+}

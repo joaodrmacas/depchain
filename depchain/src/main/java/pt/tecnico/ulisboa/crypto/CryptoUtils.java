@@ -1,14 +1,14 @@
 package pt.tecnico.ulisboa.crypto;
 
+import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
+
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.nio.charset.StandardCharsets;
 
 public class CryptoUtils {
 
@@ -21,6 +21,11 @@ public class CryptoUtils {
         mac.init(secretKey);
 
         return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static boolean verifyHMAC(String data, SecretKey secretKey, byte[] expectedHMAC) throws Exception {
+        byte[] calculatedHMAC = generateHMAC(data, secretKey);
+        return java.util.Arrays.equals(calculatedHMAC, expectedHMAC);
     }
 
     public static byte[] encryptWithPublicKey(SecretKey secretKey, PublicKey publicKey) throws Exception {
@@ -53,7 +58,7 @@ public class CryptoUtils {
         return privateKey.getEncoded();
     }
 
-     public static byte[] signData(String data, PrivateKey privateKey) throws Exception {
+    public static byte[] signData(String data, PrivateKey privateKey) throws Exception {
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initSign(privateKey);
         signature.update(data.getBytes(StandardCharsets.UTF_8));

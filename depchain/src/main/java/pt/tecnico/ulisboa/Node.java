@@ -12,12 +12,17 @@ public class Node {
     PrivateKey privateKey;
     List<PublicKey> publicKeys;
     AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
-    
 
-    public Node(PrivateKey kr, List<PublicKey> kus) {
-        privateKey = kr;
-        publicKeys = kus;
+    public static void main(String[] args){
+
+        
+
     }
+
+    public void setup(){
+        
+    }
+    
 }
 
 

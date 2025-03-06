@@ -1,5 +1,6 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.security.PrivateKey;
 import java.security.Signature;
 import java.util.Map;
 
@@ -11,9 +12,9 @@ public class WriteTuple<T> {
     private int ts;
     private byte[] signature;
 
-    public WriteTuple(T value, int ts) {
+    public WriteTuple(T value, int ts, PrivateKey privKey) {
         this.value = value;
         this.ts = ts;
-        this.signature = signData(value.toString() + String.valueOf(ts));
+        this.signature = signData(value.toString() + String.valueOf(ts), privKey);
     }
 }
