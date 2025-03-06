@@ -42,15 +42,8 @@ public class KeyMessage extends Message {
         }
     }
 
-    public static KeyMessage deserialize(byte[] data) {
+    public static KeyMessage deserialize(DataInputStream dis) {
         try {
-            DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
-
-            // Read message type
-            byte type = dis.readByte();
-            if (type != TYPE_INDICATOR) {
-                throw new IllegalArgumentException("Invalid message type");
-            }
 
             // Read message fields
             long seqNum = dis.readLong();

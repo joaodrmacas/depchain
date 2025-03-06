@@ -42,7 +42,7 @@ public class EpochConsensus<T> {
                     }
                 }
 
-                waitForStates();
+                // waitForStates();
             }
 
         } else {

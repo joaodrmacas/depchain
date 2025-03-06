@@ -17,14 +17,12 @@ public class App {
 
     public static void main(String[] args) {
         try {
-            List<KeyPair> keyPairs = generateKeyPairs(N);
-            System.out.println("Generated " + N + " key pairs successfully");
+            // List<KeyPair> keyPairs = generateKeyPairs(N);
+            // System.out.println("Generated " + N + " key pairs successfully");
 
-            // TODO: @massssssssssssssssssssssssssssinhas
-            Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
+            // Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
 
-            // TODO: @massssssssssssssssssssssssssssinhas
-            startProcesses(N, IP, keyPairs, processIdToPublicKey);
+            // startProcesses(N, IP, keyPairs, processIdToPublicKey);
 
         } catch (Exception e) {
             System.out.println("Error in main execution");
@@ -70,16 +68,16 @@ public class App {
 
                 executor.submit(() -> {
                     try {
-                        AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
-                                index,
-                                keyPairs.get(index).getPrivate(),
-                                processIdToPublicKey);
+                        // AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
+                        //         index,
+                        //         keyPairs.get(index).getPrivate(),
+                        //         processIdToPublicKey);
 
-                        processes.put(index, process);
+                        // processes.put(index, process);
 
-                        process.setMessageHandler((sender, data) -> {
-                            System.out.println("Process " + processId + " received: " + new String(data));
-                        });
+                        // process.setMessageHandler((sender, data) -> {
+                        //     System.out.println("Process " + processId + " received: " + new String(data));
+                        // });
 
                         System.out.println("Process " + processId + " started at port " + port);
 
@@ -101,12 +99,12 @@ public class App {
                 final int targetPort = 8080 + targetId;
                 final String targetIdStr = ip + ":" + targetPort;
 
-                if (processes.containsKey(senderId)) {
-                    AuthenticatedPerfectLink sender = processes.get(senderId);
-                    String message = "Hello";
-                    sender.send(targetIdStr, message.getBytes());
-                    System.out.println("Process " + senderId + " sent message to process " + targetId);
-                }
+                // if (processes.containsKey(senderId)) {
+                //     AuthenticatedPerfectLink sender = processes.get(senderId);
+                //     String message = "Hello";
+                //     sender.send(targetIdStr, message.getBytes());
+                //     System.out.println("Process " + senderId + " sent message to process " + targetId);
+                // }
             }
 
             Thread.sleep(10000);

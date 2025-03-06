@@ -54,7 +54,7 @@ public class Node {
 
     public Node(int nodeId) {
         this.nodeId = nodeId;
-        this.publicKeys = new ArrayList<>();
+        this.publicKeys = new HashMap<>();
     }
     
     public void setKeysDirectory(String directory) {
@@ -70,10 +70,12 @@ public class Node {
             readAllPublicKeys();
             
             // Initialize network and consensus components
-            authenticatedPerfectLink = new AuthenticatedPerfectLinkImpl(privateKey, publicKeys);
+            authenticatedPerfectLink = new AuthenticatedPerfectLinkImpl(nodeId, privateKey, publicKeys);
+            if (nodeId == 0){
+                authenticatedPerfectLink.send(1, "Hello".getBytes());
+            }
             
-            // TODO: Initialize consensus with appropriate parameters
-            // consensus = new BFTConsensusImpl<>(authenticatedPerfectLink, ...);
+            consensus = new BFTConsensus<>(authenticatedPerfectLink, nodeId);
             
             System.out.println("Node " + nodeId + " successfully initialized with " + 
                               publicKeys.size() + " public keys");
@@ -122,12 +124,16 @@ public class Node {
         if (keyFiles == null || keyFiles.length == 0) {
             throw new RuntimeException("No public keys found in " + keysDir.getAbsolutePath());
         }
-        
-        for (File keyFile : keyFiles) {
-            System.out.println("Reading public key from: " + keyFile.getPath());
+
+
+        for (int i=0; i<keyFiles.length; i++) {
+            String keyPath = keyFiles[i].getPath();
+            String keyName = keyFiles[i].getName();
+            int keyId = Integer.parseInt(keyName.substring(3, 5));
+            System.out.println("Reading public key from: " + keyPath);
             
             // Read the PEM format key
-            String pemKey = readPemFile(keyFile);
+            String pemKey = readPemFile(keyFiles[i]);
             
             // Extract the base64 encoded key data (remove PEM headers and newlines)
             String base64Key = pemKey
@@ -142,7 +148,7 @@ public class Node {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             PublicKey publicKey = keyFactory.generatePublic(spec);
-            publicKeys.add(publicKey);
+            publicKeys.put(keyId, publicKey);
         }
     }
     

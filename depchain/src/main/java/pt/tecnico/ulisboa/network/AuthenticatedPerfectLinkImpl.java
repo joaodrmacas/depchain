@@ -57,6 +57,9 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         String destination = address.split(":")[0];
         int port = Integer.parseInt(address.split(":")[1]);
 
+        // print ip and port
+        System.out.println("IP: " + destination + " Port: " + port);
+
         this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
         this.nodeId = nodeId;
 
@@ -107,7 +110,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         try {
             SecretKey secretKey = getOrGenerateSecretKey(destId);
-            String data = Integer.toString(destId) + Integer.toString(nodeId) + Arrays.toString(message)
+            String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(message)
                     + Long.toString(seqNum);
             byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
 
@@ -143,7 +146,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
                     int senderId = Config.addr2id.get(senderaddr);
 
-                    receivedFrom(Config.addr2id.get(senderId));
+                    receivedFrom(senderId);
 
                     // print the sender
                     System.out.println("Received message from: " + senderId);
@@ -157,9 +160,13 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private void processReceivedPacket(int senderId, byte[] data) {
+        // print in function
+        System.out.println("Processing message from: " + senderId);
         Message message = Message.deserialize(data);
         if (message == null)
             return;
+
+        System.out.println("Message typeeeeeeeeeeeeeee: " + message.getType());
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -180,14 +187,20 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private void handleKey(KeyMessage keyMessage, int senderId) {
+        // print in function
+        System.out.println("Received key message from: " + senderId);
         SecretKey secretKey = null;
         try {
-            secretKey = CryptoUtils.decryptSecretKey(keyMessage.getContent(), privateKey);
+            secretKey = CryptoUtils.decryptSymmetricKey(keyMessage.getContent(), privateKey);
         } catch (Exception e) {
             System.err.println("Failed to decrypt symmetric key: " + e.getMessage());
             return;
         }
 
+        secretKeys.put(senderId, secretKey);
+
+        // print the key
+        System.out.println("Received key: " + secretKey);
         // Send authenticated acknowledgment
         try {
             sendAuthenticatedAcknowledgment(senderId, keyMessage.getSeqNum());
@@ -199,8 +212,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         if (isDuplicate(senderId, keyMessage.getSeqNum())) {
             return;
         }
-
-        secretKeys.put(senderId, secretKey);
+        System.out.println("map: " + secretKeys);
     }
 
     private void handleACK(AckMessage ackMessage, int senderId) {
@@ -248,7 +260,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         // Deliver to application if not a duplicate and signature is valid
         if (messageHandler != null) {
-            messageHandler.onMessage(Config.addr2id.get(senderId), content);
+            messageHandler.onMessage(senderId, content);
         }
     }
 
@@ -260,8 +272,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private void sendAuthenticatedAcknowledgment(int destId, long seqNum) throws Exception {
         try {
 
-            SecretKey secretKey = getOrGenerateSecretKey(destId);
-            String data = Integer.toString(destId) + Integer.toString(nodeId) + Long.toString(seqNum);
+            SecretKey secretKey = getSecretKey(destId);
+            String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(new byte[0]) +  Long.toString(seqNum);
             byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
 
             // Create authenticated ACK message
@@ -313,34 +325,56 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private boolean verifyHMAC(int senderId, byte[] content, long seqNum, byte[] hmac) {
         try {
-            SecretKey secretKey = getOrGenerateSecretKey(senderId);
+            SecretKey secretKey = getSecretKey(senderId);
 
-            // Converts data fields to string
             String data = Integer.toString(senderId) + Integer.toString(nodeId) + Arrays.toString(content)
                     + Long.toString(seqNum);
 
-            // Verifies the HMAC
             return CryptoUtils.verifyHMAC(data, secretKey, hmac);
 
         } catch (Exception e) {
             System.err.println("Failed to verify HMAC: " + e.getMessage());
-            return false; // or handle the error as needed
+            return false;
         }
     }
 
     private SecretKey getOrGenerateSecretKey(int destId) {
-        return secretKeys.computeIfAbsent(destId, k -> {
-            try {
-                return CryptoUtils.generateSymmetricKey();
-            } catch (Exception e) {
-                System.err.println("Failed to generate symmetric key: " + e.getMessage());
-                return null;
-            }
-        });
+        //print 
+        System.out.println("Getting or generating secret key for: " + destId);
+        SecretKey secretKey = getSecretKey(destId);
+        if (secretKey == null) {
+            System.out.println("I am here"); 
+            secretKey = generateAndShareSecretKey(destId);
+            secretKeys.put(destId, secretKey);
+        }
+        return secretKey;
     }
 
     private SecretKey getSecretKey(int destId) {
         return secretKeys.get(destId);
     }
 
+    private SecretKey generateAndShareSecretKey(int destId) {
+
+        try {
+
+            PublicKey publicKey = publicKeys.get(destId);
+            SecretKey secretKey = CryptoUtils.generateSymmetricKey();
+            byte[] encryptedKey = CryptoUtils.encryptSymmetricKey(secretKey, publicKey);
+
+            long seqNum = nextSeqNum.getOrDefault(destId, 1L);
+            nextSeqNum.put(destId, seqNum + 1);
+
+            KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
+            // print sending key
+            System.out.println("Sending key: " + secretKey);
+            sendUdpPacket(destId, keyMessage.serialize());
+
+            return secretKey;
+
+        } catch (Exception e) {
+            System.err.println("Failed to generate and share secret key: " + e.getMessage());
+            return null;
+        }
+    }
 }

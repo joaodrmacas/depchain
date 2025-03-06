@@ -2,20 +2,25 @@ package pt.tecnico.ulisboa.consensus;
 
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
 
+
+
 public class BFTConsensus<T> {
     private AuthenticatedPerfectLink link;
     private int processId;
     private Object txQueue;
     private ConsensusState<T> state = new ConsensusState<>();
-    private int index;
+    private int index = 0;
 
-    public BFTConsensus(int index, AuthenticatedPerfectLink link, int processId) {
+
+    public BFTConsensus(AuthenticatedPerfectLink link, int processId) {
         this.processId = processId;
         this.link = link;
-        this.index = index;
     }
 
     public T start() throws UnsynchronizedNodeException {
+
+
+        index++;
         int epochNumber = 0;
         T value;
         Boolean readPhaseDone = false;
@@ -32,6 +37,8 @@ public class BFTConsensus<T> {
                 epochNumber = epochChange.start();
 
                 readPhaseDone = false;
+
+
 
                 continue;
             }

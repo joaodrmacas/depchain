@@ -69,6 +69,8 @@ public abstract class Message {
                     return DataMessage.deserialize(dis);
                 case ACK_MESSAGE_TYPE:
                     return AckMessage.deserialize(dis);
+                case KEY_MESSAGE_TYPE:
+                    return KeyMessage.deserialize(dis);
                 default:
                     System.err.println("Unknown message type: " + type);
                     return null;
