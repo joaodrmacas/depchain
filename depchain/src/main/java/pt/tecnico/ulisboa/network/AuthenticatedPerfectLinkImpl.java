@@ -109,10 +109,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            SecretKey secretKey = getOrGenerateSecretKey(destId);
-            String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(message)
-                    + Long.toString(seqNum);
-            byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
+            byte[] hmac = generateHMAC(destId, message, seqNum);
 
             DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
@@ -216,11 +213,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private void handleACK(AckMessage ackMessage, int senderId) {
-        byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
         byte[] hmac = ackMessage.getMac();
 
-        if (!verifyHMAC(senderId, content, seqNum, hmac)) {
+        if (!verifyHMAC(senderId, seqNum, hmac)) {
             System.err.println("Authentication failed for ACK from " + senderId);
             return;
         }
@@ -272,9 +268,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private void sendAuthenticatedAcknowledgment(int destId, long seqNum) throws Exception {
         try {
 
-            SecretKey secretKey = getSecretKey(destId);
-            String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(new byte[0]) +  Long.toString(seqNum);
-            byte[] hmac = CryptoUtils.generateHMAC(data, secretKey);
+            byte[] hmac = generateHMAC(destId, seqNum);
 
             // Create authenticated ACK message
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
@@ -323,6 +317,20 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
+    private boolean verifyHMAC(int senderId, long seqNum, byte[] hmac) {
+        try {
+            SecretKey secretKey = getSecretKey(senderId);
+
+            String data = Integer.toString(senderId) + Integer.toString(nodeId) + Long.toString(seqNum);
+
+            return CryptoUtils.verifyHMAC(data, secretKey, hmac);
+
+        } catch (Exception e) {
+            System.err.println("Failed to verify HMAC: " + e.getMessage());
+            return false;
+        }
+    }
+
     private boolean verifyHMAC(int senderId, byte[] content, long seqNum, byte[] hmac) {
         try {
             SecretKey secretKey = getSecretKey(senderId);
@@ -335,6 +343,29 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         } catch (Exception e) {
             System.err.println("Failed to verify HMAC: " + e.getMessage());
             return false;
+        }
+    }
+
+    private byte[] generateHMAC(int destId, long seqNum) {
+        try {
+            SecretKey secretKey = getOrGenerateSecretKey(destId);
+            String data = Integer.toString(nodeId) + Integer.toString(destId) + Long.toString(seqNum);
+            return CryptoUtils.generateHMAC(data, secretKey);
+        } catch (Exception e) {
+            System.err.println("Failed to generate HMAC: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private byte[] generateHMAC(int destId, byte[] content, long seqNum) {
+        try {
+            SecretKey secretKey = getOrGenerateSecretKey(destId);
+            String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(content)
+                    + Long.toString(seqNum);
+            return CryptoUtils.generateHMAC(data, secretKey);
+        } catch (Exception e) {
+            System.err.println("Failed to generate HMAC: " + e.getMessage());
+            return null;
         }
     }
 

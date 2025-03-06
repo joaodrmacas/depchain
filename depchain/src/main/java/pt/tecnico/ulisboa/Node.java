@@ -6,15 +6,12 @@ import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.List;
 import java.util.HashMap;
 
 public class Node {
