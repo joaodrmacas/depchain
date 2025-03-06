@@ -18,9 +18,10 @@ public class BFTConsensus<T> {
     public T start() throws UnsynchronizedNodeException {
         int epochNumber = 0;
         T value;
-        
+        Boolean readPhaseDone = false;
+
         while (true) {
-            EpochConsensus<T> epoch = new EpochConsensus<>(index, link, processId, epochNumber, state);
+            EpochConsensus<T> epoch = new EpochConsensus<>(index, link, processId, epochNumber, state, readPhaseDone);
 
             try {
                 value = epoch.start();
@@ -29,6 +30,8 @@ public class BFTConsensus<T> {
 
                 EpochChange epochChange = new EpochChange(index, link, processId, epochNumber);
                 epochNumber = epochChange.start();
+
+                readPhaseDone = false;
 
                 continue;
             }

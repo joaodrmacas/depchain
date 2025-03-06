@@ -2,27 +2,158 @@ package pt.tecnico.ulisboa;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.nio.file.Files;
+import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.HashMap;
 
 public class Node {
+    private int nodeId;
+    private BFTConsensus<String> consensus;
+    private PrivateKey privateKey;
+    private HashMap<Integer, PublicKey> publicKeys;
+    private AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
+    private String keysDirectory = "keys"; // Default directory
+    
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            System.err.println("Usage: java Node <node-id> [keys-directory]");
+            System.exit(1);
+        }
 
-    BFTConsensus<String> consensus;
-    PrivateKey privateKey;
-    List<PublicKey> publicKeys;
-    AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
-
-    public static void main(String[] args){
-
-        
-
+        try {
+            int nodeId = Integer.parseInt(args[0]);
+            
+            Node node = new Node(nodeId);
+            
+            if (args.length >= 2) {
+                node.setKeysDirectory(args[1]);
+            }
+            
+            node.setup();
+            
+        } catch (NumberFormatException e) {
+            System.err.println("Error: Node ID must be an integer");
+            System.exit(1);
+        } catch (Exception e) {
+            System.err.println("Error during node setup: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
-    public void setup(){
-        
+    public Node(int nodeId) {
+        this.nodeId = nodeId;
+        this.publicKeys = new ArrayList<>();
     }
     
+    public void setKeysDirectory(String directory) {
+        this.keysDirectory = directory;
+    }
+
+    public void setup() {
+        try {
+            // Read private key for this node
+            readPrivateKey();
+            
+            // Read all public keys
+            readAllPublicKeys();
+            
+            // Initialize network and consensus components
+            authenticatedPerfectLink = new AuthenticatedPerfectLinkImpl(privateKey, publicKeys);
+            
+            // TODO: Initialize consensus with appropriate parameters
+            // consensus = new BFTConsensusImpl<>(authenticatedPerfectLink, ...);
+            
+            System.out.println("Node " + nodeId + " successfully initialized with " + 
+                              publicKeys.size() + " public keys");
+        } catch (Exception e) {
+            System.err.println("Setup failed: " + e.getMessage());
+            throw new RuntimeException("Node setup failed", e);
+        }
+    }
+    
+    private void readPrivateKey() throws Exception {
+        String privateKeyPath = String.format("%s/priv%02d.key", keysDirectory, nodeId);
+        System.out.println("Reading private key from: " + privateKeyPath);
+        
+        File privateKeyFile = new File(privateKeyPath);
+        if (!privateKeyFile.exists()) {
+            throw new RuntimeException("Private key file not found: " + privateKeyFile.getAbsolutePath());
+        }
+        
+        // Read the PEM format key
+        String pemKey = readPemFile(privateKeyFile);
+        
+        // Extract the base64 encoded key data (remove PEM headers and newlines)
+        String base64Key = pemKey
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replace("-----END PRIVATE KEY-----", "")
+            .replaceAll("\\s", "");
+        
+        // Decode the base64 key data
+        byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+        
+        // Create the private key
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        privateKey = keyFactory.generatePrivate(spec);
+    }
+    
+    private void readAllPublicKeys() throws Exception {
+        File keysDir = new File(keysDirectory);
+        if (!keysDir.exists() || !keysDir.isDirectory()) {
+            throw new RuntimeException("Keys directory not found: " + keysDir.getAbsolutePath());
+        }
+        
+        System.out.println("Reading public keys from: " + keysDir.getAbsolutePath());
+        
+        File[] keyFiles = keysDir.listFiles((dir, name) -> name.startsWith("pub") && name.endsWith(".key"));
+        if (keyFiles == null || keyFiles.length == 0) {
+            throw new RuntimeException("No public keys found in " + keysDir.getAbsolutePath());
+        }
+        
+        for (File keyFile : keyFiles) {
+            System.out.println("Reading public key from: " + keyFile.getPath());
+            
+            // Read the PEM format key
+            String pemKey = readPemFile(keyFile);
+            
+            // Extract the base64 encoded key data (remove PEM headers and newlines)
+            String base64Key = pemKey
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+            
+            // Decode the base64 key data
+            byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+            
+            // Create the public key
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PublicKey publicKey = keyFactory.generatePublic(spec);
+            publicKeys.add(publicKey);
+        }
+    }
+    
+    private String readPemFile(File file) throws Exception {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString();
+    }
 }
-
-

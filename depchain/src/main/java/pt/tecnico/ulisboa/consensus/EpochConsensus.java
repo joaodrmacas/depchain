@@ -10,6 +10,7 @@ public class EpochConsensus<T> {
     private T value;
     private ConsensusState<T> state;
     private int index;
+    private Boolean readPhaseDone;
 
     public enum MESSAGE {
         READ,
@@ -19,12 +20,13 @@ public class EpochConsensus<T> {
         ACCEPT,
     }
 
-    public EpochConsensus(int index, AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state) {
+    public EpochConsensus(int index, AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state, Boolean readPhaseDone) {
         this.link = link;
         this.processId = processId;
         this.epochNumber = epochNumber;
         this.state = state;
         this.index = index;
+        this.readPhaseDone = readPhaseDone;
 
         System.out.println("Creating epoch consensus");
     }
@@ -33,7 +35,16 @@ public class EpochConsensus<T> {
         System.out.println("Starting epoch");
 
         if (getLeader(epochNumber) == processId) {
-            sendWrite(value);
+            if (!readPhaseDone) {
+                for (int i = 0; i < Config.NUM_PROCESSES; i++) {
+                    if (i != processId) {
+                        sendRead();
+                    }
+                }
+
+                waitForStates();
+            }
+
         } else {
             sendRead();
         }
