@@ -3,19 +3,23 @@ package pt.tecnico.ulisboa.network.message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.Serializable;
+
 import pt.tecnico.ulisboa.Config;
 
-public abstract class Message {
+public abstract class Message implements Serializable {
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
     public static final byte KEY_MESSAGE_TYPE = 3;
 
-    private final byte[] content;
-    private final long seqNum;
+    private byte[] content;
+    private long seqNum;
 
     // For retransmission mechanism
     private int counter = 1;
     private int cooldown = 1;
+
+    protected Message() {}
 
     public Message(byte[] content, long seqNum) {
         this.content = content;
@@ -44,8 +48,20 @@ public abstract class Message {
         return counter;
     }
 
+    public void setSeqNum(long seqNum) {
+        this.seqNum = seqNum;
+    }
+
+    public void setContent(byte[] content) {
+        this.content = content;
+    }
+
     public void setCounter(int counter) {
         this.counter = counter;
+    }
+
+    public void setCooldown(int cooldown) {
+        this.cooldown = cooldown;
     }
 
     public void incrementCounter() {

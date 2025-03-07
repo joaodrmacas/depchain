@@ -5,7 +5,7 @@ import java.security.PrivateKey;
 import java.security.Signature;
 import java.util.Base64;
 
-import pt.tecnico.ulisboa.crypto.CryptoUtils;
+import pt.tecnico.ulisboa.utils.CryptoUtils;
 
 public class WriteTuple<T> implements Serializable {
     private static final long serialVersionUID = 1L; // Ensures serialization compatibility

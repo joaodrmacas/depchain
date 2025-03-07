@@ -6,9 +6,8 @@ public class EpochChange {
     private AuthenticatedPerfectLink link;
     private int processId;
     private int epochNumber;
-    private int index;
 
-    public EpochChange(int index, AuthenticatedPerfectLink link, int processId, int epochNumber) {
+    public EpochChange(AuthenticatedPerfectLink link, int processId, int epochNumber) {
         this.link = link;
         this.processId = processId;
         this.epochNumber = epochNumber;

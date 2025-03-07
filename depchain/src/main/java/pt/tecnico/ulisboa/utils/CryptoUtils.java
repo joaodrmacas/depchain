@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa.crypto;
+package pt.tecnico.ulisboa.utils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;

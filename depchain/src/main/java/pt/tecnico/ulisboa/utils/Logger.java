@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.utils;
 
 public class Logger {
     // DEBUGGING_ON is a value that can be set to control the level of debugging output

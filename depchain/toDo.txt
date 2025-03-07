@@ -2,3 +2,21 @@
 > one-to-one links
 > modificar o app para iniciar um processo com processId (recebido na consola)
 > na app dar set do message handler para adicionar a mensagem a uma queue
+
+
+
+def ip_port_to_id(ip_port):
+    # Split the IP and port
+    ip, port = ip_port.split(":")
+    
+    # Convert the IP to an integer
+    ip_parts = list(map(int, ip.split('.')))
+    ip_int = (ip_parts[0] << 24) + (ip_parts[1] << 16) + (ip_parts[2] << 8) + ip_parts[3]
+    
+    # Convert port to integer
+    port_int = int(port)
+    
+    # Combine IP and port into a unique 64-bit ID (Shift IP 16 bits and OR with port)
+    unique_id = (ip_int << 16) | port_int
+    return unique_id
+

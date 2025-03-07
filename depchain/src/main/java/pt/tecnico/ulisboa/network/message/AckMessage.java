@@ -2,8 +2,11 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.Serializable;
 
-public class AckMessage extends AuthenticatedMessage {
+public class AckMessage extends AuthenticatedMessage implements Serializable {
+
+    
     public static final byte TYPE_INDICATOR = Message.ACK_MESSAGE_TYPE;
 
     public AckMessage(long seqNum, byte[] hmac) {

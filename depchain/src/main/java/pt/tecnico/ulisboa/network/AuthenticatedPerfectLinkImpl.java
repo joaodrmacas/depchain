@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa.network;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -19,15 +20,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
 import javax.crypto.SecretKey;
-
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.crypto.CryptoUtils;
 import pt.tecnico.ulisboa.network.message.AckMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
+import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final DatagramSocket socket;
@@ -104,17 +104,24 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         return true;
     }
 
-    public void send(int destId, byte[] message) {
-        // Get sequence number for this message
+    public void send(int destId, Serializable message) {
         SecretKey secretKey = getOrGenerateSecretKey(destId);
+
+        byte[] messageBytes;
+        try {
+            messageBytes = SerializationUtils.toByteArray(secretKey);
+        } catch (IOException e) {
+            System.err.println("Failed to serialize message: " + e.getMessage());
+            return;
+        }
 
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
         nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            byte[] hmac = generateHMAC(destId, message, seqNum, secretKey);
+            byte[] hmac = generateHMAC(destId, messageBytes, seqNum, secretKey);
 
-            DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
+            DataMessage dataMsg = new DataMessage(messageBytes, seqNum, hmac);
 
             // Store the message in the pending list
             String messageId = destId + ":" + seqNum;

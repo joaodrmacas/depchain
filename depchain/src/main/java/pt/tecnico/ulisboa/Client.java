@@ -1,56 +1,15 @@
 package pt.tecnico.ulisboa;
 
-import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Queue;
-
-public class Node {
+public class Client {
     private int nodeId;
-    private BFTConsensus<String> consensus;
-    private PrivateKey privateKey;
-    private HashMap<Integer, PublicKey> publicKeys;
     private AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
-    private String keysDirectory = "keys"; // Default directory
-    private Queue<String> txQueue;
+    private PrivateKey privateKey;
+    private Map<Integer, PublicKey> publicKeys;
+
     
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Usage: java Node <node-id> [keys-directory]");
-            System.exit(1);
-        }
-
-        try {
-            int nodeId = Integer.parseInt(args[0]);
-            
-            Node node = new Node(nodeId);
-            
-            if (args.length >= 2) {
-                node.setKeysDirectory(args[1]);
-            }
-            
-            node.setup();
-            
-            node.mainLoop();
-
-        } catch (NumberFormatException e) {
-            System.err.println("Error: Node ID must be an integer");
-            System.exit(1);
-        } catch (Exception e) {
-            System.err.println("Error during node setup: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
     }
 
     public Node(int nodeId) {
@@ -69,7 +28,7 @@ public class Node {
                 this.nodeId
             );
 
-            String value = consensus.start(this.txQueue.peek(););
+            String value = consensus.start();
 
         }
     }
