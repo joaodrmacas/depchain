@@ -38,6 +38,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final ConcurrentMap<String, Message> pendingMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<Integer, Set<Long>> receivedMessages = new ConcurrentHashMap<>();
     private final ConcurrentMap<Integer, Long> nextSeqNum = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> lastReceivedSeqNum = new ConcurrentHashMap<>();
 
     private static final int BUFFER_SIZE = 4096;
 
@@ -105,11 +106,13 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     public void send(int destId, byte[] message) {
         // Get sequence number for this message
+        SecretKey secretKey = getOrGenerateSecretKey(destId);
+
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
         nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            byte[] hmac = generateHMAC(destId, message, seqNum);
+            byte[] hmac = generateHMAC(destId, message, seqNum, secretKey);
 
             DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
@@ -163,7 +166,14 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         if (message == null)
             return;
 
-        System.out.println("Message typeeeeeeeeeeeeeee: " + message.getType());
+        System.out.println(message.getSeqNum());
+
+        if (message.getSeqNum() != lastReceivedSeqNum.getOrDefault(senderId, 1L)) {
+            System.out.println("Received out-of-order message from: " + senderId);
+            return;
+        }
+
+        lastReceivedSeqNum.put(senderId, message.getSeqNum()+1);
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -213,10 +223,11 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private void handleACK(AckMessage ackMessage, int senderId) {
+        byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
         byte[] hmac = ackMessage.getMac();
 
-        if (!verifyHMAC(senderId, seqNum, hmac)) {
+        if (!verifyHMAC(senderId, content, seqNum, hmac)) {
             System.err.println("Authentication failed for ACK from " + senderId);
             return;
         }
@@ -268,7 +279,9 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private void sendAuthenticatedAcknowledgment(int destId, long seqNum) throws Exception {
         try {
 
-            byte[] hmac = generateHMAC(destId, seqNum);
+            SecretKey secretKey = getSecretKey(destId);
+
+            byte[] hmac = generateHMAC(destId, new byte[0], seqNum, secretKey);
 
             // Create authenticated ACK message
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
@@ -317,20 +330,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
-    private boolean verifyHMAC(int senderId, long seqNum, byte[] hmac) {
-        try {
-            SecretKey secretKey = getSecretKey(senderId);
-
-            String data = Integer.toString(senderId) + Integer.toString(nodeId) + Long.toString(seqNum);
-
-            return CryptoUtils.verifyHMAC(data, secretKey, hmac);
-
-        } catch (Exception e) {
-            System.err.println("Failed to verify HMAC: " + e.getMessage());
-            return false;
-        }
-    }
-
     private boolean verifyHMAC(int senderId, byte[] content, long seqNum, byte[] hmac) {
         try {
             SecretKey secretKey = getSecretKey(senderId);
@@ -346,20 +345,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    private byte[] generateHMAC(int destId, long seqNum) {
+    private byte[] generateHMAC(int destId, byte[] content, long seqNum, SecretKey secretKey) {
         try {
-            SecretKey secretKey = getOrGenerateSecretKey(destId);
-            String data = Integer.toString(nodeId) + Integer.toString(destId) + Long.toString(seqNum);
-            return CryptoUtils.generateHMAC(data, secretKey);
-        } catch (Exception e) {
-            System.err.println("Failed to generate HMAC: " + e.getMessage());
-            return null;
-        }
-    }
-
-    private byte[] generateHMAC(int destId, byte[] content, long seqNum) {
-        try {
-            SecretKey secretKey = getOrGenerateSecretKey(destId);
             String data = Integer.toString(nodeId) + Integer.toString(destId) + Arrays.toString(content)
                     + Long.toString(seqNum);
             return CryptoUtils.generateHMAC(data, secretKey);

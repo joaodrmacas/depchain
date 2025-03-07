@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.DataInputStream;
-import java.io.ByteArrayInputStream;
 
 public class KeyMessage extends Message {
     public static final byte TYPE_INDICATOR = Message.KEY_MESSAGE_TYPE;
