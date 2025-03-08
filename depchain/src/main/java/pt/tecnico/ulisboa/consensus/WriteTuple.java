@@ -1,23 +1,16 @@
 package pt.tecnico.ulisboa.consensus;
 
-import java.io.*;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.util.Base64;
-
-import pt.tecnico.ulisboa.utils.CryptoUtils;
+import java.io.Serializable;
 
 public class WriteTuple<T> implements Serializable {
-    private static final long serialVersionUID = 1L; // Ensures serialization compatibility
+    private static final long serialVersionUID = 1L;
 
     private T value;
     private int ts;
-    private byte[] signature;
 
-    public WriteTuple(T value, int ts, PrivateKey privKey) {
+    public WriteTuple(T value, int ts) {
         this.value = value;
         this.ts = ts;
-        this.signature = CryptoUtils.signData(value.toString() + ts, privKey);
     }
 
     public T getValue() {
@@ -28,7 +21,8 @@ public class WriteTuple<T> implements Serializable {
         return ts;
     }
 
-    public byte[] getSignature() {
-        return signature;
+    @Override
+    public String toString() {
+        return "[val=" + value + ", ts=" + ts + "]";
     }
 }

@@ -2,6 +2,7 @@ package pt.tecnico.ulisboa;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
+import pt.tecnico.ulisboa.utils.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,12 +18,11 @@ import java.util.Queue;
 
 public class Node {
     private int nodeId;
-    private BFTConsensus<String> consensus;
     private PrivateKey privateKey;
     private HashMap<Integer, PublicKey> publicKeys;
     private AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
-    private String keysDirectory = "keys"; // Default directory
-    private Queue<String> txQueue;
+    private String keysDirectory = "keys"; // Default directory TODO: should be in config file 
+    private Queue<Integer> txQueue;
     
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -64,12 +64,12 @@ public class Node {
 
     public void mainLoop() {
         while (true) {
-            BFTConsensus<String> consensus = new BFTConsensus<>(
+            BFTConsensus<Integer> consensus = new BFTConsensus<>(
                 this.authenticatedPerfectLink,
                 this.nodeId
             );
 
-            String value = consensus.start(this.txQueue.peek(););
+            String value = consensus.start(this.txQueue.peek());
 
         }
     }
@@ -88,7 +88,7 @@ public class Node {
                 authenticatedPerfectLink.send(1, "Hello".getBytes());
             }
             
-            System.out.println("Node " + nodeId + " successfully initialized with " + 
+            Logger.LOG("Node " + nodeId + " successfully initialized with " + 
                               publicKeys.size() + " public keys");
         } catch (Exception e) {
             System.err.println("Setup failed: " + e.getMessage());
@@ -98,7 +98,7 @@ public class Node {
     
     private void readPrivateKey() throws Exception {
         String privateKeyPath = String.format("%s/priv%02d.key", keysDirectory, nodeId);
-        System.out.println("Reading private key from: " + privateKeyPath);
+        Logger.LOG("Reading private key from: " + privateKeyPath);
         
         File privateKeyFile = new File(privateKeyPath);
         if (!privateKeyFile.exists()) {
@@ -129,7 +129,7 @@ public class Node {
             throw new RuntimeException("Keys directory not found: " + keysDir.getAbsolutePath());
         }
         
-        System.out.println("Reading public keys from: " + keysDir.getAbsolutePath());
+        Logger.LOG("Reading public keys from: " + keysDir.getAbsolutePath());
         
         File[] keyFiles = keysDir.listFiles((dir, name) -> name.startsWith("pub") && name.endsWith(".key"));
         if (keyFiles == null || keyFiles.length == 0) {
@@ -141,7 +141,7 @@ public class Node {
             String keyPath = keyFiles[i].getPath();
             String keyName = keyFiles[i].getName();
             int keyId = Integer.parseInt(keyName.substring(3, 5));
-            System.out.println("Reading public key from: " + keyPath);
+            Logger.LOG("Reading public key from: " + keyPath);
             
             // Read the PEM format key
             String pemKey = readPemFile(keyFiles[i]);

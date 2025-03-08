@@ -6,36 +6,28 @@ public class Logger {
     //  51 - 150:   Only VLOG messages and high important messages
     // 151 - ...:   All messages including DEBUG messages
 
-    public static int DEBUGGING_ON = 200;
+    public static int DEBUGGING_ON = 0;
     public static boolean LOGGING_ON = true;
 
     public static boolean IS_DEBUGGING() {
-        return (DEBUGGING_ON > 150);
+        return (DEBUGGING_ON > 50);
     }
 
     public static void LOG(String message) {
         if (LOGGING_ON) {
-            if (DEBUGGING_ON > 50) VLOG(message);
-            else QLOG(message);
-        }
-    }
-
-    private static void VLOG(String message) {
-        if (LOGGING_ON) {
-            StackTraceElement element = getCallerStackTraceElement(true);
-            String threadName = Thread.currentThread().getName();
-            
-            System.out.printf("[LOG] %s\n|_%s::%d::%s\n\n", 
-                message, 
-                element.getFileName(), 
-                element.getLineNumber(),
-                threadName);
-        }
-    }
-
-    public static void QLOG(String message) {
-        if (LOGGING_ON) {
-            System.out.printf("[LOG] %s\n", message);
+            if (DEBUGGING_ON > 50) {
+                StackTraceElement element = getCallerStackTraceElement(true);
+                String threadName = Thread.currentThread().getName();
+                
+                System.err.printf("[LOG] %s\n|_%s::%d::%s\n\n", 
+                    message, 
+                    element.getFileName(), 
+                    element.getLineNumber(),
+                    threadName);
+            }
+            else {
+                System.out.printf("[LOG] %s\n", message);
+            }
         }
     }
 
@@ -44,7 +36,7 @@ public class Logger {
             StackTraceElement element = getCallerStackTraceElement(false);
             String threadName = Thread.currentThread().getName();
             
-            System.out.printf("[DEBUG] %s\n|_%s::%d::%s\n\n", 
+            System.err.printf("[DEBUG] %s\n|_%s::%d::%s\n\n", 
                 message, 
                 element.getFileName(), 
                 element.getLineNumber(),
@@ -56,7 +48,7 @@ public class Logger {
         StackTraceElement element = getCallerStackTraceElement(false);
         String threadName = Thread.currentThread().getName();
 
-        System.out.printf("[ERROR] %s\n|_%s::%d::%s\n\n", 
+        System.err.printf("[ERROR] %s\n|_%s::%d::%s\n\n", 
             message, 
             element.getFileName(), 
             element.getLineNumber(),
@@ -66,27 +58,36 @@ public class Logger {
     }
 
     public static void PRINT(String message) {
-        if (DEBUGGING_ON > 150) {
+        if (DEBUGGING_ON > 50) {
+            StackTraceElement element = getCallerStackTraceElement(false);
+            String threadName = Thread.currentThread().getName();
+
+            message = message + String.format("|_%s::%d::%s\n\n", 
+                                                message, 
+                                                element.getFileName(), 
+                                                element.getLineNumber(),
+                                                threadName
+                                            );
+            System.err.print(message);
+        } else {
             System.out.print(message);
         }
     }
 
     public static void PRINTLN(String message) {
-        if (DEBUGGING_ON > 150) {
-            System.out.println(message);
-        }
-    }
-
-    public static void VPRINTLN(String message) {
-        if (DEBUGGING_ON > 150) {
+        if (DEBUGGING_ON > 50) {
             StackTraceElement element = getCallerStackTraceElement(false);
             String threadName = Thread.currentThread().getName();
-            
-            System.out.printf("%s\n|_%s::%d::%s\n\n", 
-                message, 
-                element.getFileName(), 
-                element.getLineNumber(),
-                threadName);
+
+            message = message + String.format("|_%s::%d::%s\n\n", 
+                                                message, 
+                                                element.getFileName(), 
+                                                element.getLineNumber(),
+                                                threadName
+                                            );
+            System.err.print(message);
+        } else {
+            System.out.println(message);
         }
     }
 

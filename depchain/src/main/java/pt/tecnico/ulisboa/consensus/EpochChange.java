@@ -1,18 +1,18 @@
 package pt.tecnico.ulisboa.consensus;
 
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.utils.Logger;
 
 public class EpochChange {
     private AuthenticatedPerfectLink link;
-    private int processId;
+    private int memberId;
     private int epochNumber;
 
-    public EpochChange(AuthenticatedPerfectLink link, int processId, int epochNumber) {
+    public EpochChange(AuthenticatedPerfectLink link, int memberId, int epochNumber) {
         this.link = link;
-        this.processId = processId;
+        this.memberId = memberId;
         this.epochNumber = epochNumber;
-        this.index = index;
-        System.out.println("Creating epoch change");
+        Logger.LOG("Creating epoch change");
     }
 
     public int start() {

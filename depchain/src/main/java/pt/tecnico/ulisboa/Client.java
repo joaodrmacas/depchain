@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa;
 
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
+import pt.tecnico.ulisboa.utils.Logger;
 
 public class Client {
     private int nodeId;
@@ -47,7 +48,7 @@ public class Client {
                 authenticatedPerfectLink.send(1, "Hello".getBytes());
             }
             
-            System.out.println("Node " + nodeId + " successfully initialized with " + 
+            Logger.LOG("Node " + nodeId + " successfully initialized with " + 
                               publicKeys.size() + " public keys");
         } catch (Exception e) {
             System.err.println("Setup failed: " + e.getMessage());
@@ -57,7 +58,7 @@ public class Client {
     
     private void readPrivateKey() throws Exception {
         String privateKeyPath = String.format("%s/priv%02d.key", keysDirectory, nodeId);
-        System.out.println("Reading private key from: " + privateKeyPath);
+        Logger.LOG("Reading private key from: " + privateKeyPath);
         
         File privateKeyFile = new File(privateKeyPath);
         if (!privateKeyFile.exists()) {
@@ -88,7 +89,7 @@ public class Client {
             throw new RuntimeException("Keys directory not found: " + keysDir.getAbsolutePath());
         }
         
-        System.out.println("Reading public keys from: " + keysDir.getAbsolutePath());
+        Logger.LOG("Reading public keys from: " + keysDir.getAbsolutePath());
         
         File[] keyFiles = keysDir.listFiles((dir, name) -> name.startsWith("pub") && name.endsWith(".key"));
         if (keyFiles == null || keyFiles.length == 0) {
@@ -100,7 +101,7 @@ public class Client {
             String keyPath = keyFiles[i].getPath();
             String keyName = keyFiles[i].getName();
             int keyId = Integer.parseInt(keyName.substring(3, 5));
-            System.out.println("Reading public key from: " + keyPath);
+            Logger.LOG("Reading public key from: " + keyPath);
             
             // Read the PEM format key
             String pemKey = readPemFile(keyFiles[i]);

@@ -1,14 +1,21 @@
 package pt.tecnico.ulisboa.utils;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+
+import pt.tecnico.ulisboa.Config;
 
 public class CryptoUtils {
 
@@ -131,5 +138,31 @@ public class CryptoUtils {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public static PublicKey getMemberPublicKey(int memberId) {
+        if (memberId < Config.NUM_MEMBERS && memberId >= 0) {
+            String p_id = String.format("%02d", memberId); // Ensures two-digit formatting
+            String path = Config.PUBLIC_KEYS_DIR + "/pub_" + p_id + ".key";
+    
+            try {
+                byte[] keyBytes = Files.readAllBytes(new File(path).toPath());
+    
+                // Handle PEM format if needed
+                String keyString = new String(keyBytes).replaceAll("-----.*-----", "").replaceAll("\\s", "");
+                byte[] decodedKey = Base64.getDecoder().decode(keyString);
+    
+                X509EncodedKeySpec spec = new X509EncodedKeySpec(decodedKey);
+                KeyFactory keyFactory = KeyFactory.getInstance("RSA"); // Change to "EC", "DSA" if needed
+                return keyFactory.generatePublic(spec);
+    
+            } catch (Exception e) {
+                Logger.ERROR("Failed to load public key: " + e.getMessage());
+            }
+        } else {
+            Logger.ERROR("Invalid member ID");
+        }
+    
+        return null;
     }
 }

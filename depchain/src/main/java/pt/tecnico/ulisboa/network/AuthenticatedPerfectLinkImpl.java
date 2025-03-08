@@ -27,6 +27,7 @@ import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
@@ -47,7 +48,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final ConcurrentMap<Integer, SecretKey> secretKeys = new ConcurrentHashMap<>();
     private final int nodeId;
 
-    private int waitingFor = -1;
+    private Map<Integer, List<message>> waitingFor = -1;
     private final Lock messageReceivedLock = new ReentrantLock();
     private final Condition messageReceived = messageReceivedLock.newCondition();
 
@@ -59,7 +60,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         int port = Integer.parseInt(address.split(":")[1]);
 
         // print ip and port
-        System.out.println("IP: " + destination + " Port: " + port);
+        Logger.LOG("IP: " + destination + " Port: " + port);
 
         this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
         this.nodeId = nodeId;
@@ -70,7 +71,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         startListening();
 
         startRetransmissionScheduler();
-        System.out.println("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
+        Logger.LOG("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
     }
 
     public void receivedFrom(int senderId) {
@@ -85,7 +86,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    public boolean waitFor(int senderId) {
+    public Serializable waitFor(int senderId) {
         messageReceivedLock.lock();
         try {
             if (this.waitingFor != senderId) {
@@ -156,7 +157,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     receivedFrom(senderId);
 
                     // print the sender
-                    System.out.println("Received message from: " + senderId);
+                    Logger.LOG("Received message from: " + senderId);
 
                     processReceivedPacket(senderId, data);
                 } catch (Exception e) {
@@ -168,15 +169,15 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private void processReceivedPacket(int senderId, byte[] data) {
         // print in function
-        System.out.println("Processing message from: " + senderId);
+        Logger.LOG("Processing message from: " + senderId);
         Message message = Message.deserialize(data);
         if (message == null)
             return;
 
-        System.out.println(message.getSeqNum());
+        Logger.LOG("Seq num: " + message.getSeqNum());
 
         if (message.getSeqNum() != lastReceivedSeqNum.getOrDefault(senderId, 1L)) {
-            System.out.println("Received out-of-order message from: " + senderId);
+            Logger.LOG("Received out-of-order message from: " + senderId);
             return;
         }
 
@@ -202,7 +203,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private void handleKey(KeyMessage keyMessage, int senderId) {
         // print in function
-        System.out.println("Received key message from: " + senderId);
+        Logger.LOG("Received key message from: " + senderId);
         SecretKey secretKey = null;
         try {
             secretKey = CryptoUtils.decryptSymmetricKey(keyMessage.getContent(), privateKey);
@@ -214,7 +215,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         secretKeys.put(senderId, secretKey);
 
         // print the key
-        System.out.println("Received key: " + secretKey);
+        Logger.LOG("Received key: " + secretKey);
         // Send authenticated acknowledgment
         try {
             sendAuthenticatedAcknowledgment(senderId, keyMessage.getSeqNum());
@@ -226,7 +227,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         if (isDuplicate(senderId, keyMessage.getSeqNum())) {
             return;
         }
-        System.out.println("map: " + secretKeys);
+        Logger.LOG("map: " + secretKeys);
     }
 
     private void handleACK(AckMessage ackMessage, int senderId) {
@@ -244,7 +245,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         // print when receiving ack foe unsent message
         if (!pendingMessages.containsKey(messageId)) {
-            System.out.println("Received ACK for unsent message: " + messageId);
+            Logger.LOG("Received ACK for unsent message: " + messageId);
         }
 
         pendingMessages.remove(messageId);
@@ -321,7 +322,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                 if (message.getCounter() >= message.getCooldown()) {
                     int nodeId = Integer.parseInt(messageId.split(":")[0]);
 
-                    System.out.println("Retransmitting message: " + messageId + "\nWaited cooldown: "
+                    Logger.LOG("Retransmitting message: " + messageId + "\nWaited cooldown: "
                             + message.getCooldown() * 0.5 + "s");
                     try {
                         sendUdpPacket(nodeId, message.serialize());
@@ -365,10 +366,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private SecretKey getOrGenerateSecretKey(int destId) {
         //print 
-        System.out.println("Getting or generating secret key for: " + destId);
+        Logger.LOG("Getting or generating secret key for: " + destId);
         SecretKey secretKey = getSecretKey(destId);
         if (secretKey == null) {
-            System.out.println("I am here"); 
+            Logger.LOG("I am here"); 
             secretKey = generateAndShareSecretKey(destId);
             secretKeys.put(destId, secretKey);
         }
@@ -392,7 +393,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
             KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
             // print sending key
-            System.out.println("Sending key: " + secretKey);
+            Logger.LOG("Sending key: " + secretKey);
             sendUdpPacket(destId, keyMessage.serialize());
 
             return secretKey;

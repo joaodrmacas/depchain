@@ -1,72 +1,93 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.util.List;
+
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.consensus.message.ReadMessage;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.utils.Logger;
 
 public class EpochConsensus<T> {
     private AuthenticatedPerfectLink link;
-    private int processId;
+    private int memberId;
     private int epochNumber;
     private T value;
     private ConsensusState<T> state;
     private Boolean readPhaseDone;
 
-    public enum MESSAGE {
-        READ,
-        STATE,
-        COLLECTED,
-        WRITE,
-        ACCEPT,
-    }
-
-    public EpochConsensus(AuthenticatedPerfectLink link, int processId, int epochNumber, ConsensusState<T> state, Boolean readPhaseDone) {
+    public EpochConsensus(AuthenticatedPerfectLink link, int memberId, int epochNumber, ConsensusState<T> state, Boolean readPhaseDone) {
         this.link = link;
-        this.processId = processId;
+        this.memberId = memberId;
         this.epochNumber = epochNumber;
         this.state = state;
         this.readPhaseDone = readPhaseDone;
 
-        System.out.println("Creating epoch consensus");
+        Logger.LOG("Creating epoch consensus");
     }
 
-    public T start() throws AbortedSignal {
-        System.out.println("Starting epoch");
+    public T start(T valueToBeProposed) throws AbortedSignal {
+        Logger.LOG("Starting epoch");
 
-        if (getLeader(epochNumber) == processId) {
+        CollectedStates<T> collected;
+
+        if (getLeader(epochNumber) == memberId) {
             if (!readPhaseDone) {
-                for (int i = 0; i < Config.NUM_PROCESSES; i++) {
-                    if (i != processId) {
-                        sendRead();
-                    }
-                }
+                sendReads();
 
-                // waitForStates();
+                collected = receiveStatesOrAbort();
+
+                collected.verifyStates();
+
+                collected.addState(this.memberId, this.state);
+
+                readPhaseDone = true;
             }
 
+
+
         } else {
-            sendRead();
+            ;
         }
 
         return value;
     }
 
+    public void sendReads() {
+        Logger.LOG("Sending read");
+
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i != memberId) {
+                ConsensusMessage<T> message = new ReadMessage<>();
+                link.send(memberId, message);
+            }
+        }
+    }
+
+    public CollectedStates<T> receiveStatesOrAborts() throws AbortedSignal {
+        CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
+
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i != memberId) continue;
+            Thread t = new Thread(() -> {
+                link.receiveFrom(i);
+            });
+        }
+    }
+
     public void endEpoch() {
-        System.out.println("Ending epoch");
+        Logger.LOG("Ending epoch");
     }
 
     public void sendWrite(T value) {
-        System.out.println("Sending write: " + value);
-    }
-
-    public void sendRead() {
-        System.out.println("Sending read");
+        Logger.LOG("Sending write: " + value);
     }
 
     public void sendAccept(T value) {
-        System.out.println("Sending accept: " + value);
+        Logger.LOG("Sending accept: " + value);
     }
 
     public int getLeader(int epocNumber) {
-        return epocNumber % Config.NUM_PROCESSES;
+        return epocNumber % Config.NUM_MEMBERS;
     }
 }

@@ -1,39 +1,35 @@
 package pt.tecnico.ulisboa.consensus;
 
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
-
-
+import pt.tecnico.ulisboa.utils.Logger;
 
 public class BFTConsensus<T> {
     private AuthenticatedPerfectLink link;
-    private int processId;
-    private Object txQueue;
-    private ConsensusState<T> state = new ConsensusState<>();
+    private int memberId;
 
-    public BFTConsensus(AuthenticatedPerfectLink link, int processId) {
-        this.processId = processId;
+    public BFTConsensus(AuthenticatedPerfectLink link, int memberId) {
+        this.memberId = memberId;
         this.link = link;
     }
 
-    public T start() {
+    public T start(T valueToBeProposed) {
         int epochNumber = 0;
-        T value;
         Boolean readPhaseDone = false;
+        T value;
+        ConsensusState<T> state = new ConsensusState<>();
 
         while (true) {
-            EpochConsensus<T> epoch = new EpochConsensus<>(link, processId, epochNumber, state, readPhaseDone);
+            EpochConsensus<T> epoch = new EpochConsensus<>(link, memberId, epochNumber, state, readPhaseDone);
 
             try {
-                value = epoch.start();
+                value = epoch.start(valueToBeProposed);
             } catch (AbortedSignal abs) {
-                System.out.println("Aborted: " + abs.getMessage());
+                Logger.LOG("Aborted: " + abs.getMessage());
 
-                EpochChange epochChange = new EpochChange(link, processId, epochNumber);
+                EpochChange epochChange = new EpochChange(link, memberId, epochNumber);
                 epochNumber = epochChange.start();
 
                 readPhaseDone = false;
-
-
 
                 continue;
             }

@@ -13,19 +13,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
+import pt.tecnico.ulisboa.utils.Logger;
 public class App {
 
     public static void main(String[] args) {
         try {
             // List<KeyPair> keyPairs = generateKeyPairs(N);
-            // System.out.println("Generated " + N + " key pairs successfully");
+            // Logger.LOG("Generated " + N + " key pairs successfully");
 
-            // Map<String, PublicKey> processIdToPublicKey = createProcessIdToPublicKeyMap(IP, N, keyPairs);
+            // Map<String, PublicKey> memberIdToPublicKey = createMemberIdToPublicKeyMap(IP, N, keyPairs);
 
-            // startProcesses(N, IP, keyPairs, processIdToPublicKey);
+            // startMembers(N, IP, keyPairs, memberIdToPublicKey);
 
         } catch (Exception e) {
-            System.out.println("Error in main execution");
+            Logger.LOG("Error in main execution");
             e.printStackTrace();
         }
     }
@@ -43,46 +44,46 @@ public class App {
         return keyPairs;
     }
 
-    private static Map<String, PublicKey> createProcessIdToPublicKeyMap(String ip, int n, List<KeyPair> keyPairs) {
-        Map<String, PublicKey> processIdToPublicKey = new HashMap<>();
+    private static Map<String, PublicKey> createMemberIdToPublicKeyMap(String ip, int n, List<KeyPair> keyPairs) {
+        Map<String, PublicKey> memberIdToPublicKey = new HashMap<>();
 
         for (int i = 0; i < n; i++) {
             int port = 8080 + i;
-            String processId = ip + ":" + port;
-            processIdToPublicKey.put(processId, keyPairs.get(i).getPublic());
+            String memberId = ip + ":" + port;
+            memberIdToPublicKey.put(memberId, keyPairs.get(i).getPublic());
         }
 
-        return processIdToPublicKey;
+        return memberIdToPublicKey;
     }
 
-    private static void startProcesses(int n, String ip, List<KeyPair> keyPairs,
-            Map<String, PublicKey> processIdToPublicKey) {
+    private static void startMembers(int n, String ip, List<KeyPair> keyPairs,
+            Map<String, PublicKey> memberIdToPublicKey) {
         ExecutorService executor = Executors.newFixedThreadPool(n);
-        Map<Integer, AuthenticatedPerfectLink> processes = new ConcurrentHashMap<>();
+        Map<Integer, AuthenticatedPerfectLink> members = new ConcurrentHashMap<>();
 
         try {
             for (int i = 0; i < n; i++) {
                 int index = i;
                 final int port = 8080 + i;
-                final String processId = ip + ":" + port;
+                final String memberId = ip + ":" + port;
 
                 executor.submit(() -> {
                     try {
-                        // AuthenticatedPerfectLink process = new AuthenticatedPerfectLinkImpl(
+                        // AuthenticatedPerfectLink member = new AuthenticatedPerfectLinkImpl(
                         //         index,
                         //         keyPairs.get(index).getPrivate(),
-                        //         processIdToPublicKey);
+                        //         memberIdToPublicKey);
 
-                        // processes.put(index, process);
+                        // memberes.put(index, member);
 
-                        // process.setMessageHandler((sender, data) -> {
-                        //     System.out.println("Process " + processId + " received: " + new String(data));
+                        // member.setMessageHandler((sender, data) -> {
+                        //     Logger.LOG("Member " + memberId + " received: " + new String(data));
                         // });
 
-                        System.out.println("Process " + processId + " started at port " + port);
+                        Logger.LOG("Member " + memberId + " started at port " + port);
 
                     } catch (Exception e) {
-                        System.out.println("Error creating process " + processId);
+                        Logger.LOG("Error creating member " + memberId);
                         e.printStackTrace();
                     }
                 });
@@ -99,18 +100,18 @@ public class App {
                 final int targetPort = 8080 + targetId;
                 final String targetIdStr = ip + ":" + targetPort;
 
-                // if (processes.containsKey(senderId)) {
-                //     AuthenticatedPerfectLink sender = processes.get(senderId);
+                // if (members.containsKey(senderId)) {
+                //     AuthenticatedPerfectLink sender = members.get(senderId);
                 //     String message = "Hello";
                 //     sender.send(targetIdStr, message.getBytes());
-                //     System.out.println("Process " + senderId + " sent message to process " + targetId);
+                //     Logger.LOG("Member " + senderId + " sent message to member " + targetId);
                 // }
             }
 
             Thread.sleep(10000);
 
         } catch (Exception e) {
-            System.out.println("Error in process execution");
+            Logger.LOG("Error in member execution");
             e.printStackTrace();
         } finally {
             executor.shutdown();
