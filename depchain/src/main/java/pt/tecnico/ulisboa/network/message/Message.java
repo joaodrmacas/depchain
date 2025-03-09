@@ -3,12 +3,9 @@ package pt.tecnico.ulisboa.network.message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
-
 import pt.tecnico.ulisboa.Config;
 
-public abstract class Message implements Serializable {
+public abstract class Message {
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
     public static final byte KEY_MESSAGE_TYPE = 3;
@@ -19,11 +16,6 @@ public abstract class Message implements Serializable {
     // For retransmission mechanism
     private int counter = 1;
     private int cooldown = 1;
-
-    protected Message() {
-        this.counter = 1;
-        this.cooldown = 1;
-    }
 
     public Message(byte[] content, long seqNum) {
         this.content = content;
@@ -79,37 +71,6 @@ public abstract class Message implements Serializable {
     public void doubleCooldown() {
         if (this.cooldown < Config.MAX_COOLDOWN)
             this.cooldown *= 2;
-    }
-
-    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-        out.writeByte(getType());
-        out.writeLong(getSeqNum());
-        out.writeInt(content.length);
-        out.write(content);
-    }
-
-    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.readByte();
-        this.seqNum = in.readLong();
-        int contentLength = in.readInt();
-        this.content = new byte[contentLength];
-        in.readFully(this.content);
-    }
-
-    public static Message deserializeFromStream(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        byte type = in.readByte(); // Peek at type
-        in.reset(); // Reset stream position
-        
-        switch (type) {
-            case DATA_MESSAGE_TYPE:
-                return new DataMessage(in);
-            case ACK_MESSAGE_TYPE:
-                return new AckMessage(in);
-            case KEY_MESSAGE_TYPE:
-                return new KeyMessage(in);
-            default:
-                throw new IOException("Unknown message type: " + type);
-        }
     }
 
     public static Message deserialize(byte[] data) {

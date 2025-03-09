@@ -1,7 +1,10 @@
 package pt.tecnico.ulisboa;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
+import pt.tecnico.ulisboa.consensus.WriteTuple;
+import pt.tecnico.ulisboa.consensus.message.WriteMessage;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
+import pt.tecnico.ulisboa.network.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.utils.Logger;
 
 import java.io.BufferedReader;
@@ -21,7 +24,7 @@ public class Node {
     private PrivateKey privateKey;
     private HashMap<Integer, PublicKey> publicKeys;
     private AuthenticatedPerfectLinkImpl authenticatedPerfectLink;
-    private String keysDirectory = "keys"; // Default directory TODO: should be in config file 
+    private String keysDirectory = Config.DEFAULT_KEYS_DIR; // Default directory
     private Queue<Integer> txQueue;
     
     public static void main(String[] args) {
@@ -41,7 +44,7 @@ public class Node {
             
             node.setup();
             
-            // node.mainLoop();
+            node.mainLoop();
 
         } catch (NumberFormatException e) {
             System.err.println("Error: Node ID must be an integer");
@@ -62,17 +65,17 @@ public class Node {
         this.keysDirectory = directory;
     }
 
-    // public void mainLoop() {
-    //     while (true) {
-    //         BFTConsensus<Integer> consensus = new BFTConsensus<>(
-    //             this.authenticatedPerfectLink,
-    //             this.nodeId
-    //         );
+    public void mainLoop() {
+        while (true) {
+            BFTConsensus<Integer> consensus = new BFTConsensus<>(
+                this.authenticatedPerfectLink,
+                this.nodeId
+            );
 
-    //         String value = consensus.start(this.txQueue.peek());
+            // String value = consensus.start(this.txQueue.peek());
 
-    //     }
-    // }
+        }
+    }
 
     public void setup() {
         try {
@@ -84,8 +87,11 @@ public class Node {
             
             // Initialize network and consensus components
             authenticatedPerfectLink = new AuthenticatedPerfectLinkImpl(nodeId, privateKey, publicKeys);
+            authenticatedPerfectLink.setMessageHandler(new ConsensusMessageHandler());
             if (nodeId == 0){
-                authenticatedPerfectLink.send(1, "Hello".getBytes());
+                WriteTuple<String> writeTuple = new WriteTuple<String>("Hello", 0);
+                WriteMessage<String> writeMessage = new WriteMessage<>(writeTuple);
+                authenticatedPerfectLink.send(1, writeMessage);
             }
             
             Logger.LOG("Node " + nodeId + " successfully initialized with " + 

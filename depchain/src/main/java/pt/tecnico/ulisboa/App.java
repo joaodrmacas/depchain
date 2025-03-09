@@ -14,6 +14,10 @@ import java.util.concurrent.Executors;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 import pt.tecnico.ulisboa.utils.Logger;
+
+
+//Pode se apagar este lixo né - Massas
+
 public class App {
 
     public static void main(String[] args) {

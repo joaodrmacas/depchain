@@ -1,7 +1,6 @@
 package pt.tecnico.ulisboa.network;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -102,7 +101,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    public void send(int destId, Serializable obj) {
+    public <T> void send(int destId, ConsensusMessage<T> obj) {
         byte[] messageBytes = null;
         try {
             messageBytes = SerializationUtils.serializeObject(obj);
@@ -115,7 +114,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     public void send(int destId, byte[] message) {
         SecretKey secretKey = getOrGenerateSecretKey(destId);
-
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
 
         try {
@@ -137,22 +135,20 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
-    //TODO: Change this to consensus message
-    public void send(Map<Integer, Serializable> messages) {
-        for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
-            //send(entry.getKey(), entry.getValue());
+    public <T> void send(Map<Integer, ConsensusMessage<T>> messages) {
+        for (Map.Entry<Integer, ConsensusMessage<T>> entry : messages.entrySet()) {
+            send(entry.getKey(), entry.getValue());
         }
     }
 
-    //TODO: Change this to Consensus messages
-    public void sendAndWait(int destId, Serializable message) {
+    public <T> void sendAndWait(int destId, ConsensusMessage<T> message) {
         messageReceivedLock.lock();
         try {
             if (waitingFor == null) {
                 waitingFor = new java.util.ArrayList<>();
             }
             waitingFor.add(destId);
-            //send(destId, message);
+            send(destId, message);
             waitForReplies();
         } finally {
             messageReceivedLock.unlock();
@@ -160,11 +156,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
-    //TODO: Change this to Consensus messages
-    public void sendAndWait(Map<Integer, Serializable> messages) {
+    public <T> void sendAndWait(Map<Integer, ConsensusMessage<T>> messages) {
         messageReceivedLock.lock();
         try {
-            for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
+            for (Map.Entry<Integer, ConsensusMessage<T>> entry : messages.entrySet()) {
                 waitingFor.add(entry.getKey());
             }
             send(messages);
@@ -193,9 +188,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
                     int senderId = GeneralUtils.addr2id.get(senderaddr);
 
-                    // receivedFrom(senderId); // TODO Isto nao pode ser aqui, tem de ser no handle
-                    // data se nao da merda com os acks -> Duarte
-
                     // print the sender
                     Logger.LOG("Received message from: " + senderId);
 
@@ -213,8 +205,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         Message message = Message.deserialize(data);
         if (message == null)
             return;
-
-        Logger.LOG("Processed message: " + message);
 
         if (message.getSeqNum() != lastReceivedSeqNum.getOrDefault(senderId, 1L)) {
             Logger.LOG("Received out-of-order message from: " + senderId);
@@ -318,11 +308,32 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         // to the message we sent since this can be any message from the guy we are
         // waiting for? Maybe we need to create a new message type for this or sm shi ->
         // Duarte
-        //receivedFrom(senderId);
-
-        // Deliver to application if not a duplicate and signature is valid
-        if (messageHandler != null) {
-            messageHandler.onMessage(senderId, content);
+        // Temos agora um handler que faz isso @duda - Massas
+        // O handler tem é que ser set na ConsensusLayer
+        try {
+            Object deserializedObject = SerializationUtils.deserializeObject(content);
+            
+            // If the object is a ConsensusMessage
+            // Não queria ter este lixo de instanceof aqui mas para já fica
+            if (deserializedObject instanceof ConsensusMessage) {
+                Logger.LOG("Received ConsensusMessage of type: " + ((ConsensusMessage<?>) deserializedObject).getType());
+                //TODO: isto dá erro pq nao sabes quando é que mandaste a mensagem com send ou com sendandwait. Se for usado o send, o waitFor array está empty.
+                //VOu comentar so para o commit - Massas
+                //receivedFrom(senderId);
+            }
+            
+            // Deliver to application
+            if (messageHandler != null) {
+                messageHandler.onMessage(senderId, content);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to deserialize message content: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Still deliver the raw bytes if deserialization fails
+            if (messageHandler != null) {
+                messageHandler.onMessage(senderId, content);
+            }
         }
     }
 
@@ -439,7 +450,9 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             nextSeqNum.put(destId, seqNum + 1);
 
             KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
-            // print sending key
+            String messageId = destId + ":" + seqNum;
+            pendingMessages.put(messageId, keyMessage);
+            
             Logger.LOG("Sending key: " + secretKey);
             sendUdpPacket(destId, keyMessage.serialize());
 

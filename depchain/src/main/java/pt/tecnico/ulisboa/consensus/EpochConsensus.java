@@ -64,16 +64,18 @@ public class EpochConsensus<T> {
         }
     }
 
-    // public CollectedStates<T> receiveStatesOrAborts() throws AbortedSignal {
-    //     CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
+    public CollectedStates<T> receiveStatesOrAborts() throws AbortedSignal {
+        CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
 
-    //     for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-    //         if (i != memberId) continue;
-    //         Thread t = new Thread(() -> {
-    //             link.receiveFrom(i);
-    //         });
-    //     }
-    // }
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i != memberId) continue;
+            Thread t = new Thread(() -> {
+                // link.receiveFrom(i); 
+            });
+        }
+
+        return collected;
+    }
 
     public void endEpoch() {
         Logger.LOG("Ending epoch");

@@ -4,16 +4,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.DataInputStream;
-import java.io.ObjectInputStream;
 
 
 public class KeyMessage extends Message {
     public static final byte TYPE_INDICATOR = Message.KEY_MESSAGE_TYPE;
-
-    public KeyMessage(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        super();
-        readObject(in);
-    }
 
     public KeyMessage(byte[] key, long seqNum) {
         super(key, seqNum);
@@ -21,34 +15,6 @@ public class KeyMessage extends Message {
 
     public byte getType(){
         return TYPE_INDICATOR;
-    }
-
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        byte type = in.readByte();
-        if (type != TYPE_INDICATOR) {
-            throw new IOException("Invalid message type: " + type);
-        }
-        
-        long seqNum = in.readLong();
-        int contentLength = in.readInt();
-        byte[] content = new byte[contentLength];
-        in.readFully(content);
-        
-        //int hmacLength = in.readInt();
-        //byte[] hmac = new byte[hmacLength];
-        //in.readFully(hmac);
-        
-        setSeqNum(seqNum);
-        setContent(content);
-    }
-
-    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-        out.writeByte(getType());
-        out.writeLong(getSeqNum());
-        out.writeInt(getContent().length);
-        out.write(getContent());
-        //out.writeInt(getMac().length);
-        //out.write(getMac());
     }
 
     @Override

@@ -143,7 +143,7 @@ public class CryptoUtils {
     public static PublicKey getMemberPublicKey(int memberId) {
         if (memberId < Config.NUM_MEMBERS && memberId >= 0) {
             String p_id = String.format("%02d", memberId); // Ensures two-digit formatting
-            String path = Config.PUBLIC_KEYS_DIR + "/pub_" + p_id + ".key";
+            String path = Config.DEFAULT_KEYS_DIR + "/pub_" + p_id + ".key";
     
             try {
                 byte[] keyBytes = Files.readAllBytes(new File(path).toPath());
