@@ -10,6 +10,7 @@ import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,12 +22,14 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.crypto.SecretKey;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.AckMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
@@ -48,14 +51,14 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final ConcurrentMap<Integer, SecretKey> secretKeys = new ConcurrentHashMap<>();
     private final int nodeId;
 
-    private Map<Integer, List<message>> waitingFor = -1;
+    private List<Integer> waitingFor; // List of nodes from which we are waiting for a message
     private final Lock messageReceivedLock = new ReentrantLock();
     private final Condition messageReceived = messageReceivedLock.newCondition();
 
     public AuthenticatedPerfectLinkImpl(int nodeId, PrivateKey privateKey, Map<Integer, PublicKey> publicKeys)
             throws SocketException, GeneralSecurityException, IOException {
 
-        String address = Config.id2addr.get(nodeId);
+        String address = GeneralUtils.id2addr.get(nodeId);
         String destination = address.split(":")[0];
         int port = Integer.parseInt(address.split(":")[1]);
 
@@ -77,8 +80,8 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     public void receivedFrom(int senderId) {
         messageReceivedLock.lock();
         try {
-            if (senderId == waitingFor) {
-                this.waitingFor = senderId;
+            waitingFor.remove(senderId);
+            if (waitingFor.isEmpty()) {
                 messageReceived.signal();
             }
         } finally {
@@ -86,26 +89,20 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    public Serializable waitFor(int senderId) {
-        messageReceivedLock.lock();
+    private void waitForReplies() {
+        // ATTENTION: This method should only be called inside a synchronized block
         try {
-            if (this.waitingFor != senderId) {
-                messageReceived.await(Config.LINK_TIMEOUT, TimeUnit.MILLISECONDS);
-                if (this.waitingFor != senderId) {
-                    return false;
-                }
+            while (!waitingFor.isEmpty()) { // TODO check if this is correct -> Duarte
+                messageReceived.await();
             }
         } catch (InterruptedException e) {
+            System.err.println("Interrupted while waiting for messages: " + e.getMessage());
             e.printStackTrace();
-        } finally {
-            messageReceivedLock.unlock();
         }
-
-        this.waitingFor = -1;
-        return true;
     }
 
     public void send(int destId, Serializable message) {
+        // TODO: este send ta mal. Tas on it ne massas? -> Duarte
         SecretKey secretKey = getOrGenerateSecretKey(destId);
 
         byte[] messageBytes;
@@ -135,6 +132,38 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
+    // This is just a helper function to send multiple messages at once -> Duarte
+    public void send(Map<Integer, Serializable> messages) {
+        for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
+            send(entry.getKey(), entry.getValue());
+        }
+    }
+
+    public void sendAndWait(int destId, Serializable message) {
+        messageReceivedLock.lock();
+        try {
+            waitingFor.add(destId);
+            send(destId, message);
+            waitForReplies();
+        } finally {
+            messageReceivedLock.unlock();
+        }
+    }
+
+    // This is just a helper function to send multiple messages at once -> Duarte
+    public void sendAndWait(Map<Integer, Serializable> messages) {
+        messageReceivedLock.lock();
+        try {
+            for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
+                waitingFor.add(entry.getKey());
+            }
+            send(messages);
+            waitForReplies();
+        } finally {
+            messageReceivedLock.unlock();
+        }
+    }
+
     @Override
     public void setMessageHandler(MessageHandler handler) {
         this.messageHandler = handler;
@@ -152,9 +181,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     // Process received packet
                     byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                     String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    int senderId = Config.addr2id.get(senderaddr);
+                    int senderId = GeneralUtils.addr2id.get(senderaddr);
 
-                    receivedFrom(senderId);
+                    // receivedFrom(senderId); // TODO Isto nao pode ser aqui, tem de ser no handle
+                    // data se nao da merda com os acks -> Duarte
 
                     // print the sender
                     Logger.LOG("Received message from: " + senderId);
@@ -181,7 +211,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             return;
         }
 
-        lastReceivedSeqNum.put(senderId, message.getSeqNum()+1);
+        lastReceivedSeqNum.put(senderId, message.getSeqNum() + 1);
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -273,6 +303,13 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             return;
         }
 
+        // Remove the sender from the waiting list
+        // TODO: How are we sure that the message we are receiving is actually an answer
+        // to the message we sent since this can be any message from the guy we are
+        // waiting for? Maybe we need to create a new message type for this or sm shi ->
+        // Duarte
+        receivedFrom(senderId);
+
         // Deliver to application if not a duplicate and signature is valid
         if (messageHandler != null) {
             messageHandler.onMessage(senderId, content);
@@ -304,7 +341,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private void sendUdpPacket(int destId, byte[] data) {
         try {
-            String[] parts = Config.id2addr.get(destId).split(":");
+            String[] parts = GeneralUtils.id2addr.get(destId).split(":");
             InetAddress address = InetAddress.getByName(parts[0]); // IP address of the destination
             int port = Integer.parseInt(parts[1]);
 
@@ -365,11 +402,11 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     private SecretKey getOrGenerateSecretKey(int destId) {
-        //print 
+        // print
         Logger.LOG("Getting or generating secret key for: " + destId);
         SecretKey secretKey = getSecretKey(destId);
         if (secretKey == null) {
-            Logger.LOG("I am here"); 
+            Logger.LOG("I am here");
             secretKey = generateAndShareSecretKey(destId);
             secretKeys.put(destId, secretKey);
         }

@@ -19,7 +19,8 @@ public abstract class Message implements Serializable {
     private int counter = 1;
     private int cooldown = 1;
 
-    protected Message() {}
+    protected Message() {
+    }
 
     public Message(byte[] content, long seqNum) {
         this.content = content;
