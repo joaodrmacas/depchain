@@ -4,32 +4,29 @@ import java.io.*;
 
 public class SerializationUtils {
     
-    // Convert a Serializable object to a byte array
-    public static byte[] toByteArray(Serializable object) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
-        
-        try {
-            oos.writeObject(object);
-            return baos.toByteArray();
-        } finally {
-            oos.close();
-            baos.close();
+    public static byte[] serializeObject(Serializable obj) throws IOException {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+            oos.writeObject(obj);
+            return bos.toByteArray();
         }
     }
+
+    public static <T> T deserializeObject(byte[] data) throws IOException, ClassNotFoundException {
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(data);
+             ObjectInputStream ois = new ObjectInputStream(bis)) {
+            return (T) ois.readObject();
+        }
+    }
+
+    // public <T extends Serializable> void sendObject(int destId, T object) {
+    //     try {
+    //         byte[] serializedData = serializeObject(object);
+    //         send(destId, serializedData);
+    //     } catch (IOException e) {
+    //         System.err.println("Failed to serialize object: " + e.getMessage());
+    //         e.printStackTrace();
+    //     }
+    // }
     
-    // Convert a byte array back to an object
-    public static <T> T fromByteArray(byte[] bytes) throws IOException, ClassNotFoundException {
-        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-        ObjectInputStream ois = new ObjectInputStream(bais);
-        
-        try {
-            @SuppressWarnings("unchecked")
-            T object = (T) ois.readObject();
-            return object;
-        } finally {
-            ois.close();
-            bais.close();
-        }
-    }
 }

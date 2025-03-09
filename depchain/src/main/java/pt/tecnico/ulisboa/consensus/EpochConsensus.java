@@ -35,11 +35,11 @@ public class EpochConsensus<T> {
             if (!readPhaseDone) {
                 sendReads();
 
-                collected = receiveStatesOrAbort();
+                // collected = receiveStatesOrAbort();
 
-                collected.verifyStates();
+                // collected.verifyStates();
 
-                collected.addState(this.memberId, this.state);
+                // collected.addState(this.memberId, this.state);
 
                 readPhaseDone = true;
             }
@@ -59,21 +59,21 @@ public class EpochConsensus<T> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != memberId) {
                 ConsensusMessage<T> message = new ReadMessage<>();
-                link.send(memberId, message);
+                //link.send(memberId, message);
             }
         }
     }
 
-    public CollectedStates<T> receiveStatesOrAborts() throws AbortedSignal {
-        CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
+    // public CollectedStates<T> receiveStatesOrAborts() throws AbortedSignal {
+    //     CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
 
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != memberId) continue;
-            Thread t = new Thread(() -> {
-                link.receiveFrom(i);
-            });
-        }
-    }
+    //     for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+    //         if (i != memberId) continue;
+    //         Thread t = new Thread(() -> {
+    //             link.receiveFrom(i);
+    //         });
+    //     }
+    // }
 
     public void endEpoch() {
         Logger.LOG("Ending epoch");

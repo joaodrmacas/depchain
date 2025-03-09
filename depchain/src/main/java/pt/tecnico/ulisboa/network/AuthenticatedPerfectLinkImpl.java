@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import javax.crypto.SecretKey;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.network.message.AckMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
@@ -101,31 +102,34 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    public void send(int destId, Serializable message) {
-        // TODO: este send ta mal. Tas on it ne massas? -> Duarte
-        SecretKey secretKey = getOrGenerateSecretKey(destId);
-
-        byte[] messageBytes;
+    public void send(int destId, Serializable obj) {
+        byte[] messageBytes = null;
         try {
-            messageBytes = SerializationUtils.toByteArray(secretKey);
+            messageBytes = SerializationUtils.serializeObject(obj);
         } catch (IOException e) {
             System.err.println("Failed to serialize message: " + e.getMessage());
             return;
         }
+        send(destId, messageBytes);
+    }
+
+    public void send(int destId, byte[] message) {
+        SecretKey secretKey = getOrGenerateSecretKey(destId);
 
         long seqNum = nextSeqNum.getOrDefault(destId, 1L);
-        nextSeqNum.put(destId, seqNum + 1);
 
         try {
-            byte[] hmac = generateHMAC(destId, messageBytes, seqNum, secretKey);
+            byte[] hmac = generateHMAC(destId, message, seqNum, secretKey);
 
-            DataMessage dataMsg = new DataMessage(messageBytes, seqNum, hmac);
+            DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
             // Store the message in the pending list
             String messageId = destId + ":" + seqNum;
             pendingMessages.put(messageId, dataMsg);
 
+            Logger.LOG("Sending message: " + dataMsg);
             sendUdpPacket(destId, dataMsg.serialize());
+            nextSeqNum.put(destId, seqNum + 1);
         } catch (Exception e) {
             System.err.println("Failed to sign and send message: " + e.getMessage());
             e.printStackTrace();
@@ -133,17 +137,22 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
+    //TODO: Change this to consensus message
     public void send(Map<Integer, Serializable> messages) {
         for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
-            send(entry.getKey(), entry.getValue());
+            //send(entry.getKey(), entry.getValue());
         }
     }
 
+    //TODO: Change this to Consensus messages
     public void sendAndWait(int destId, Serializable message) {
         messageReceivedLock.lock();
         try {
+            if (waitingFor == null) {
+                waitingFor = new java.util.ArrayList<>();
+            }
             waitingFor.add(destId);
-            send(destId, message);
+            //send(destId, message);
             waitForReplies();
         } finally {
             messageReceivedLock.unlock();
@@ -151,6 +160,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
+    //TODO: Change this to Consensus messages
     public void sendAndWait(Map<Integer, Serializable> messages) {
         messageReceivedLock.lock();
         try {
@@ -204,7 +214,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         if (message == null)
             return;
 
-        Logger.LOG("Seq num: " + message.getSeqNum());
+        Logger.LOG("Processed message: " + message);
 
         if (message.getSeqNum() != lastReceivedSeqNum.getOrDefault(senderId, 1L)) {
             Logger.LOG("Received out-of-order message from: " + senderId);
@@ -308,7 +318,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         // to the message we sent since this can be any message from the guy we are
         // waiting for? Maybe we need to create a new message type for this or sm shi ->
         // Duarte
-        receivedFrom(senderId);
+        //receivedFrom(senderId);
 
         // Deliver to application if not a duplicate and signature is valid
         if (messageHandler != null) {

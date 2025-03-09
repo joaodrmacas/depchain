@@ -41,7 +41,7 @@ public class Node {
             
             node.setup();
             
-            node.mainLoop();
+            // node.mainLoop();
 
         } catch (NumberFormatException e) {
             System.err.println("Error: Node ID must be an integer");
@@ -62,17 +62,17 @@ public class Node {
         this.keysDirectory = directory;
     }
 
-    public void mainLoop() {
-        while (true) {
-            BFTConsensus<Integer> consensus = new BFTConsensus<>(
-                this.authenticatedPerfectLink,
-                this.nodeId
-            );
+    // public void mainLoop() {
+    //     while (true) {
+    //         BFTConsensus<Integer> consensus = new BFTConsensus<>(
+    //             this.authenticatedPerfectLink,
+    //             this.nodeId
+    //         );
 
-            String value = consensus.start(this.txQueue.peek());
+    //         String value = consensus.start(this.txQueue.peek());
 
-        }
-    }
+    //     }
+    // }
 
     public void setup() {
         try {

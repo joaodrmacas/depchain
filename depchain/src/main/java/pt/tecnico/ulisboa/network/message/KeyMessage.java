@@ -10,12 +10,45 @@ import java.io.ObjectInputStream;
 public class KeyMessage extends Message {
     public static final byte TYPE_INDICATOR = Message.KEY_MESSAGE_TYPE;
 
+    public KeyMessage(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        super();
+        readObject(in);
+    }
+
     public KeyMessage(byte[] key, long seqNum) {
         super(key, seqNum);
     }
 
     public byte getType(){
         return TYPE_INDICATOR;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        byte type = in.readByte();
+        if (type != TYPE_INDICATOR) {
+            throw new IOException("Invalid message type: " + type);
+        }
+        
+        long seqNum = in.readLong();
+        int contentLength = in.readInt();
+        byte[] content = new byte[contentLength];
+        in.readFully(content);
+        
+        //int hmacLength = in.readInt();
+        //byte[] hmac = new byte[hmacLength];
+        //in.readFully(hmac);
+        
+        setSeqNum(seqNum);
+        setContent(content);
+    }
+
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeByte(getType());
+        out.writeLong(getSeqNum());
+        out.writeInt(getContent().length);
+        out.write(getContent());
+        //out.writeInt(getMac().length);
+        //out.write(getMac());
     }
 
     @Override
@@ -43,24 +76,6 @@ public class KeyMessage extends Message {
         }
     }
 
-    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-        // We don't call defaultWriteObject() here since we're fully customizing the serialization
-        
-        // Write message type
-        out.writeByte(getType());
-        
-        // Write sequence number
-        out.writeLong(getSeqNum());
-        
-        // Write content length and content
-        out.writeInt(getContent().length);
-        out.write(getContent());
-        
-        // Write retransmission fields
-        out.writeInt(getCounter());
-        out.writeInt(getCooldown());
-    }
-
     public static KeyMessage deserialize(DataInputStream dis) {
         try {
 
@@ -76,29 +91,6 @@ public class KeyMessage extends Message {
         } catch (IOException e) {
             throw new RuntimeException("Failed to deserialize message", e);
         }
-    }
-
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        // Skip type (we already know it's a KeyMessage)
-        in.readByte();
-        
-        // Read sequence number
-        long seqNum = in.readLong();
-        
-        // Read content
-        int contentLength = in.readInt();
-        byte[] content = new byte[contentLength];
-        in.readFully(content);
-        
-        // Read retransmission fields
-        int counter = in.readInt();
-        int cooldown = in.readInt();
-        
-        // Use setters to update the fields
-        setSeqNum(seqNum);
-        setContent(content);
-        setCounter(counter);
-        setCooldown(cooldown);
     }
 
 }

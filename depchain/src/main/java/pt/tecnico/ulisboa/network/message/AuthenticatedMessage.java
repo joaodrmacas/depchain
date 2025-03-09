@@ -5,7 +5,12 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 public abstract class AuthenticatedMessage extends Message {
-    private final byte[] hmac;
+    private static final long serialVersionUID = 1L;
+    private byte[] hmac;
+
+    public AuthenticatedMessage(){
+        super();
+    }
 
     public AuthenticatedMessage(byte[] content, long seqNum, byte[] hmac) {
         super(content, seqNum);
@@ -16,11 +21,12 @@ public abstract class AuthenticatedMessage extends Message {
         return hmac;
     }
 
+    public void setMac(byte[] hmac) {
+        this.hmac = hmac;
+    }
+
     public abstract byte getType();
 
-    // TODO: This is shit cause it forces ack messages to have content, maybe move
-    // to the children
-    // por mim é bue ok ter content vazio - Massas
     @Override
     public byte[] serialize() {
         try {
@@ -90,5 +96,10 @@ public abstract class AuthenticatedMessage extends Message {
     // return false;
     // }
     // }
+
+    @Override
+    public String toString() {
+        return "AuthenticatedMessage{" + "type=" + getType() + ", seqNum=" + getSeqNum() + ", content=" + new String(getContent()) + ", hmac=" + hmac + '}';
+    }
 
 }
