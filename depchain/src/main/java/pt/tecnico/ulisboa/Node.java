@@ -1,12 +1,4 @@
-package pt.tecnico.ulisboa.node;
-
-import pt.tecnico.ulisboa.consensus.BFTConsensus;
-import pt.tecnico.ulisboa.consensus.ConsensusMessageHandler;
-import pt.tecnico.ulisboa.network.APLImpl;
-import pt.tecnico.ulisboa.protocol.BlockchainRequest;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
-import pt.tecnico.ulisboa.Config;
+package pt.tecnico.ulisboa;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -18,8 +10,18 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+
+import pt.tecnico.ulisboa.consensus.BFTConsensus;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
+import pt.tecnico.ulisboa.network.APLImpl;
+import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.ObservedResource;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
@@ -29,6 +31,7 @@ public class Node<T extends RequiresEquals> {
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private Queue<T> clientRequests;
     private Queue<T> decidedValues;
+    private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -38,7 +41,7 @@ public class Node<T extends RequiresEquals> {
 
         try {
             int nodeId = Integer.parseInt(args[0]);
-            Node<BlockchainRequest<String>> node = new Node<BlockchainRequest<String>>(nodeId);
+            Node<BlockchainMessage> node = new Node<BlockchainMessage>(nodeId);
 
             if (args.length >= 2) {
                 node.setKeysDirectory(args[1]);
@@ -95,7 +98,6 @@ public class Node<T extends RequiresEquals> {
             } catch (Exception e) {
                 Logger.ERROR("Consensus thread failed with exception", e);
                 // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
-                // -> Duarte
             }
         });
 
@@ -112,7 +114,6 @@ public class Node<T extends RequiresEquals> {
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
                 // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
-                // -> Duarte
             }
         });
 
@@ -138,6 +139,14 @@ public class Node<T extends RequiresEquals> {
             // Read all public keys
             readAllPublicKeys();
 
+            // Initialize the consensus messages queues
+            for (int destId : publicKeys.keySet()) {
+                if (destId == nodeId) {
+                    continue;
+                }
+                this.consensusMessages.put(destId, new ObservedResource<>(new LinkedList<>()));
+            }
+
             // Initialize APLs, one for each destination node
             for (int destId : publicKeys.keySet()) {
                 if (destId == nodeId) {
@@ -145,7 +154,7 @@ public class Node<T extends RequiresEquals> {
                 }
 
                 APLImpl apl = new APLImpl(nodeId, destId, privateKey, publicKeys.get(destId));
-                apl.setMessageHandler(new ConsensusMessageHandler<BlockchainRequest<String>>());
+                apl.setMessageHandler(new ConsensusMessageHandler<T>(consensusMessages));
                 apls.put(destId, apl);
                 Logger.LOG("APL created for destination node " + destId);
             }
@@ -249,4 +258,26 @@ public class Node<T extends RequiresEquals> {
         clientRequests.add(value);
     }
 
+    public ConsensusMessage<T> fetchConsensusMessageOrWait(int senderId) {
+        while (true) {
+            // gotta decide if its peek() or poll() (keep or remove)
+            ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().poll();
+            if (msg != null) {
+                return msg;
+            }
+
+            try {
+                boolean hasTimeouted =
+                    !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
+
+                if (hasTimeouted) return null;
+            } catch (Exception e) {
+                Logger.ERROR("Exception: " + e);
+            }
+        }
+    }
+
+    public void removeFirstConsensusMessage(int senderId) {
+        consensusMessages.get(senderId).getResource().poll();
+    }
 }

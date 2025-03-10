@@ -26,5 +26,8 @@ public class EventCounter<T extends RequiresEquals> {
     public boolean exceeded(T value, int max_counts) {
         return counter.get(value) > max_counts;
     }
-    
+
+    public boolean exceeded(int max_counts) {
+        return exceeded(null, max_counts);
+    }
 }

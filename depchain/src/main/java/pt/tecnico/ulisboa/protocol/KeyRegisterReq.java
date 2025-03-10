@@ -1,13 +1,13 @@
 package pt.tecnico.ulisboa.protocol;
 
-public class ClientKeyRegister extends BlockchainMessage {
+public class KeyRegisterReq extends BlockchainMessage {
     
     private static final long serialVersionUID = 1L;
 
     private byte[] key;
 
-    public ClientKeyRegister(byte[] key) {
-        super(MessageType.CLIENT_KEY_REGISTER);
+    public KeyRegisterReq(byte[] key, long seqNum) {
+        super(BlockchainMessageType.KEY_REGISTER_REQ, seqNum);
         this.key = key;
     }
 

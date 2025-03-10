@@ -1,8 +1,5 @@
 package pt.tecnico.ulisboa.client;
 
-import pt.tecnico.ulisboa.utils.CryptoUtils;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.Config;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -13,17 +10,29 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.APLImpl;
-import pt.tecnico.ulisboa.protocol.*;
+import pt.tecnico.ulisboa.protocol.AppendReq;
+import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.protocol.KeyRegisterReq;
+import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.Logger;
 
 public class Client {
-    private KeyPair keyPair;
+    private KeyPair keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
     private Map<Integer, APLImpl> serversLinks = new HashMap<>();
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
-    private ClientMessageHandler<String> messageHandler = new ClientMessageHandler<String>();
     private int clientId;
     private long count = 1;
     private String keysDirectory;
+
+    // for each INteger (response identifier) we have a map of BlockchainResponse
+    // and Integer (times that response was received)
+    private ConcurrentHashMap<Long, HashMap<BlockchainMessage, Integer>> serverResponses = new ConcurrentHashMap<>();
+
+    private BlockchainMessageHandler messageHandler = new BlockchainMessageHandler(serverResponses);
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -41,7 +50,6 @@ public class Client {
     public Client(int clientId, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
-        this.keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
         setup();
     }
 
@@ -58,9 +66,8 @@ public class Client {
 
             try {
                 Logger.LOG("Sending message: " + message);
-                sendMessage(message);
-                BlockchainResponse response = messageHandler.getResponse(count - 1);
-
+                sendAppendRequest(message);
+                BlockchainMessage response = messageHandler.getResponse(count - 1);
                 Logger.LOG("Received response: " + response);
             } catch (Exception e) {
                 Logger.LOG("Failed to send message: " + e.getMessage());
@@ -69,26 +76,23 @@ public class Client {
         }
     }
 
-    private void sendMessage(String message) {
-        if (count == 0)
+    private void sendAppendRequest(String message) {
+        if (count == 0) // First message. Send public key to servers
             sendPublicKeyToServers();
 
         String signature = signMessage(message);
-        BlockchainRequest<String> msg = new BlockchainRequest<String>(clientId, message, count, signature);
+        AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
         for (APLImpl server : serversLinks.values()) {
-            server.sendAndWait(msg);
+            server.send(msg);
         }
         count++;
     }
 
     private void sendPublicKeyToServers() {
         PublicKey publicKey = keyPair.getPublic();
-        for (Map.Entry<Integer, APLImpl> entry : serversLinks.entrySet()) {
-            byte[] signedPublicKey = CryptoUtils.encryptWithPublicKey(
-                    CryptoUtils.publicKeyToBytes(publicKey),
-                    serversPublicKeys.get(entry.getKey()));
-
-            entry.getValue().send(new ClientKeyRegister(signedPublicKey));
+        for (APLImpl server : serversLinks.values()) {
+            byte[] signedPublicKey = CryptoUtils.publicKeyToBytes(publicKey);
+            server.send(new KeyRegisterReq(signedPublicKey, count));
         }
         count++;
     }
@@ -155,7 +159,7 @@ public class Client {
             serversPublicKeys.put(keyId, publicKey);
         }
     }
-
+    
     private String readPemFile(File file) throws Exception {
         StringBuilder content = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

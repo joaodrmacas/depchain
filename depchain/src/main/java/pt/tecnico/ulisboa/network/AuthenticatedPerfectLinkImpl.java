@@ -52,10 +52,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final ConcurrentMap<Integer, SecretKey> secretKeys = new ConcurrentHashMap<>();
     private final int nodeId;
 
-    private List<Integer> waitingFor; // List of nodes from which we are waiting for a message
-    private final Lock messageReceivedLock = new ReentrantLock();
-    private final Condition messageReceived = messageReceivedLock.newCondition();
-
     public AuthenticatedPerfectLinkImpl(int nodeId, PrivateKey privateKey, Map<Integer, PublicKey> publicKeys)
             throws SocketException, GeneralSecurityException, IOException {
 
@@ -76,30 +72,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
         startRetransmissionScheduler();
         Logger.LOG("AuthenticatedPerfectLink started on port: " + port + " with node ID: " + nodeId);
-    }
-
-    public void receivedFrom(int senderId) {
-        messageReceivedLock.lock();
-        try {
-            waitingFor.remove(senderId);
-            if (waitingFor.isEmpty()) {
-                messageReceived.signal();
-            }
-        } finally {
-            messageReceivedLock.unlock();
-        }
-    }
-
-    private void waitForReplies() {
-        // ATTENTION: This method should only be called inside a synchronized block
-        try {
-            while (!waitingFor.isEmpty()) { // TODO check if this is correct -> Duarte
-                messageReceived.await();
-            }
-        } catch (InterruptedException e) {
-            System.err.println("Interrupted while waiting for messages: " + e.getMessage());
-            e.printStackTrace();
-        }
     }
 
     public void send(int destId, Serializable obj) {
@@ -139,34 +111,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     public void send(Map<Integer, Serializable> messages) {
         for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
             send(entry.getKey(), entry.getValue());
-        }
-    }
-
-    public void sendAndWait(int destId, Serializable message) {
-        messageReceivedLock.lock();
-        try {
-            if (waitingFor == null) {
-                waitingFor = new java.util.ArrayList<>();
-            }
-            waitingFor.add(destId);
-            send(destId, message);
-            waitForReplies();
-        } finally {
-            messageReceivedLock.unlock();
-        }
-    }
-
-    // This is just a helper function to send multiple messages at once -> Duarte
-    public void sendAndWait(Map<Integer, Serializable> messages) {
-        messageReceivedLock.lock();
-        try {
-            for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
-                waitingFor.add(entry.getKey());
-            }
-            send(messages);
-            waitForReplies();
-        } finally {
-            messageReceivedLock.unlock();
         }
     }
 
@@ -303,25 +247,16 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             return;
         }
 
-        // Remove the sender from the waiting list
-        // TODO: How are we sure that the message we are receiving is actually an answer
-        // to the message we sent since this can be any message from the guy we are
-        // waiting for? Maybe we need to create a new message type for this or sm shi ->
-        // Duarte
-        // Temos agora um handler que faz isso @duda - Massas
-        // O handler tem é que ser set na ConsensusLayer
         try {
             Object deserializedObject = SerializationUtils.deserializeObject(content);
-            
+
             // If the object is a ConsensusMessage
-            // Não queria ter este lixo de instanceof aqui mas para já fica
+            // TODO: Não queria ter este lixo de instanceof aqui mas para já fica
             if (deserializedObject instanceof ConsensusMessage) {
-                Logger.LOG("Received ConsensusMessage of type: " + ((ConsensusMessage<?>) deserializedObject).getType());
-                //TODO: isto dá erro pq nao sabes quando é que mandaste a mensagem com send ou com sendandwait. Se for usado o send, o waitFor array está empty.
-                //VOu comentar so para o commit - Massas
-                //receivedFrom(senderId);
+                Logger.LOG(
+                        "Received ConsensusMessage of type: " + ((ConsensusMessage<?>) deserializedObject).getType());
             }
-            
+
             // Deliver to application
             if (messageHandler != null) {
                 messageHandler.onMessage(senderId, content);
@@ -329,7 +264,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         } catch (Exception e) {
             System.err.println("Failed to deserialize message content: " + e.getMessage());
             e.printStackTrace();
-            
+
             // Still deliver the raw bytes if deserialization fails
             if (messageHandler != null) {
                 messageHandler.onMessage(senderId, content);
@@ -452,7 +387,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
             KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
             String messageId = destId + ":" + seqNum;
             pendingMessages.put(messageId, keyMessage);
-            
+
             Logger.LOG("Sending key: " + secretKey);
             sendUdpPacket(destId, keyMessage.serialize());
 

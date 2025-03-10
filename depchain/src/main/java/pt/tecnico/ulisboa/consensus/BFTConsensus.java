@@ -1,6 +1,6 @@
 package pt.tecnico.ulisboa.consensus;
 
-import pt.tecnico.ulisboa.node.Node;
+import pt.tecnico.ulisboa.Node;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 

@@ -7,20 +7,26 @@ import pt.tecnico.ulisboa.utils.RequiresEquals;
 public abstract class BlockchainMessage implements RequiresEquals, Serializable {
 
     private static final long serialVersionUID = 1L;
-    private MessageType type;
+    private BlockchainMessageType type;
+    private long seqNum;
 
-    public BlockchainMessage(MessageType type) {
+
+    public BlockchainMessage(BlockchainMessageType type, long seqNum) {
         this.type = type;
     }
 
-    public static enum MessageType {
-        BLOCKCHAIN_REQ,
-        BLOCKCHAIN_RESP,
-        CLIENT_KEY_REGISTER,
+    public static enum BlockchainMessageType {
+        APPEND_REQ,
+        APPEND_RESP,
+        KEY_REGISTER_REQ,
     }
 
-    public MessageType getType() {
+    public BlockchainMessageType getType() {
         return type;
+    }
+
+    public long getSeqNum() {
+        return seqNum;
     }
     
 }

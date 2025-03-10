@@ -2,15 +2,14 @@ package pt.tecnico.ulisboa.protocol;
 
 import java.util.Date;
 
-public class BlockchainResponse extends BlockchainMessage {
+public class AppendResp extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
     
     private boolean success;
     private Date timestamp;
-    private long seqNum;
 
-    public BlockchainResponse(boolean success, Date timestamp) {
-        super(MessageType.BLOCKCHAIN_RESP);
+    public AppendResp(boolean success, Date timestamp, long seqNum) {
+        super(BlockchainMessageType.APPEND_RESP, seqNum);
         this.success = success;
         this.timestamp = timestamp;
     }
@@ -21,10 +20,6 @@ public class BlockchainResponse extends BlockchainMessage {
 
     public Date getTimestamp() {
         return timestamp;
-    }
-
-    public long getSeqNum() {
-        return seqNum;
     }
 
 }
