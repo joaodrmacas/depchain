@@ -1,20 +1,19 @@
 package pt.tecnico.ulisboa.consensus.message;
 
-import java.util.List;
+import pt.tecnico.ulisboa.consensus.CollectedStates;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-import pt.tecnico.ulisboa.consensus.ConsensusState;
-
-public class CollectedMessage<T> extends ConsensusMessage<T> {
+public class CollectedMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
     private static final long serialVersionUID = 1L;
-    List<ConsensusState<T>> states;
+    CollectedStates<T> states;
 
-    public CollectedMessage(List<ConsensusState<T>> states) {
-        super(MessageType.COLLECTED);
+    public CollectedMessage(CollectedStates<T> states, int epochNumber) {
+        super(MessageType.COLLECTED, epochNumber);
 
         this.states = states;
     }
     
-    public List<ConsensusState<T>> getStates() {
+    public CollectedStates<T> getStates() {
         return states;
     }
 }

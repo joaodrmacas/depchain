@@ -4,8 +4,9 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import pt.tecnico.ulisboa.Config;
+import java.io.Serializable;
 
-public abstract class Message {
+public abstract class Message implements Serializable {
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
     public static final byte KEY_MESSAGE_TYPE = 3;

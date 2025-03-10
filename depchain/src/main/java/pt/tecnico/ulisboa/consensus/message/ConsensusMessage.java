@@ -1,13 +1,16 @@
 package pt.tecnico.ulisboa.consensus.message;
 
 import java.io.Serializable;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class ConsensusMessage<T> implements Serializable {
+public abstract class ConsensusMessage<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;
     private MessageType type;
+    protected int epochNumber;
 
-    public ConsensusMessage(MessageType type) {
+    public ConsensusMessage(MessageType type, int epochNumber) {
         this.type = type;
+        this.epochNumber = epochNumber;
     }
 
     public static enum MessageType {
@@ -16,9 +19,14 @@ public class ConsensusMessage<T> implements Serializable {
         COLLECTED,
         WRITE,
         ACCEPT,
+        NEWEPOCH,
     }
 
     public MessageType getType() {
         return type;
+    }
+
+    public int getEpochNumber() {
+        return epochNumber;
     }
 }

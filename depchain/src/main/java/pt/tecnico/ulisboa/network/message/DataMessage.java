@@ -18,7 +18,6 @@ public class DataMessage extends AuthenticatedMessage {
     // TODO this method is exactly the same as the one in AckMessage, maybe move to
     // the parent and find a way to return the correct type
     public static DataMessage deserialize(DataInputStream dis) throws IOException {
-        
         long seqNum = dis.readLong();
 
         // Read content

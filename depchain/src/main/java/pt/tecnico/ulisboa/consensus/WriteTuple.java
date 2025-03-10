@@ -2,7 +2,9 @@ package pt.tecnico.ulisboa.consensus;
 
 import java.io.Serializable;
 
-public class WriteTuple<T> implements Serializable {
+import pt.tecnico.ulisboa.utils.RequiresEquals;
+
+public class WriteTuple<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private T value;
@@ -24,5 +26,9 @@ public class WriteTuple<T> implements Serializable {
     @Override
     public String toString() {
         return "[val=" + value + ", ts=" + ts + "]";
+    }
+
+    public boolean isValid() {
+        return value != null && ts >= 0;
     }
 }

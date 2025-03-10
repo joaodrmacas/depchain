@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
-import pt.tecnico.ulisboa.network.AuthenticatedPerfectLinkImpl;
 import pt.tecnico.ulisboa.utils.Logger;
 
 

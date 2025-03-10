@@ -1,16 +1,16 @@
 package pt.tecnico.ulisboa.consensus;
 
-import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.node.Node;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class EpochChange {
-    private AuthenticatedPerfectLink link;
-    private int memberId;
+public class EpochChange<T extends RequiresEquals> {
+    @SuppressWarnings("unused")
+    private Node<T> member;
     private int epochNumber;
 
-    public EpochChange(AuthenticatedPerfectLink link, int memberId, int epochNumber) {
-        this.link = link;
-        this.memberId = memberId;
+    public EpochChange(Node<T> member, int epochNumber) {
+        this.member = member;
         this.epochNumber = epochNumber;
         Logger.LOG("Creating epoch change");
     }

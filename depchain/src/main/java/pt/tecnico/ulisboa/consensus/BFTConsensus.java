@@ -1,41 +1,54 @@
 package pt.tecnico.ulisboa.consensus;
 
-import pt.tecnico.ulisboa.network.AuthenticatedPerfectLink;
+import pt.tecnico.ulisboa.node.Node;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class BFTConsensus<T> {
-    private AuthenticatedPerfectLink link;
-    private int memberId;
+public class BFTConsensus<T extends RequiresEquals> {
+    private Node<T> member;
 
-    public BFTConsensus(AuthenticatedPerfectLink link, int memberId) {
-        this.memberId = memberId;
-        this.link = link;
+    public BFTConsensus(Node<T> member) {
+        this.member = member;
     }
 
-    public T start(T valueToBeProposed) {
+    public void start() {
         int epochNumber = 0;
         Boolean readPhaseDone = false;
-        T value;
-        ConsensusState<T> state = new ConsensusState<>();
-
+        
         while (true) {
-            EpochConsensus<T> epoch = new EpochConsensus<>(link, memberId, epochNumber, state, readPhaseDone);
+            T value;
+            T valueToBeProposed = member.fetchReceivedTx();
 
-            try {
-                value = epoch.start(valueToBeProposed);
-            } catch (AbortedSignal abs) {
-                Logger.LOG("Aborted: " + abs.getMessage());
-
-                EpochChange epochChange = new EpochChange(link, memberId, epochNumber);
-                epochNumber = epochChange.start();
-
-                readPhaseDone = false;
-
-                continue;
+            if (valueToBeProposed == null) {
+                // wait to be awaken either by new tx or by new consensus
+                // from another member
+                // if (awakened by new tx) continue;
             }
-            break;
-        }
 
-        return value;
+            ConsensusState<T> state = 
+                new ConsensusState<>(new WriteTuple<>(valueToBeProposed, 0));
+
+            while (true) {
+                EpochConsensus<T> epoch = new EpochConsensus<>(member, epochNumber, state, readPhaseDone);
+
+                try {
+                    value = epoch.start(valueToBeProposed);
+                } catch (AbortedSignal abs) {
+                    Logger.LOG("Aborted: " + abs.getMessage());
+
+                    EpochChange<T> epochChange = new EpochChange<>(member, epochNumber);
+                    epochNumber = epochChange.start();
+
+                    readPhaseDone = false;
+
+                    continue;
+                }
+                break;
+            }
+
+            member.pushDecidedTx(value);
+        }
     }
 }
+//mas haver uma geral que ´e ecapsulasse as duas?
+//

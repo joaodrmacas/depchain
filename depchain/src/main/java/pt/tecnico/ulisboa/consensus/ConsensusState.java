@@ -3,21 +3,24 @@ package pt.tecnico.ulisboa.consensus;
 import java.io.Serializable;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 
-public class ConsensusState<T> implements Serializable {
+public class ConsensusState<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private WriteTuple<T> mostRecentQuorumWritten;
-    private Map<String, WriteTuple<T>> writeSet = new HashMap<>();
+    private Map<T, WriteTuple<T>> writeSet = new HashMap<>();
 
-    private byte[] signature;
+    private byte[] signature = null;
+
+    public ConsensusState(WriteTuple<T> mostRecentQuorumWritten) {
+        this.mostRecentQuorumWritten = mostRecentQuorumWritten;
+    }
 
     public WriteTuple<T> getMostRecentQuorumWritten() {
         return mostRecentQuorumWritten;
@@ -27,12 +30,12 @@ public class ConsensusState<T> implements Serializable {
         this.mostRecentQuorumWritten = mostRecentQuorumWritten;
     }
 
-    public Map<String, WriteTuple<T>> getWriteSet() {
+    public Map<T, WriteTuple<T>> getWriteSet() {
         return writeSet;
     }
 
     public void addToWriteSet(WriteTuple<T> writeTuple) {
-        String key = writeTuple.getValue().toString();
+        T key = writeTuple.getValue();
 
         if (writeSet.containsKey(key)) {
             WriteTuple<T> existing = writeSet.get(key);
@@ -56,17 +59,31 @@ public class ConsensusState<T> implements Serializable {
     }
 
     private String dataToSign() {
-        String data;
+        byte[] dataBytes = null;
+        try {
+            dataBytes = SerializationUtils.serializeObject(mostRecentQuorumWritten);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return CryptoUtils.bytesToBase64(dataBytes);
+    }
 
-        data = this.mostRecentQuorumWritten.toString();
-
-        List<String> keys = new ArrayList<>(this.writeSet.keySet());
-        Collections.sort(keys);
-
-        for (String key : keys) {
-            data += this.writeSet.get(key).toString();
+    public boolean isValid(PublicKey pubKey) {
+        if (mostRecentQuorumWritten == null | writeSet == null 
+            | !mostRecentQuorumWritten.isValid()) {
+            return false;
         }
 
-        return data;
+        for (WriteTuple<T> writeTuple : writeSet.values()) {
+            if (!writeTuple.isValid()) {
+                return false;
+            }
+        }
+
+        if (!verifySignature(pubKey)) {
+            return false;
+        }
+
+        return true;
     }
 }

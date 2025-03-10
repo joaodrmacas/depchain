@@ -1,18 +1,18 @@
 package pt.tecnico.ulisboa.consensus.message;
 
-import pt.tecnico.ulisboa.consensus.WriteTuple;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class WriteMessage<T> extends ConsensusMessage<T> {
+public class WriteMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
     private static final long serialVersionUID = 1L;
-    private WriteTuple<T> tuple;
+    private T value;
 
-    public WriteMessage(WriteTuple<T> tuple) {
-        super(MessageType.WRITE);
+    public WriteMessage(T value, int epochNumber) {
+        super(MessageType.WRITE, epochNumber);
 
-        this.tuple = tuple;
+        this.value = value;
     }
 
-    public WriteTuple<T> getTuple() {
-        return tuple;
+    public T getValue() {
+        return value;
     }
 }

@@ -32,6 +32,7 @@ import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import java.io.Serializable;
 
 public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     private final DatagramSocket socket;
@@ -101,7 +102,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         }
     }
 
-    public <T> void send(int destId, ConsensusMessage<T> obj) {
+    public void send(int destId, Serializable obj) {
         byte[] messageBytes = null;
         try {
             messageBytes = SerializationUtils.serializeObject(obj);
@@ -135,13 +136,13 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
-    public <T> void send(Map<Integer, ConsensusMessage<T>> messages) {
-        for (Map.Entry<Integer, ConsensusMessage<T>> entry : messages.entrySet()) {
+    public void send(Map<Integer, Serializable> messages) {
+        for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
             send(entry.getKey(), entry.getValue());
         }
     }
 
-    public <T> void sendAndWait(int destId, ConsensusMessage<T> message) {
+    public void sendAndWait(int destId, Serializable message) {
         messageReceivedLock.lock();
         try {
             if (waitingFor == null) {
@@ -156,10 +157,10 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     }
 
     // This is just a helper function to send multiple messages at once -> Duarte
-    public <T> void sendAndWait(Map<Integer, ConsensusMessage<T>> messages) {
+    public void sendAndWait(Map<Integer, Serializable> messages) {
         messageReceivedLock.lock();
         try {
-            for (Map.Entry<Integer, ConsensusMessage<T>> entry : messages.entrySet()) {
+            for (Map.Entry<Integer, Serializable> entry : messages.entrySet()) {
                 waitingFor.add(entry.getKey());
             }
             send(messages);
@@ -257,7 +258,6 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
         if (isDuplicate(senderId, keyMessage.getSeqNum())) {
             return;
         }
-        Logger.LOG("map: " + secretKeys);
     }
 
     private void handleACK(AckMessage ackMessage, int senderId) {
@@ -381,7 +381,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     int nodeId = Integer.parseInt(messageId.split(":")[0]);
 
                     Logger.LOG("Retransmitting message: " + messageId + "\nWaited cooldown: "
-                            + message.getCooldown() * 0.5 + "s");
+                            + message.getCooldown() * Config.RETRANSMISSION_TIME + "s");
                     try {
                         sendUdpPacket(nodeId, message.serialize());
                     } catch (Exception e) {

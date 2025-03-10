@@ -1,9 +1,11 @@
 package pt.tecnico.ulisboa.consensus.message;
 
-public class ReadMessage<T> extends ConsensusMessage<T> {
+import pt.tecnico.ulisboa.utils.RequiresEquals;
+
+public class ReadMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
     private static final long serialVersionUID = 1L;
 
-    public ReadMessage() {
-        super(MessageType.READ);
+    public ReadMessage(int epochNumber) {
+        super(MessageType.READ, epochNumber);
     }
 }

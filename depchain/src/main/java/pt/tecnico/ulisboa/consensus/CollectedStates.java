@@ -1,16 +1,19 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
 
-import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class CollectedStates<T> {
+public class CollectedStates<T extends RequiresEquals> {
     private Map<Integer, ConsensusState<T>> states = new HashMap<>();
+    private int memberCount;
 
     public CollectedStates(int memberCount) {
-        for (int i = 0; i < memberCount; i++) {
+        this.memberCount = memberCount;
+        for (int i = 0; i < this.memberCount; i++) {
             this.states.put(i, null);
         }
     }
@@ -26,4 +29,20 @@ public class CollectedStates<T> {
             Logger.ERROR("member ID not found in collected states");
         }
     }
+
+    public boolean verifyStates(Map<Integer, PublicKey> publicKeys) {
+        for (int i = 0; i < this.memberCount; i++) {
+            ConsensusState<T> state = this.states.get(i);
+            if (state != null) {
+                if (!state.isValid(publicKeys.get(i))) {
+                    return false;
+                }
+            } else {
+                Logger.ERROR("state not found in collected states");
+            }
+        }
+        return true;
+    }
+
+
 }
