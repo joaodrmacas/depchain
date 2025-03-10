@@ -1,15 +1,19 @@
 package pt.tecnico.ulisboa.protocol;
 
-public class BlockchainRequest<T> extends BlockchainMessage<T> {
+public class BlockchainRequest<T> extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
     
     private Integer id;
     private T content;
+    private long seqNum;
+    private String signature;
 
-    public BlockchainRequest(Integer id, T content) {
-        super(MessageType.CLIENT_REQUEST);
+    public BlockchainRequest(Integer id, T content, long seqNum, String signature) {
+        super(MessageType.BLOCKCHAIN_REQ);
         this.id = id;
         this.content = content;
+        this.seqNum = seqNum;
+        this.signature = signature;
     }
 
     public T getMessage() {
@@ -20,19 +24,19 @@ public class BlockchainRequest<T> extends BlockchainMessage<T> {
         return id;
     }
 
-    public void setContent(T content){
-        this.content = content;
+    public long getSeqNum() {
+        return seqNum;
     }
 
-    public void setClientId(Integer id){
-        this.id = id;
+    public String getSignature() {
+        return signature;
     }
 
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof BlockchainRequest) {
             BlockchainRequest<?> other = (BlockchainRequest<?>) obj;
-            return id.equals(other.id) && content.equals(other.content);
+            return id.equals(other.id) && content.equals(other.content) && seqNum == other.seqNum && signature.equals(other.signature);
         }
         return false;
     }

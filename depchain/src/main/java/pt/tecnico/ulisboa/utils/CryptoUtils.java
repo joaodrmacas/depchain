@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa.utils;
 
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -93,6 +94,17 @@ public class CryptoUtils {
         }
     }
 
+    public static KeyPair generateKeyPair(int size) {
+        try {
+            java.security.KeyPairGenerator keyGen = java.security.KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(size);
+            return keyGen.generateKeyPair();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public static byte[] publicKeyToBytes(PublicKey publicKey) {
         try {
             return publicKey.getEncoded();
@@ -111,23 +123,24 @@ public class CryptoUtils {
         }
     }
 
-    public static byte[] signData(String data, PrivateKey privateKey) {
+    public static String signData(String data, PrivateKey privateKey) {
         try {
             Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initSign(privateKey);
-            signature.update(data.getBytes(StandardCharsets.UTF_8));
-            return signature.sign();
+            signature.update(data.getBytes());
+            return Base64.getEncoder().encodeToString(signature.sign());
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
     }
 
-    public static boolean verifySignature(String data, byte[] signatureBytes, PublicKey publicKey) {
+    public static boolean verifySignature(String data, String base64Signature, PublicKey publicKey) {
         try {
             Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initVerify(publicKey);
             signature.update(data.getBytes(StandardCharsets.UTF_8));
+            byte[] signatureBytes = Base64.getDecoder().decode(base64Signature);
             return signature.verify(signatureBytes);
         } catch (Exception e) {
             e.printStackTrace();

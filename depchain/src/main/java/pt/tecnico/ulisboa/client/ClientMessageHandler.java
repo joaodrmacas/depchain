@@ -1,44 +1,68 @@
 package pt.tecnico.ulisboa.client;
 
-import java.util.concurrent.CountDownLatch;
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.Logger;
-import java.io.IOException;
 import pt.tecnico.ulisboa.protocol.*;
+import pt.tecnico.ulisboa.Config;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientMessageHandler<T> implements MessageHandler {
-    private CountDownLatch responseLatch;
-    private BlockchainMessage<T> receivedResponse;
-    
+    // for each INteger (response identifier) we have a map of BlockchainResponse and Integer (times that response was received)
+    private ConcurrentHashMap<Long, ConcurrentHashMap<BlockchainResponse, Integer>> receivedResponses;
+
     public ClientMessageHandler() {
-        this.responseLatch = new CountDownLatch(1);
-        this.receivedResponse = null;
+        this.receivedResponses = new ConcurrentHashMap<Long, ConcurrentHashMap<BlockchainResponse, Integer>>();
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onMessage(int senderId, byte[] message) {
         try {
-            BlockchainResponse<T> response = (BlockchainResponse<T>) SerializationUtils.deserializeObject(message);
-            Logger.LOG("Received response from node " + senderId + ": " + response);
-            
-            this.receivedResponse = response;
-            
-            responseLatch.countDown();
+            BlockchainResponse response = (BlockchainResponse) SerializationUtils.deserializeObject(message);
+
+            long seqnum = response.getSeqNum();
+
+            if (this.receivedResponses.containsKey(seqnum)) {
+                Map<BlockchainResponse, Integer> responseMap = this.receivedResponses.get(seqnum);
+                if (responseMap.containsKey(response)) {
+                    responseMap.put(response, responseMap.get(response) + 1);
+                } else {
+                    responseMap.put(response, 1);
+                }
+            } else {
+                ConcurrentHashMap<BlockchainResponse, Integer> responseMap = new ConcurrentHashMap<>();
+                responseMap.put(response, 1);
+                this.receivedResponses.put(seqnum, responseMap);
+            }
+
+
         } catch (IOException | ClassNotFoundException e) {
             Logger.LOG("Failed to deserialize response: " + e.getMessage());
         }
-    } 
-
-    public BlockchainResponse<T> waitForResponse() throws InterruptedException {
-        responseLatch.await();
-        return (BlockchainResponse<T>) receivedResponse;
     }
 
-    public void reset() {
-        this.responseLatch = new CountDownLatch(1);
-        this.receivedResponse = null;
+    public BlockchainResponse getResponse(long seqNum) {
+        Map<BlockchainResponse, Integer> responseMap = this.receivedResponses.get(seqNum);
+        if (responseMap == null) {
+            return null;
+        }
+
+        BlockchainResponse response = null;
+        int max = 0;
+        for (Map.Entry<BlockchainResponse, Integer> entry : responseMap.entrySet()) {
+            if (entry.getValue() > max) {
+                response = entry.getKey();
+                max = entry.getValue();
+            }
+        }
+        if (max >= Config.ALLOWED_FAILURES + 1) {
+            return response;
+        } else {
+            Logger.LOG("Failed to get response for seqNum " + seqNum + " with " + max + " responses");
+            return null;
+        }
     }
 }

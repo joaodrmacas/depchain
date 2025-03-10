@@ -58,7 +58,7 @@ public class APLImpl implements APL {
     public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey)
             throws SocketException, GeneralSecurityException, IOException {
 
-        String address = GeneralUtils.id2addr.get(nodeId);
+        String address = GeneralUtils.serversId2Addr.get(nodeId);
         String destination = address.split(":")[0];
         int port = Integer.parseInt(address.split(":")[1]);
 
@@ -163,7 +163,7 @@ public class APLImpl implements APL {
 
                     byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                     String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    int senderId = GeneralUtils.addr2id.get(senderaddr);
+                    int senderId = GeneralUtils.serversAddr2Id.get(senderaddr);
 
                     // Only process messages from our designated destination
                     if (senderId == destId) {
@@ -330,7 +330,7 @@ public class APLImpl implements APL {
 
     private void sendUdpPacket(byte[] data) {
         try {
-            String[] parts = GeneralUtils.id2addr.get(destId).split(":");
+            String[] parts = GeneralUtils.serversId2Addr.get(destId).split(":");
             InetAddress address = InetAddress.getByName(parts[0]);
             int port = Integer.parseInt(parts[1]);
 

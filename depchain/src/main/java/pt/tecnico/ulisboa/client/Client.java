@@ -1,28 +1,28 @@
 package pt.tecnico.ulisboa.client;
 
+import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.Config;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.security.KeyFactory;
+import java.security.KeyPair;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
 import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.protocol.*;
 
 public class Client {
-    private List<APLImpl> servers = new ArrayList<APLImpl>();
-    private Map<Integer, PublicKey> publicKeys = new HashMap<Integer, PublicKey>();
+    private KeyPair keyPair;
+    private Map<Integer, APLImpl> serversLinks = new HashMap<>();
+    private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
     private ClientMessageHandler<String> messageHandler = new ClientMessageHandler<String>();
     private int clientId;
-    private int count = 1;
+    private long count = 1;
     private String keysDirectory;
 
     public static void main(String[] args) {
@@ -41,13 +41,13 @@ public class Client {
     public Client(int clientId, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
+        this.keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
         setup();
     }
 
     private void start() {
         Logger.LOG("Starting client " + clientId);
 
-        // Create a cli loop for receiving input and waiting for messages.
         while (true) {
             System.out.println("Enter a message to send to the server: ");
             String message = System.console().readLine();
@@ -57,15 +57,11 @@ public class Client {
             }
 
             try {
-            messageHandler.reset();
+                Logger.LOG("Sending message: " + message);
+                sendMessage(message);
+                BlockchainResponse response = messageHandler.getResponse(count - 1);
 
-            Logger.LOG("Sending message: " + message);
-            sendMessage(message);
-
-            Logger.LOG("Waiting for response...");
-            BlockchainResponse<String> response = messageHandler.waitForResponse();
-
-            Logger.LOG("Received response: " + response);
+                Logger.LOG("Received response: " + response);
             } catch (Exception e) {
                 Logger.LOG("Failed to send message: " + e.getMessage());
             }
@@ -74,21 +70,40 @@ public class Client {
     }
 
     private void sendMessage(String message) {
-        Integer num_request = count*Config.MAX_NUM_CLIENTS + clientId;
-        BlockchainRequest<String> msg = new BlockchainRequest<String>(num_request, message);
-        for (APLImpl server : servers) {
-            server.send(msg);
+        if (count == 0)
+            sendPublicKeyToServers();
+
+        String signature = signMessage(message);
+        BlockchainRequest<String> msg = new BlockchainRequest<String>(clientId, message, count, signature);
+        for (APLImpl server : serversLinks.values()) {
+            server.sendAndWait(msg);
         }
         count++;
+    }
+
+    private void sendPublicKeyToServers() {
+        PublicKey publicKey = keyPair.getPublic();
+        for (Map.Entry<Integer, APLImpl> entry : serversLinks.entrySet()) {
+            byte[] signedPublicKey = CryptoUtils.encryptWithPublicKey(
+                    CryptoUtils.publicKeyToBytes(publicKey),
+                    serversPublicKeys.get(entry.getKey()));
+
+            entry.getValue().send(new ClientKeyRegister(signedPublicKey));
+        }
+        count++;
+    }
+
+    private String signMessage(String message) {
+        String dataToSign = clientId + message + count;
+        return CryptoUtils.signData(dataToSign, keyPair.getPrivate());
     }
 
     private void setup() {
         try {
             readAllPublicKeys();
-            // Create a link to each server in the configuration
             for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-                APLImpl server = new APLImpl(clientId, serverId, publicKeys.get(serverId));
-                servers.add(server);
+                APLImpl server = new APLImpl(clientId, serverId, serversPublicKeys.get(serverId));
+                serversLinks.put(serverId, server);
                 server.setMessageHandler(messageHandler);
             }
 
@@ -114,6 +129,7 @@ public class Client {
             throw new RuntimeException("No public keys found in " + keysDir.getAbsolutePath());
         }
 
+        // TODO: maybe just read Config.NUM_MEMBERS keys
         for (int i = 0; i < keyFiles.length; i++) {
             String keyPath = keyFiles[i].getPath();
             String keyName = keyFiles[i].getName();
@@ -136,7 +152,7 @@ public class Client {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             PublicKey publicKey = keyFactory.generatePublic(spec);
-            publicKeys.put(keyId, publicKey);
+            serversPublicKeys.put(keyId, publicKey);
         }
     }
 

@@ -2,16 +2,15 @@ package pt.tecnico.ulisboa.protocol;
 
 import java.util.Date;
 
-import pt.tecnico.ulisboa.utils.RequiresEquals;
-
-public class BlockchainResponse<T extends RequiresEquals> extends BlockchainMessage<T> {
+public class BlockchainResponse extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
     
     private boolean success;
-    private Date timestamp; //TODO: is this needed?
+    private Date timestamp;
+    private long seqNum;
 
     public BlockchainResponse(boolean success, Date timestamp) {
-        super(MessageType.CLIENT_RESPONSE);
+        super(MessageType.BLOCKCHAIN_RESP);
         this.success = success;
         this.timestamp = timestamp;
     }
@@ -22,6 +21,10 @@ public class BlockchainResponse<T extends RequiresEquals> extends BlockchainMess
 
     public Date getTimestamp() {
         return timestamp;
+    }
+
+    public long getSeqNum() {
+        return seqNum;
     }
 
 }

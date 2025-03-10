@@ -59,7 +59,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
     public AuthenticatedPerfectLinkImpl(int nodeId, PrivateKey privateKey, Map<Integer, PublicKey> publicKeys)
             throws SocketException, GeneralSecurityException, IOException {
 
-        String address = GeneralUtils.id2addr.get(nodeId);
+        String address = GeneralUtils.serversId2Addr.get(nodeId);
         String destination = address.split(":")[0];
         int port = Integer.parseInt(address.split(":")[1]);
 
@@ -187,7 +187,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
                     // Process received packet
                     byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                     String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    int senderId = GeneralUtils.addr2id.get(senderaddr);
+                    int senderId = GeneralUtils.serversAddr2Id.get(senderaddr);
 
                     // print the sender
                     Logger.LOG("Received message from: " + senderId);
@@ -362,7 +362,7 @@ public class AuthenticatedPerfectLinkImpl implements AuthenticatedPerfectLink {
 
     private void sendUdpPacket(int destId, byte[] data) {
         try {
-            String[] parts = GeneralUtils.id2addr.get(destId).split(":");
+            String[] parts = GeneralUtils.serversId2Addr.get(destId).split(":");
             InetAddress address = InetAddress.getByName(parts[0]); // IP address of the destination
             int port = Integer.parseInt(parts[1]);
 

@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public abstract class BlockchainMessage<T> implements RequiresEquals, Serializable {
+public abstract class BlockchainMessage implements RequiresEquals, Serializable {
 
     private static final long serialVersionUID = 1L;
     private MessageType type;
@@ -14,8 +14,9 @@ public abstract class BlockchainMessage<T> implements RequiresEquals, Serializab
     }
 
     public static enum MessageType {
-        CLIENT_REQUEST,
-        CLIENT_RESPONSE,
+        BLOCKCHAIN_REQ,
+        BLOCKCHAIN_RESP,
+        CLIENT_KEY_REGISTER,
     }
 
     public MessageType getType() {

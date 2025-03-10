@@ -16,7 +16,7 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
     private WriteTuple<T> mostRecentQuorumWritten;
     private Map<T, WriteTuple<T>> writeSet = new HashMap<>();
 
-    private byte[] signature = null;
+    private String signature = null;
 
     public ConsensusState(WriteTuple<T> mostRecentQuorumWritten) {
         this.mostRecentQuorumWritten = mostRecentQuorumWritten;
