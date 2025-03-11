@@ -30,4 +30,18 @@ public class EventCounter<T extends RequiresEquals> {
     public boolean exceeded(int max_counts) {
         return exceeded(null, max_counts);
     }
+
+    public T getExeeded(int max_counts) {
+        for (Map.Entry<T, Integer> entry : counter.entrySet()) {
+            if (entry.getValue() > max_counts) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    public void reset() {
+        counter.clear();
+        alreadyCounted.clear();
+    }
 }
