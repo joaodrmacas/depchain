@@ -44,5 +44,10 @@ public class CollectedStates<T extends RequiresEquals> {
         return true;
     }
 
-
+    public void overwriteWith(CollectedStates<T> other) {
+        this.states.clear();
+        for (Map.Entry<Integer, ConsensusState<T>> entry : other.states.entrySet()) {
+            this.states.put(entry.getKey(), entry.getValue());   
+        }
+    }
 }

@@ -22,6 +22,7 @@ public class EpochConsensus<T extends RequiresEquals> {
     private EventCounter<T> writeCounts = new EventCounter<>();
     private EventCounter<T> acceptCounts = new EventCounter<>();
     private EventCounter<T> abortCounts = new EventCounter<>();
+    private boolean hasBroadcastedNewEpoch = false;
 
     public EpochConsensus(Node<T> member, int epochNumber, ConsensusState<T> state, Boolean readPhaseDone) {
         this.member = member;
@@ -112,9 +113,11 @@ public class EpochConsensus<T extends RequiresEquals> {
 
                     // In The Future: implement synchronization if unsynchronized
                     if (msg.getEpochNumber() > this.epochNumber) {
-                        Logger.ERROR("Received message from future epoch");
+                        Logger.LOG("Received message from future epoch");
+                        break;
                     } else if (msg.getEpochNumber() < this.epochNumber) {
                         Logger.LOG("Received message from past epoch");
+                        continue;
                     }
 
                     switch(msg.getType()) {
@@ -161,7 +164,9 @@ public class EpochConsensus<T extends RequiresEquals> {
             }
         }
 
-        if (abortCounts.exceeded(epochNumber)) {
+        if (abortCounts.exceeded(Config.ALLOWED_FAILURES) && !hasBroadcastedNewEpoch) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
             abort();
         }
 
@@ -202,13 +207,16 @@ public class EpochConsensus<T extends RequiresEquals> {
 
                     // In The Future: implement synchronization if unsynchronized
                     if (msg.getEpochNumber() > this.epochNumber) {
-                        Logger.ERROR("Received message from future epoch");
+                        Logger.LOG("Received message from future epoch");
+                        break;
                     } else if (msg.getEpochNumber() < this.epochNumber) {
                         Logger.LOG("Received message from past epoch");
+                        continue;
                     }
 
                     switch(msg.getType()) {
                         case READ:
+                            if (_i != leaderId) continue;
                             break;
                         case NEWEPOCH:
                             synchronized(abortCounts) {
@@ -234,7 +242,9 @@ public class EpochConsensus<T extends RequiresEquals> {
             Logger.LOG("Thread interrupted: " + e);
         }
         
-        if (abortCounts.exceeded(epochNumber)) {
+        if (abortCounts.exceeded(Config.ALLOWED_FAILURES) && !hasBroadcastedNewEpoch) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
             abort();
         }
     }
@@ -249,23 +259,72 @@ public class EpochConsensus<T extends RequiresEquals> {
 
     // TODO
     public CollectedStates<T> receiveCollectedOrAbort() throws AbortedSignal {
-        CollectedStates<T> collected = null;
+        CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
         int leaderId = getLeader(epochNumber);
 
+        Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId())
                 continue;
 
             // Thread that listens to each link
             // interpreting each message receive and deciding after
-            new Thread(() -> {
-                if (i == leaderId) {
-                    // Receive the collected states and abort the other threads
-                } else {
-                    // Interpret the message and ignore
-                    // or send abort and abort the other threads
+            final int _i = i;
+            threads[i] = new Thread(() -> {
+                boolean done = true;
+                while(true) {
+                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+
+                    if (msg == null) {
+                        Logger.LOG("Timeouted");
+                        break;
+                    }
+
+                    // In The Future: implement synchronization if unsynchronized
+                    if (msg.getEpochNumber() > this.epochNumber) {
+                        Logger.LOG("Received message from future epoch");
+                        break;
+                    } else if (msg.getEpochNumber() < this.epochNumber) {
+                        Logger.LOG("Received message from past epoch");
+                        break;
+                    }
+
+                    switch(msg.getType()) {
+                        case COLLECTED:
+                            if (_i != leaderId) continue;
+
+                            CollectedMessage<T> collectedMsg = (CollectedMessage<T>) msg;
+                            collected.overwriteWith(collectedMsg.getStates());
+
+                            break;
+                        case NEWEPOCH:
+                            synchronized(abortCounts) {
+                                abortCounts.inc(_i);
+                            }
+                            break;
+                        default:
+                            done = false;
+                            break;
+                    }
+                    if (!done) continue;
                 }
-            }).start();
+            });
+
+            threads[i].start();
+        }
+
+        // In The Future: implement to also keep tracking if the other
+        // members send abort messages
+        try {
+            threads[leaderId].join();
+        } catch (InterruptedException e) {
+            Logger.LOG("Thread interrupted: " + e);
+        }
+        
+        if (abortCounts.exceeded(Config.ALLOWED_FAILURES) && !hasBroadcastedNewEpoch) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+            abort();
         }
 
         return collected;
@@ -329,19 +388,88 @@ public class EpochConsensus<T extends RequiresEquals> {
     }
 
     // TODO
-    public T receiveWritesOrAbort() {
+    public T receiveWritesOrAbort() throws AbortedSignal {
         Logger.LOG("Receiving writes");
 
-        // Waits for writes till it reaches a reasonable number
-        // of equal writes
+        Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId()) {
-                // Thread that listens to each link
-                // interpreting each message receive and deciding after
-                new Thread(() -> {
+            if (i != member.getId())
+                continue;
 
-                }).start();
+            // Thread that listens to each link
+            // interpreting each message receive and deciding after
+            final int _i = i;
+            threads[i] = new Thread(() -> {
+                boolean done = true;
+                while(true) {
+                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+
+                    if (msg == null) {
+                        Logger.LOG("Timeouted");
+                        break;
+                    }
+
+                    // In The Future: implement synchronization if unsynchronized
+                    if (msg.getEpochNumber() > this.epochNumber) {
+                        Logger.LOG("Received message from future epoch");
+                        break;
+                    } else if (msg.getEpochNumber() < this.epochNumber) {
+                        Logger.LOG("Received message from past epoch");
+                        continue;
+                    }
+
+                    switch(msg.getType()) {
+                        case WRITE:
+                            WriteMessage<T> writeMsg = (WriteMessage<T>) msg;
+
+                            synchronized(writeCounts) {
+                                writeCounts.inc(writeMsg.getValue(), _i);
+                            }
+
+                            synchronized(this.state) {
+                                this.state.addToWriteSet(
+                                    new WriteTuple<T>(writeMsg.getValue(), writeMsg.getEpochNumber())
+                                );
+                            }
+
+                            break;
+                        case NEWEPOCH:
+                            synchronized(abortCounts) {
+                                abortCounts.inc(_i);
+                            }
+                            break;
+                        default:
+                            done = false;
+                            break;
+                    }
+                    if (!done) continue;
+                }
+            });
+
+            threads[i].start();
+        }
+
+        // Wait for all threads to finish
+        for (Thread thread : threads) {
+            if (thread != null) {
+                try {
+                    thread.join();
+                } catch (InterruptedException e) {
+                    Logger.LOG("Thread interrupted: " + e);
+                }
             }
+            synchronized(writeCounts) {
+
+                // if (writeCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+                //     return 
+                // }
+            }
+        }
+
+        if (abortCounts.exceeded(Config.ALLOWED_FAILURES) && !hasBroadcastedNewEpoch) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+            abort();
         }
 
         return null;
@@ -358,6 +486,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         }
     }
 
+    // TODO
     public T receiveAcceptsAndDecideOrAbort() {
         Logger.LOG("Receiving accepts");
 
@@ -382,6 +511,12 @@ public class EpochConsensus<T extends RequiresEquals> {
 
     public void abort() throws AbortedSignal {
         Logger.LOG("Aborting");
+        
+        throw new AbortedSignal("Aborted");
+    }
+
+    public void broadcastAbort() {
+        Logger.LOG("Broadcasting abort");
 
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
@@ -390,6 +525,6 @@ public class EpochConsensus<T extends RequiresEquals> {
             }
         }
 
-        throw new AbortedSignal("Aborted");
+        hasBroadcastedNewEpoch = true;
     }
 }

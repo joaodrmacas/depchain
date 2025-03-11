@@ -36,9 +36,9 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
 
     public void addToWriteSet(WriteTuple<T> writeTuple) {
         T key = writeTuple.getValue();
+        WriteTuple<T> existing = writeSet.get(key);
 
-        if (writeSet.containsKey(key)) {
-            WriteTuple<T> existing = writeSet.get(key);
+        if (existing != null) {
             if (existing.getTimestamp() < writeTuple.getTimestamp()) {
                 writeSet.put(key, writeTuple);
             }

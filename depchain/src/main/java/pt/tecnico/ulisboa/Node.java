@@ -13,7 +13,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+import pt.tecnico.ulisboa.client.BlockchainMessageHandler;
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
@@ -28,9 +30,11 @@ public class Node<T extends RequiresEquals> {
     private PrivateKey privateKey;
     private HashMap<Integer, PublicKey> publicKeys;
     private HashMap<Integer, APLImpl> apls;
+    private HashMap<Integer, APLImpl> clientApls;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
-    private Queue<T> clientRequests;
-    private Queue<T> decidedValues;
+    private HashMap<Integer, PublicKey> clientPublicKeys;
+    private ConcurrentLinkedQueue<T> transactions;
+    private ObservedResource<Queue<T>> decidedValues;
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
 
     public static void main(String[] args) {
@@ -74,12 +78,24 @@ public class Node<T extends RequiresEquals> {
         return apls;
     }
 
+    public HashMap<Integer, APLImpl> getClientLinks() {
+        return clientApls;
+    }
+
     public APLImpl getLink(int destId) {
         if (destId == nodeId) {
             Logger.ERROR("Cannot create a link to self");
         }
 
         return apls.get(destId);
+    }
+
+    public APLImpl getClientLink(int destId) {
+        if (destId == nodeId) {
+            Logger.ERROR("Cannot create a link to self");
+        }
+
+        return clientApls.get(destId);
     }
 
     public Map<Integer, PublicKey> getPublicKeys() {
@@ -91,6 +107,27 @@ public class Node<T extends RequiresEquals> {
     }
 
     public void mainLoop() {
+
+        Thread valueHandlerThread = new Thread(() -> {
+            try {
+                while (true) {
+                    // consensus thread already changes the decided queue
+                    decidedValues.waitForChange(Integer.MAX_VALUE);
+                    T value = decidedValues.getResource().poll();
+                    //TODO: verificar se o decided value é valid?
+                    if (value != null) {
+                        Logger.LOG("Decided value: " + value);
+                    }
+                    handleDecidedValue(value);
+
+                    //Mandar de volta para os clientes.
+                }
+            } catch (Exception e) {
+                Logger.ERROR("Value handler thread failed with exception", e);
+                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
+            }
+        });
+
         BFTConsensus<T> consensusLoop = new BFTConsensus<>(this);
         Thread consensusThread = new Thread(() -> {
             try {
@@ -101,21 +138,7 @@ public class Node<T extends RequiresEquals> {
             }
         });
 
-        Thread valueHandlerThread = new Thread(() -> {
-            try {
-                while (true) {
-                    // consensus thread already changes the decided queue
-                    T value = decidedValues.poll();
-                    if (value != null) {
-                        Logger.LOG("Decided value: " + value);
-                    }
-                    handleDecidedValue(value);
-                }
-            } catch (Exception e) {
-                Logger.ERROR("Value handler thread failed with exception", e);
-                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
-            }
-        });
+
 
         consensusThread.setName("BFT-Consensus-Thread");
         valueHandlerThread.setName("Value-Handler-Thread");
@@ -128,6 +151,10 @@ public class Node<T extends RequiresEquals> {
     private void handleDecidedValue(T value) {
         // just log it for now
         Logger.LOG("Decided value: " + value);
+
+        //Add to blockchain
+
+        //Send answer to clients
     }
 
     public void setup() {
@@ -157,6 +184,15 @@ public class Node<T extends RequiresEquals> {
                 apl.setMessageHandler(new ConsensusMessageHandler<T>(consensusMessages));
                 apls.put(destId, apl);
                 Logger.LOG("APL created for destination node " + destId);
+            }
+
+            //TODO: assuming Config.NUM_CLIENTS will exist. Change later for a register link?
+            // Need a clientid to port translation - Massas
+            for (int i=0; i<Config.NUM_CLIENTS; i++) {
+                APLImpl apl = new APLImpl(nodeId, i, privateKey, publicKeys.get(i));
+                apl.setMessageHandler(new BlockchainMessageHandler);
+                clientApls.put(i, apl);
+                Logger.LOG("APL created for client node " + i);
             }
 
             Logger.LOG("Node setup complete");
@@ -251,11 +287,12 @@ public class Node<T extends RequiresEquals> {
     }
 
     public T fetchReceivedTx() {
-        return clientRequests.poll();
+        return transactions.poll();
     }
 
     public void pushDecidedTx(T value) {
-        clientRequests.add(value);
+        decidedValues.getResource().add(value);
+        decidedValues.notify();
     }
 
     public ConsensusMessage<T> fetchConsensusMessageOrWait(int senderId) {
@@ -267,12 +304,12 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted =
-                    !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
+                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
 
-                if (hasTimeouted) return null;
+                if (hasTimeouted)
+                    return null;
             } catch (Exception e) {
-                Logger.ERROR("Exception: " + e);
+                Logger.ERROR("Exception: ", e);
             }
         }
     }

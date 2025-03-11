@@ -55,6 +55,8 @@ public class APLImpl implements APL {
     private final Lock messageReceivedLock = new ReentrantLock();
     private final Condition messageReceived = messageReceivedLock.newCondition();
 
+
+    //TODO: MAKE .START FUNCTION
     public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey)
             throws SocketException, GeneralSecurityException, IOException {
 
@@ -84,6 +86,29 @@ public class APLImpl implements APL {
         this(nodeId, destId, null, destPublicKey);
     }
 
+    //for unit tests
+    public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey, MessageHandler messageHandler)
+            throws SocketException, GeneralSecurityException, IOException {
+        this.messageHandler = messageHandler;
+        String address = GeneralUtils.serversId2Addr.get(nodeId);
+        String destination = address.split(":")[0];
+        int port = Integer.parseInt(address.split(":")[1]);
+
+        Logger.LOG("IP: " + destination + " Port: " + port);
+
+        this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
+        this.nodeId = nodeId;
+        this.destId = destId;
+        this.privateKey = privateKey;
+        this.destPublicKey = destPublicKey;
+
+        startListening();
+        startRetransmissionScheduler();
+
+        Logger.LOG("One-to-One APL started on port: " + port + " with node ID: " + nodeId
+                + " connected to destination: " + destId);
+    }
+
     public void receivedReply() {
         messageReceivedLock.lock();
         try {
@@ -103,6 +128,20 @@ public class APLImpl implements APL {
             System.err.println("Interrupted while waiting for reply: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public void sendKeyMessage(KeyMessage keyMessage) {
+        long seqNum = nextSeqNum++;
+        pendingMessages.put(seqNum, keyMessage);
+        Logger.LOG("Sending key message: " + keyMessage);
+        sendUdpPacket(keyMessage.serialize());
+    }
+
+    public void sendDataMessage(DataMessage dataMsg){
+        long seqNum = nextSeqNum++;
+        pendingMessages.put(seqNum, dataMsg);
+        Logger.LOG("Sending message: " + dataMsg);
+        sendUdpPacket(dataMsg.serialize());
     }
 
     public void send(Serializable obj) {

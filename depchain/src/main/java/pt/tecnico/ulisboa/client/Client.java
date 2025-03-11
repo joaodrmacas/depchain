@@ -11,6 +11,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.APLImpl;
@@ -25,14 +28,15 @@ public class Client {
     private Map<Integer, APLImpl> serversLinks = new HashMap<>();
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
     private int clientId;
-    private long count = 1;
+    private long count = 0;
     private String keysDirectory;
+    
+    private CountDownLatch responseLatch;
 
-    // for each INteger (response identifier) we have a map of BlockchainResponse
-    // and Integer (times that response was received)
-    private ConcurrentHashMap<Long, HashMap<BlockchainMessage, Integer>> serverResponses = new ConcurrentHashMap<>();
-
-    private BlockchainMessageHandler messageHandler = new BlockchainMessageHandler(serverResponses);
+    private ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses = new ConcurrentHashMap<>();
+    private AtomicReference<BlockchainMessage> acceptedResponse = new AtomicReference<>();
+    
+    private BlockchainMessageHandler messageHandler;
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -50,6 +54,9 @@ public class Client {
     public Client(int clientId, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
+        responseLatch = new CountDownLatch(1);
+        this.messageHandler = new BlockchainMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
+
         setup();
     }
 
@@ -67,19 +74,35 @@ public class Client {
             try {
                 Logger.LOG("Sending message: " + message);
                 sendAppendRequest(message);
-                BlockchainMessage response = messageHandler.getResponse(count - 1);
-                Logger.LOG("Received response: " + response);
+                
+                // Wait for response
+                Logger.LOG("Waiting for server responses...");
+                if (!waitForResponse()) {
+                    Logger.LOG("Timed out waiting for enough responses");
+                } else {
+                    BlockchainMessage response = acceptedResponse.get();
+                    if (response != null) {
+                        Logger.LOG("Accepted response: " + response);
+                    }
+                }
+                
             } catch (Exception e) {
                 Logger.LOG("Failed to send message: " + e.getMessage());
             }
-
         }
     }
 
     private void sendAppendRequest(String message) {
-        if (count == 0) // First message. Send public key to servers
+        if (count == 0) { // First message. Send public key to servers
             sendPublicKeyToServers();
+        }
 
+        responseLatch = new CountDownLatch(1);
+        currentRequestResponses.clear();
+        acceptedResponse.set(null);
+        
+        messageHandler.updateForNewRequest(count, responseLatch);
+        
         String signature = signMessage(message);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
         for (APLImpl server : serversLinks.values()) {
@@ -87,13 +110,44 @@ public class Client {
         }
         count++;
     }
+    
+    public boolean waitForResponse() {
+        try {
+            return responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Logger.LOG("Interrupted while waiting for response");
+            return false;
+        }
+    }
 
     private void sendPublicKeyToServers() {
+        // Create new latch for key registration
+        responseLatch = new CountDownLatch(1);
+        currentRequestResponses.clear();
+        acceptedResponse.set(null);
+        
+        // Update message handler with the current sequence number and new latch
+        messageHandler.updateForNewRequest(count, responseLatch);
+        
         PublicKey publicKey = keyPair.getPublic();
         for (APLImpl server : serversLinks.values()) {
-            byte[] signedPublicKey = CryptoUtils.publicKeyToBytes(publicKey);
-            server.send(new KeyRegisterReq(signedPublicKey, count));
+            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+            server.send(new KeyRegisterReq(publicKeyBytes, count));
         }
+        
+        // Wait for response to key registration
+        try {
+            if (!responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                Logger.LOG("Timed out waiting for key registration responses");
+            } else {
+                Logger.LOG("Key registration successful");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Logger.LOG("Interrupted while waiting for key registration response");
+        }
+        
         count++;
     }
 
@@ -133,7 +187,6 @@ public class Client {
             throw new RuntimeException("No public keys found in " + keysDir.getAbsolutePath());
         }
 
-        // TODO: maybe just read Config.NUM_MEMBERS keys
         for (int i = 0; i < keyFiles.length; i++) {
             String keyPath = keyFiles[i].getPath();
             String keyName = keyFiles[i].getName();
@@ -159,7 +212,7 @@ public class Client {
             serversPublicKeys.put(keyId, publicKey);
         }
     }
-    
+
     private String readPemFile(File file) throws Exception {
         StringBuilder content = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

@@ -1,10 +1,12 @@
 package pt.tecnico.ulisboa.utils;
 
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 import javax.crypto.Cipher;
@@ -150,6 +152,17 @@ public class CryptoUtils {
 
     public static String bytesToBase64(byte[] bytes){
         return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public static PublicKey bytesToPublicKey(byte[] keyBytes) {
+        try {
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            return keyFactory.generatePublic(spec);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
 }
