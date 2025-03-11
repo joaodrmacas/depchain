@@ -8,22 +8,26 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
-import pt.tecnico.ulisboa.client.BlockchainMessageHandler;
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.network.APLImpl;
+import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
+
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
@@ -32,10 +36,11 @@ public class Node<T extends RequiresEquals> {
     private HashMap<Integer, APLImpl> apls;
     private HashMap<Integer, APLImpl> clientApls;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
-    private HashMap<Integer, PublicKey> clientPublicKeys;
+    private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
     private ConcurrentLinkedQueue<T> transactions;
     private ObservedResource<Queue<T>> decidedValues;
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
+    private ArrayList<T> blockchain;
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -114,13 +119,7 @@ public class Node<T extends RequiresEquals> {
                     // consensus thread already changes the decided queue
                     decidedValues.waitForChange(Integer.MAX_VALUE);
                     T value = decidedValues.getResource().poll();
-                    //TODO: verificar se o decided value é valid?
-                    if (value != null) {
-                        Logger.LOG("Decided value: " + value);
-                    }
                     handleDecidedValue(value);
-
-                    //Mandar de volta para os clientes.
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -149,12 +148,19 @@ public class Node<T extends RequiresEquals> {
     }
 
     private void handleDecidedValue(T value) {
-        // just log it for now
-        Logger.LOG("Decided value: " + value);
+        boolean success = false;
+        //TODO: verificar se foi um abort. Se sim, temos de mandar false no success ao cliente.
+        if (value != null) {
+            success = true;
+            //Add to blockchain
+            blockchain.add(value);
+            Logger.LOG("Decided value: " + value);
+        }
 
-        //Add to blockchain
+        LocalDateTime timestamp = LocalDateTime.now();
 
-        //Send answer to clients
+        //Send answer to clientstrue
+        clientApls.get(value.getSenderId()).send(new AppendResp(success,timestamp));
     }
 
     public void setup() {
@@ -187,10 +193,11 @@ public class Node<T extends RequiresEquals> {
             }
 
             //TODO: assuming Config.NUM_CLIENTS will exist. Change later for a register link?
+            //TODO: precisamos de conseguir criar links para clientes - massas
             // Need a clientid to port translation - Massas
             for (int i=0; i<Config.NUM_CLIENTS; i++) {
                 APLImpl apl = new APLImpl(nodeId, i, privateKey, publicKeys.get(i));
-                apl.setMessageHandler(new BlockchainMessageHandler);
+                apl.setMessageHandler(new NodeMessageHandler<T>(transactions, clientPublicKeys));
                 clientApls.put(i, apl);
                 Logger.LOG("APL created for client node " + i);
             }

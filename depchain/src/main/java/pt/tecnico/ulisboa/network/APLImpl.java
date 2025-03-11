@@ -56,10 +56,11 @@ public class APLImpl implements APL {
     private final Condition messageReceived = messageReceivedLock.newCondition();
 
 
-    //TODO: MAKE .START FUNCTION
+    //TODO: MAKE .START FUNCTION ou construtor com handler - massas
     public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey)
             throws SocketException, GeneralSecurityException, IOException {
 
+        //TODO: temos que alterar isto para aceitar tmb ips de clientes - massas
         String address = GeneralUtils.serversId2Addr.get(nodeId);
         String destination = address.split(":")[0];
         int port = Integer.parseInt(address.split(":")[1]);

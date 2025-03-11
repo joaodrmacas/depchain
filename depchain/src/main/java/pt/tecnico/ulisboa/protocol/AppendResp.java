@@ -1,14 +1,20 @@
 package pt.tecnico.ulisboa.protocol;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 public class AppendResp extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
     
     private boolean success;
-    private Date timestamp;
+    private LocalDateTime timestamp;
 
-    public AppendResp(boolean success, Date timestamp, long seqNum) {
+    public AppendResp(boolean success, LocalDateTime timestamp) {
+        super(BlockchainMessageType.APPEND_RESP, 1); //TDIsgusting
+        this.success = success;
+        this.timestamp = timestamp;
+    }
+
+    public AppendResp(boolean success, LocalDateTime timestamp, long seqNum) {
         super(BlockchainMessageType.APPEND_RESP, seqNum);
         this.success = success;
         this.timestamp = timestamp;
@@ -18,7 +24,7 @@ public class AppendResp extends BlockchainMessage {
         return success;
     }
 
-    public Date getTimestamp() {
+    public LocalDateTime getTimestamp() {
         return timestamp;
     }
 

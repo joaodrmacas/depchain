@@ -11,13 +11,14 @@ import pt.tecnico.ulisboa.protocol.BlockchainMessage.BlockchainMessageType;
 import pt.tecnico.ulisboa.protocol.KeyRegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.RequiresEquals;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
-public class NodeMessageHandler implements MessageHandler {
-    private ConcurrentLinkedQueue<BlockchainMessage> txQueue;
+public class NodeMessageHandler<T extends RequiresEquals> implements MessageHandler {
+    private ConcurrentLinkedQueue<T> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKeys;
     
-    public NodeMessageHandler(ConcurrentLinkedQueue<BlockchainMessage> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKeys) {
+    public NodeMessageHandler(ConcurrentLinkedQueue<T> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKeys) {
         this.txQueue = txQueue;
         this.clientKeys = clientKeys;
     }
@@ -29,7 +30,7 @@ public class NodeMessageHandler implements MessageHandler {
             BlockchainMessageType type = blockchainMessage.getType();
             switch (type) {
                 case APPEND_REQ:
-                    //TODO: dá para saber que tipo vem? - massas
+                    //TODO: usar T é disgusting para depois termos este lixo aqui mas ok. Já disse que adoro Generics? -massas 
                     AppendReq<?> appReq = (AppendReq<?>) blockchainMessage;
                     handleAppendRequest(appReq);
                     break;
@@ -47,8 +48,19 @@ public class NodeMessageHandler implements MessageHandler {
         
     }
 
+    @SuppressWarnings("unchecked")
     public void handleAppendRequest(AppendReq<?> message) {
-        txQueue.add(message);
+        String dataToValidate = message.getId() + message.getMessage().toString();
+        PublicKey clientKU = clientKeys.get(message.getId());
+        if (clientKU == null) {
+            Logger.LOG("Client key not found for id: " + message.getId());
+            return;
+        }
+        if (!CryptoUtils.verifySignature(dataToValidate, message.getSignature(), clientKU)) {
+            Logger.LOG("Invalid signature for message: " + message);
+            return;
+        }
+        txQueue.add((T) message);
     }
 
     public void handleKeyRegisterRequest(int senderId, KeyRegisterReq message) {

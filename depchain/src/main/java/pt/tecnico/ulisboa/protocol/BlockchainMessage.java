@@ -28,5 +28,9 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
     public long getSeqNum() {
         return seqNum;
     }
+
+    public int getSenderId(){
+        return -1; //TODO: isto está insanely disgusting mas tenho cpd para fazer - fix this 
+    }
     
 }

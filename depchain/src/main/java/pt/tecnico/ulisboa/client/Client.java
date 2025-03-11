@@ -36,7 +36,7 @@ public class Client {
     private ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses = new ConcurrentHashMap<>();
     private AtomicReference<BlockchainMessage> acceptedResponse = new AtomicReference<>();
     
-    private BlockchainMessageHandler messageHandler;
+    private ClientMessageHandler messageHandler;
 
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -55,7 +55,7 @@ public class Client {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
         responseLatch = new CountDownLatch(1);
-        this.messageHandler = new BlockchainMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
+        this.messageHandler = new ClientMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
 
         setup();
     }

@@ -37,4 +37,5 @@ public class AppendReq<T> extends BlockchainMessage {
         }
         return false;
     }
+
 }
