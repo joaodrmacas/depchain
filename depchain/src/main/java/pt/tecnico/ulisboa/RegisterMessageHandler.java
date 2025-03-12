@@ -19,13 +19,14 @@ public class RegisterMessageHandler implements MessageHandler {
         this.clientKus = clientKus;
     }
 
-    public void onMessage(int senderId, byte[] message) {
+    public void onMessage(byte[] message) {
         try {
             BlockchainMessage blockchainMessage = (BlockchainMessage) SerializationUtils.deserializeObject(message);
             BlockchainMessageType type = blockchainMessage.getType();
             switch (type) {
                 case REGISTER_REQ:
                     RegisterReq keyReq = (RegisterReq) blockchainMessage;
+                    int senderId = keyReq.getSenderId();
                     handleRegisterRequest(senderId, keyReq);
                     break;
                 default:

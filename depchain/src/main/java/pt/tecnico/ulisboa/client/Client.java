@@ -133,7 +133,7 @@ public class Client {
         PublicKey publicKey = keyPair.getPublic();
         for (APLImpl server : serversLinks.values()) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            server.send(new RegisterReq(publicKeyBytes, count));
+            server.send(new RegisterReq(clientId, publicKeyBytes, count));
         }
         
         // Wait for response to key registration

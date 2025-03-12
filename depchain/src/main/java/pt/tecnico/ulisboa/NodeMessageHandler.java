@@ -22,7 +22,7 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
         this.clientKeys = clientKeys;
     }
 
-    public void onMessage(int senderId, byte[] message) {
+    public void onMessage(byte[] message) {
 
         try {
             BlockchainMessage blockchainMessage = (BlockchainMessage) SerializationUtils.deserializeObject(message);

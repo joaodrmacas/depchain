@@ -33,7 +33,7 @@ public class ClientMessageHandler implements MessageHandler {
     }
 
     @Override
-    public void onMessage(int senderId, byte[] message) {
+    public void onMessage(byte[] message) {
         try {
             BlockchainMessage response = (BlockchainMessage) SerializationUtils.deserializeObject(message);
             long seqnum = response.getSeqNum();
@@ -44,8 +44,6 @@ public class ClientMessageHandler implements MessageHandler {
             }
 
             currentRequestResponses.put(response, currentRequestResponses.getOrDefault(response, 0) + 1);
-
-            Logger.LOG("Received response with sequence number " + seqnum + " from " + senderId);
 
             // check if we have enough responses
             if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {

@@ -20,14 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
-import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
-import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.network.AplManager;
 
 
@@ -35,9 +34,10 @@ public class Node<T extends RequiresEquals> {
     private int nodeId;
     private PrivateKey privateKey;
     private ConcurrentHashMap<Integer, PublicKey> publicKeys;
-    private HashMap<Integer, APLImpl> apls;
-    private HashMap<Integer, APLImpl> clientApls;
-    private AplManager registerApl;
+    //TODO: ao termos dois sockets diferentes, os clientes vao ter que comunicar com 2 cenas diferentes, nao sei se é assim tao fixe. - massas
+    //E este registerManager nao faz nada porque no fundo o messageHandler e a APL faz tudo por ele
+    private AplManager registerManager;
+    private AplManager aplManager; //disgusting name
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
     private ConcurrentLinkedQueue<T> transactions;
@@ -61,7 +61,7 @@ public class Node<T extends RequiresEquals> {
                 node.setKeysDirectory(args[3]);
             }
 
-            node.setup();
+            node.setup("localhost", portRegister, port);
             node.mainLoop();
 
         } catch (Exception e) {
@@ -75,36 +75,12 @@ public class Node<T extends RequiresEquals> {
         this.publicKeys = new ConcurrentHashMap<>();
     }
 
-    public int getId() {
-        return nodeId;
-    }
-
-    public PrivateKey getPrivateKey() {
-        return privateKey;
-    }
-
-    public HashMap<Integer, APLImpl> getLinks() {
-        return apls;
-    }
-
-    public HashMap<Integer, APLImpl> getClientLinks() {
-        return clientApls;
-    }
-
     public APLImpl getLink(int destId) {
         if (destId == nodeId) {
             Logger.ERROR("Cannot create a link to self");
         }
 
-        return apls.get(destId);
-    }
-
-    public APLImpl getClientLink(int destId) {
-        if (destId == nodeId) {
-            Logger.ERROR("Cannot create a link to self");
-        }
-
-        return clientApls.get(destId);
+        return aplManager.getAPL(destId);
     }
 
     public Map<Integer, PublicKey> getPublicKeys() {
@@ -161,8 +137,8 @@ public class Node<T extends RequiresEquals> {
 
         LocalDateTime timestamp = LocalDateTime.now();
 
-        //Send answer to clientstrue
-        clientApls.get(value.getSenderId()).send(new AppendResp(success,timestamp));
+        //Send answer to clients
+        aplManager.send(value.getSenderId(), new AppendResp(success,timestamp));
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -182,7 +158,8 @@ public class Node<T extends RequiresEquals> {
                 this.consensusMessages.put(destId, new ObservedResource<>(new LinkedList<>()));
             }
 
-            AplManager aplManager = new AplManager(address, port, privateKey);
+            NodeMessageHandler<T> handler = new NodeMessageHandler<>(transactions, clientPublicKeys);
+            aplManager = new AplManager(address, port, handler, privateKey);
 
             // Initialize APLs, one for each destination node
             for (int destId : publicKeys.keySet()) {
@@ -190,33 +167,19 @@ public class Node<T extends RequiresEquals> {
                     continue;
                 }
 
-                aplManager.createAPL(destId, publicKeys.get(destId));
-                apl.setMessageHandler(new ConsensusMessageHandler<T>(consensusMessages));
-                apls.put(destId, apl);
+                String destAddr = GeneralUtils.serversId2Addr.get(destId);
+                //divide the address into address and port
+                String[] parts = destAddr.split(":");
+
+                aplManager.createAPL(destId, parts[0], Integer.parseInt(parts[1]), publicKeys.get(destId));
                 Logger.LOG("APL created for destination node " + destId);
             }
 
             //Initialize register APL
-            RegisterMessageHandler handler = new RegisterMessageHandler(publicKeys);
-            registerApl = new AplManager()
-
-            //TODO: assuming Config.NUM_CLIENTS will exist. Change later for a register link?
-            //TODO: precisamos de conseguir criar links para clientes - massas
-            // Need a clientid to port translation - Massas
-            for (int i=0; i<Config.NUM_CLIENTS; i++) {
-                APLImpl apl = new APLImpl(nodeId, i, privateKey, publicKeys.get(i));
-                apl.setMessageHandler(new NodeMessageHandler<T>(transactions, clientPublicKeys));
-                clientApls.put(i, apl);
-                Logger.LOG("APL created for client node " + i);
-            }
+            RegisterMessageHandler registerHandler = new RegisterMessageHandler(publicKeys);
+            registerManager = new AplManager(address, portRegister, registerHandler, privateKey);
 
             Logger.LOG("Node setup complete");
-
-            // if (nodeId == 0) {
-            // WriteTuple<String> writeTuple = new WriteTuple<>("Hello", 0);
-            // WriteMessage<String> writeMessage = new WriteMessage<>(writeTuple);
-            // apls.get(1).send(1, writeMessage);
-            // }
 
         } catch (Exception e) {
             System.err.println("Setup failed: " + e.getMessage());

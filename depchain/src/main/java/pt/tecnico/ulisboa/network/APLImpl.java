@@ -5,44 +5,33 @@ import java.io.Serializable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.security.GeneralSecurityException;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.crypto.SecretKey;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.network.message.AckMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
-import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class APLImpl implements APL {
-    private MessageHandler messageHandler;
     private final DatagramSocket socket;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     private final ConcurrentHashMap<Long, Message> pendingMessages = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, Boolean> receivedMessages = new ConcurrentHashMap<>();
 
     private long nextSeqNum = 1L;
-    private long lastReceivedSeqNum = 1L;
 
-    private final PrivateKey privateKey;
     private final PublicKey destPublicKey;
     private SecretKey secretKey;
 
@@ -50,19 +39,16 @@ public class APLImpl implements APL {
     Integer destPort;
 
     // Constructor that accepts an existing socket
-    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey, DatagramSocket socket, MessageHandler messageHandler)
+    public APLImpl(String destAddress, Integer destPort, PublicKey destPublicKey, DatagramSocket socket)
             throws GeneralSecurityException, IOException {
         this.socket = socket;
         this.destAddress = destAddress;
         this.destPort = destPort;
-        this.privateKey = privateKey;
         this.destPublicKey = destPublicKey;
-        setMessageHandler(messageHandler);
 
         startRetransmissionScheduler();
 
-        Logger.LOG("One-to-One APL created with node ID: " + " connected to destination: " + destId +
-                " using existing socket on port: " + socket.getLocalPort());
+        Logger.LOG("APL initialized");
     }
 
     // // For unit tests
@@ -73,12 +59,12 @@ public class APLImpl implements APL {
     //     this.messageHandler = messageHandler;
     // }
 
-    // For unit tests with existing socket
-    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey,
-            MessageHandler messageHandler, DatagramSocket socket)
-            throws GeneralSecurityException, IOException {
-        this(destAddress, destPort, privateKey, destPublicKey, socket, messageHandler);
-    }
+    // // For unit tests with existing socket
+    // public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey,
+    //         MessageHandler messageHandler, DatagramSocket socket)
+    //         throws GeneralSecurityException, IOException {
+    //     this(destAddress, destPort, privateKey, destPublicKey, socket, messageHandler);
+    // }
 
     public void sendKeyMessage(KeyMessage keyMessage) {
         long seqNum = nextSeqNum++;
@@ -125,164 +111,7 @@ public class APLImpl implements APL {
         }
     }
 
-    @Override
-    public void setMessageHandler(MessageHandler handler) {
-        this.messageHandler = handler;
-    }
-
-    public boolean handlePacket(DatagramPacket packet) {
-        try {
-            byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
-            String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-            int senderId = GeneralUtils.serversAddr2Id.get(senderaddr);
-
-            // Only process messages from our designated destination
-            dAddr = destAddress + ":" + destPort;
-            if (senderaddr == dAddr ) { // If this fails. there is probably a problem in the manager
-                Logger.LOG("Received message from destination: " + destId);
-                processReceivedPacket(data);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    private void processReceivedPacket(byte[] data) {
-        Logger.LOG("Processing message from destination");
-        Message message = Message.deserialize(data);
-        if (message == null)
-            return;
-
-        if (message.getSeqNum() != lastReceivedSeqNum) {
-            Logger.LOG("Received out-of-order message");
-            return;
-        }
-
-        lastReceivedSeqNum++;
-
-        switch (message.getType()) {
-            case Message.DATA_MESSAGE_TYPE:
-                DataMessage dataMessage = (DataMessage) message;
-                handleData(dataMessage);
-                break;
-            case Message.ACK_MESSAGE_TYPE:
-                AckMessage ackMessage = (AckMessage) message;
-                handleACK(ackMessage);
-                break;
-            case Message.KEY_MESSAGE_TYPE:
-                KeyMessage keyMessage = (KeyMessage) message;
-                handleKey(keyMessage);
-                break;
-            default:
-                System.err.println("Unknown message type: " + message.getType());
-        }
-    }
-
-    private void handleKey(KeyMessage keyMessage) {
-        Logger.LOG("Received key message");
-        SecretKey secretKey = null;
-        try {
-            secretKey = CryptoUtils.decryptSymmetricKey(keyMessage.getContent(), privateKey);
-        } catch (Exception e) {
-            System.err.println("Failed to decrypt symmetric key: " + e.getMessage());
-            return;
-        }
-
-        this.secretKey = secretKey;
-
-        Logger.LOG("Received key: " + secretKey);
-
-        // Send authenticated acknowledgment
-        try {
-            sendAuthenticatedAcknowledgment(keyMessage.getSeqNum());
-        } catch (Exception e) {
-            System.err.println("Failed to send acknowledgment: " + e.getMessage());
-        }
-
-        // Check for duplicates
-        if (isDuplicate(keyMessage.getSeqNum())) {
-            return;
-        }
-    }
-
-    private void handleACK(AckMessage ackMessage) {
-        byte[] content = ackMessage.getContent();
-        long seqNum = ackMessage.getSeqNum();
-        byte[] hmac = ackMessage.getMac();
-
-        if (!verifyHMAC(content, seqNum, hmac)) {
-            System.err.println("Authentication failed for ACK");
-            return;
-        }
-
-        // Remove the message from the pending list
-        if (!pendingMessages.containsKey(seqNum)) {
-            Logger.LOG("Received ACK for unsent message: " + seqNum);
-        }
-
-        pendingMessages.remove(seqNum);
-
-    }
-
-    private void handleData(DataMessage dataMessage) {
-        byte[] content = dataMessage.getContent();
-        long seqNum = dataMessage.getSeqNum();
-        byte[] hmac = dataMessage.getMac();
-
-        if (!verifyHMAC(content, seqNum, hmac)) {
-            System.err.println("Authentication failed for message");
-            return;
-        }
-
-        // Send authenticated acknowledgment
-        try {
-            sendAuthenticatedAcknowledgment(seqNum);
-        } catch (Exception e) {
-            System.err.println("Failed to send acknowledgment: " + e.getMessage());
-        }
-
-        // Check for duplicates
-        if (isDuplicate(seqNum)) {
-            return;
-        }
-
-        try {
-            Object deserializedObject = SerializationUtils.deserializeObject(content);
-
-            // If the object is a ConsensusMessage
-            // TODO this is trash no? -> Duarte
-            if (deserializedObject instanceof ConsensusMessage) {
-                Logger.LOG("Received ConsensusMessage of type: " +
-                        ((ConsensusMessage<?>) deserializedObject).getType());
-            }
-
-            // Deliver to application
-            if (messageHandler != null) {
-                messageHandler.onMessage(destId, content);
-            } else {
-                Logger.ERROR("No message handler set. Failed to deliver message.");
-            }
-        } catch (Exception e) {
-            Logger.ERROR("Failed to deserialize message content: ", e);
-            e.printStackTrace();
-
-            // Still deliver the raw bytes if deserialization fails
-            if (messageHandler != null) {
-                messageHandler.onMessage(destId, content);
-            } else {
-                Logger.ERROR("No message handler set. Failed to deliver message.");
-            }
-        }
-    }
-
-    private boolean isDuplicate(long seqNum) {
-        return receivedMessages.putIfAbsent(seqNum, Boolean.TRUE) != null;
-    }
-
-    private void sendAuthenticatedAcknowledgment(long seqNum) throws Exception {
+    protected void sendAuthenticatedAcknowledgment(long seqNum) throws Exception {
         try {
             SecretKey secretKey = getSecretKey();
 
@@ -299,9 +128,8 @@ public class APLImpl implements APL {
 
     private void sendUdpPacket(byte[] data) {
         try {
-            String[] parts = GeneralUtils.serversId2Addr.get(destId).split(":");
-            InetAddress address = InetAddress.getByName(parts[0]);
-            int port = Integer.parseInt(parts[1]);
+            InetAddress address = InetAddress.getByName(destAddress);
+            int port = destPort;
 
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
@@ -309,6 +137,7 @@ public class APLImpl implements APL {
             Logger.ERROR("Failed to send UDP packet", e);
         }
     }
+
 
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
@@ -331,24 +160,9 @@ public class APLImpl implements APL {
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
-    private boolean verifyHMAC(byte[] content, long seqNum, byte[] hmac) {
-        try {
-            SecretKey secretKey = getSecretKey();
-
-            String data = Integer.toString(destId) + Integer.toString(nodeId) +
-                    Arrays.toString(content) + Long.toString(seqNum);
-
-            return CryptoUtils.verifyHMAC(data, secretKey, hmac);
-        } catch (Exception e) {
-            System.err.println("Failed to verify HMAC: " + e.getMessage());
-            return false;
-        }
-    }
-
     private byte[] generateHMAC(byte[] content, long seqNum, SecretKey secretKey) {
         try {
-            String data = Integer.toString(nodeId) + Integer.toString(destId) +
-                    Arrays.toString(content) + Long.toString(seqNum);
+            String data = Arrays.toString(content) + Long.toString(seqNum);
             return CryptoUtils.generateHMAC(data, secretKey);
         } catch (Exception e) {
             System.err.println("Failed to generate HMAC: " + e.getMessage());
@@ -367,8 +181,16 @@ public class APLImpl implements APL {
         return secretKey;
     }
 
-    private SecretKey getSecretKey() {
+    public SecretKey getSecretKey() {
         return secretKey;
+    }
+
+    public void setSecretKey(SecretKey secretKey) {
+        this.secretKey = secretKey;
+    }
+
+    public ConcurrentHashMap<Long, Message> getPendingMessages() {
+        return pendingMessages;
     }
 
     private SecretKey generateAndShareSecretKey() {
