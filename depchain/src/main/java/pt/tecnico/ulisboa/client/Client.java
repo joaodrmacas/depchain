@@ -19,7 +19,7 @@ import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
-import pt.tecnico.ulisboa.protocol.KeyRegisterReq;
+import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 
@@ -133,7 +133,7 @@ public class Client {
         PublicKey publicKey = keyPair.getPublic();
         for (APLImpl server : serversLinks.values()) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            server.send(new KeyRegisterReq(publicKeyBytes, count));
+            server.send(new RegisterReq(publicKeyBytes, count));
         }
         
         // Wait for response to key registration

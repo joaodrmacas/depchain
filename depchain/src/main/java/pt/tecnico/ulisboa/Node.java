@@ -27,14 +27,17 @@ import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.protocol.RegisterReq;
+import pt.tecnico.ulisboa.network.AplManager;
 
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
     private PrivateKey privateKey;
-    private HashMap<Integer, PublicKey> publicKeys;
+    private ConcurrentHashMap<Integer, PublicKey> publicKeys;
     private HashMap<Integer, APLImpl> apls;
     private HashMap<Integer, APLImpl> clientApls;
+    private AplManager registerApl;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
     private ConcurrentLinkedQueue<T> transactions;
@@ -43,17 +46,19 @@ public class Node<T extends RequiresEquals> {
     private ArrayList<T> blockchain;
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Usage: java Node <node-id> [keys-directory]");
+        if (args.length < 3) {
+            System.err.println("Usage: java Node <node-id> <port_register> <port> [keys-directory]");
             System.exit(1);
         }
 
         try {
             int nodeId = Integer.parseInt(args[0]);
+            int portRegister = Integer.parseInt(args[1]);
+            int port = Integer.parseInt(args[2]);
             Node<BlockchainMessage> node = new Node<BlockchainMessage>(nodeId);
 
-            if (args.length >= 2) {
-                node.setKeysDirectory(args[1]);
+            if (args.length >= 4) {
+                node.setKeysDirectory(args[3]);
             }
 
             node.setup();
@@ -67,8 +72,7 @@ public class Node<T extends RequiresEquals> {
 
     public Node(int nodeId) {
         this.nodeId = nodeId;
-        this.publicKeys = new HashMap<>();
-
+        this.publicKeys = new ConcurrentHashMap<>();
     }
 
     public int getId() {
@@ -137,8 +141,6 @@ public class Node<T extends RequiresEquals> {
             }
         });
 
-
-
         consensusThread.setName("BFT-Consensus-Thread");
         valueHandlerThread.setName("Value-Handler-Thread");
 
@@ -163,7 +165,7 @@ public class Node<T extends RequiresEquals> {
         clientApls.get(value.getSenderId()).send(new AppendResp(success,timestamp));
     }
 
-    public void setup() {
+    public void setup(String address, int portRegister, int port) {
         Logger.LOG("Setting up node " + nodeId);
         try {
             // Read private key for this node
@@ -180,17 +182,23 @@ public class Node<T extends RequiresEquals> {
                 this.consensusMessages.put(destId, new ObservedResource<>(new LinkedList<>()));
             }
 
+            AplManager aplManager = new AplManager(address, port, privateKey);
+
             // Initialize APLs, one for each destination node
             for (int destId : publicKeys.keySet()) {
                 if (destId == nodeId) {
                     continue;
                 }
 
-                APLImpl apl = new APLImpl(nodeId, destId, privateKey, publicKeys.get(destId));
+                aplManager.createAPL(destId, publicKeys.get(destId));
                 apl.setMessageHandler(new ConsensusMessageHandler<T>(consensusMessages));
                 apls.put(destId, apl);
                 Logger.LOG("APL created for destination node " + destId);
             }
+
+            //Initialize register APL
+            RegisterMessageHandler handler = new RegisterMessageHandler(publicKeys);
+            registerApl = new AplManager()
 
             //TODO: assuming Config.NUM_CLIENTS will exist. Change later for a register link?
             //TODO: precisamos de conseguir criar links para clientes - massas
@@ -299,7 +307,7 @@ public class Node<T extends RequiresEquals> {
 
     public void pushDecidedTx(T value) {
         decidedValues.getResource().add(value);
-        decidedValues.notify();
+        decidedValues.notifyChange();
     }
 
     public ConsensusMessage<T> fetchConsensusMessageOrWait(int senderId) {

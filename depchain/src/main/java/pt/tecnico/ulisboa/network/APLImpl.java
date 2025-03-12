@@ -42,93 +42,42 @@ public class APLImpl implements APL {
     private long nextSeqNum = 1L;
     private long lastReceivedSeqNum = 1L;
 
-    private static final int BUFFER_SIZE = 4096;
-
     private final PrivateKey privateKey;
     private final PublicKey destPublicKey;
     private SecretKey secretKey;
 
-    private final int nodeId;
-    private final int destId;
+    String destAddress;
+    Integer destPort;
 
-    private boolean waitingForReply = false;
-    private final Lock messageReceivedLock = new ReentrantLock();
-    private final Condition messageReceived = messageReceivedLock.newCondition();
-
-
-    //TODO: MAKE .START FUNCTION ou construtor com handler - massas
-    public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey)
-            throws SocketException, GeneralSecurityException, IOException {
-
-        //TODO: temos que alterar isto para aceitar tmb ips de clientes - massas
-        String address = GeneralUtils.serversId2Addr.get(nodeId);
-        String destination = address.split(":")[0];
-        int port = Integer.parseInt(address.split(":")[1]);
-
-        Logger.LOG("IP: " + destination + " Port: " + port);
-
-        this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
-        this.nodeId = nodeId;
-        this.destId = destId;
+    // Constructor that accepts an existing socket
+    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey, DatagramSocket socket, MessageHandler messageHandler)
+            throws GeneralSecurityException, IOException {
+        this.socket = socket;
+        this.destAddress = destAddress;
+        this.destPort = destPort;
         this.privateKey = privateKey;
         this.destPublicKey = destPublicKey;
+        setMessageHandler(messageHandler);
 
-        startListening();
         startRetransmissionScheduler();
 
-        Logger.LOG("One-to-One APL started on port: " + port + " with node ID: " + nodeId
-                + " connected to destination: " + destId);
+        Logger.LOG("One-to-One APL created with node ID: " + " connected to destination: " + destId +
+                " using existing socket on port: " + socket.getLocalPort());
     }
 
-    // if no private key is provided, the node is a client and he wont need to
-    // decrypt a key message. This is kind of a hack, but it works. -> Duarte
-    public APLImpl(int nodeId, int destId, PublicKey destPublicKey)
-            throws SocketException, GeneralSecurityException, IOException {
-        this(nodeId, destId, null, destPublicKey);
-    }
+    // // For unit tests
+    // public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey,
+    //         MessageHandler messageHandler)
+    //         throws SocketException, GeneralSecurityException, IOException {
+    //     this(nodeId, destId, privateKey, destPublicKey);
+    //     this.messageHandler = messageHandler;
+    // }
 
-    //for unit tests
-    public APLImpl(int nodeId, int destId, PrivateKey privateKey, PublicKey destPublicKey, MessageHandler messageHandler)
-            throws SocketException, GeneralSecurityException, IOException {
-        this.messageHandler = messageHandler;
-        String address = GeneralUtils.serversId2Addr.get(nodeId);
-        String destination = address.split(":")[0];
-        int port = Integer.parseInt(address.split(":")[1]);
-
-        Logger.LOG("IP: " + destination + " Port: " + port);
-
-        this.socket = new DatagramSocket(port, InetAddress.getByName(destination));
-        this.nodeId = nodeId;
-        this.destId = destId;
-        this.privateKey = privateKey;
-        this.destPublicKey = destPublicKey;
-
-        startListening();
-        startRetransmissionScheduler();
-
-        Logger.LOG("One-to-One APL started on port: " + port + " with node ID: " + nodeId
-                + " connected to destination: " + destId);
-    }
-
-    public void receivedReply() {
-        messageReceivedLock.lock();
-        try {
-            waitingForReply = false;
-            messageReceived.signal();
-        } finally {
-            messageReceivedLock.unlock();
-        }
-    }
-
-    private void waitForReply() {
-        try {
-            while (waitingForReply) {
-                messageReceived.await();
-            }
-        } catch (InterruptedException e) {
-            System.err.println("Interrupted while waiting for reply: " + e.getMessage());
-            e.printStackTrace();
-        }
+    // For unit tests with existing socket
+    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey,
+            MessageHandler messageHandler, DatagramSocket socket)
+            throws GeneralSecurityException, IOException {
+        this(destAddress, destPort, privateKey, destPublicKey, socket, messageHandler);
     }
 
     public void sendKeyMessage(KeyMessage keyMessage) {
@@ -138,7 +87,7 @@ public class APLImpl implements APL {
         sendUdpPacket(keyMessage.serialize());
     }
 
-    public void sendDataMessage(DataMessage dataMsg){
+    public void sendDataMessage(DataMessage dataMsg) {
         long seqNum = nextSeqNum++;
         pendingMessages.put(seqNum, dataMsg);
         Logger.LOG("Sending message: " + dataMsg);
@@ -176,47 +125,29 @@ public class APLImpl implements APL {
         }
     }
 
-    public void sendAndWait(Serializable message) {
-        messageReceivedLock.lock();
-        try {
-            waitingForReply = true;
-            send(message);
-            waitForReply();
-        } finally {
-            messageReceivedLock.unlock();
-        }
-    }
-
     @Override
     public void setMessageHandler(MessageHandler handler) {
         this.messageHandler = handler;
     }
 
-    private void startListening() {
-        new Thread(() -> {
-            byte[] buffer = new byte[BUFFER_SIZE];
+    public boolean handlePacket(DatagramPacket packet) {
+        try {
+            byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
+            String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
+            int senderId = GeneralUtils.serversAddr2Id.get(senderaddr);
 
-            while (true) {
-                try {
-                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                    socket.receive(packet);
-
-                    byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
-                    String senderaddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-                    int senderId = GeneralUtils.serversAddr2Id.get(senderaddr);
-
-                    // Only process messages from our designated destination
-                    if (senderId == destId) {
-                        Logger.LOG("Received message from destination: " + destId);
-                        processReceivedPacket(data);
-                    } else {
-                        Logger.LOG("Ignoring message from unexpected sender: " + senderId);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+            // Only process messages from our designated destination
+            dAddr = destAddress + ":" + destPort;
+            if (senderaddr == dAddr ) { // If this fails. there is probably a problem in the manager
+                Logger.LOG("Received message from destination: " + destId);
+                processReceivedPacket(data);
+                return true;
             }
-        }).start();
+            return false;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     private void processReceivedPacket(byte[] data) {
@@ -294,9 +225,6 @@ public class APLImpl implements APL {
 
         pendingMessages.remove(seqNum);
 
-        // Signal that we received a reply
-        // TODO: This may not be the repply we want, just a message from the destination
-        receivedReply();
     }
 
     private void handleData(DataMessage dataMessage) {
@@ -325,6 +253,7 @@ public class APLImpl implements APL {
             Object deserializedObject = SerializationUtils.deserializeObject(content);
 
             // If the object is a ConsensusMessage
+            // TODO this is trash no? -> Duarte
             if (deserializedObject instanceof ConsensusMessage) {
                 Logger.LOG("Received ConsensusMessage of type: " +
                         ((ConsensusMessage<?>) deserializedObject).getType());
@@ -334,17 +263,17 @@ public class APLImpl implements APL {
             if (messageHandler != null) {
                 messageHandler.onMessage(destId, content);
             } else {
-                System.err.println("No message handler set. Failed to deliver message.");
+                Logger.ERROR("No message handler set. Failed to deliver message.");
             }
         } catch (Exception e) {
-            System.err.println("Failed to deserialize message content: " + e.getMessage());
+            Logger.ERROR("Failed to deserialize message content: ", e);
             e.printStackTrace();
 
             // Still deliver the raw bytes if deserialization fails
             if (messageHandler != null) {
                 messageHandler.onMessage(destId, content);
             } else {
-                System.err.println("No message handler set. Failed to deliver message.");
+                Logger.ERROR("No message handler set. Failed to deliver message.");
             }
         }
     }
@@ -363,7 +292,7 @@ public class APLImpl implements APL {
 
             sendUdpPacket(ackMessage.serialize());
         } catch (Exception e) {
-            System.err.println("Failed to sign and send ACK: " + e.getMessage());
+            Logger.ERROR("Failed to sign and send ACK", e);
             throw e;
         }
     }
@@ -377,7 +306,7 @@ public class APLImpl implements APL {
             DatagramPacket packet = new DatagramPacket(data, data.length, address, port);
             socket.send(packet);
         } catch (Exception e) {
-            e.printStackTrace();
+            Logger.ERROR("Failed to send UDP packet", e);
         }
     }
 
@@ -460,5 +389,9 @@ public class APLImpl implements APL {
             System.err.println("Failed to generate and share secret key: " + e.getMessage());
             return null;
         }
+    }
+
+    public void close() {
+        scheduler.shutdown();
     }
 }

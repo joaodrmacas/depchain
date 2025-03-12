@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa;
 
 public class Config {
+    public final static int BUFFER_SIZE = 4096;
     public final static int LEADER_ID = 0;
     public final static int ALLOWED_FAILURES = 1;
     public final static int RETRANSMISSION_TIME = 50;

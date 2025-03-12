@@ -18,7 +18,8 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
     public static enum BlockchainMessageType {
         APPEND_REQ,
         APPEND_RESP,
-        KEY_REGISTER_REQ,
+        REGISTER_REQ,
+        REGISTER_RESP,
     }
 
     public BlockchainMessageType getType() {
