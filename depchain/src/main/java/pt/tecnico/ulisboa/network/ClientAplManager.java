@@ -7,10 +7,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.NodeMessageHandler;
-import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
@@ -22,38 +20,31 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
 
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
-    private AtomicInteger clientCounter = new AtomicInteger(1);
 
-    public ClientAplManager(String address, Integer port, PrivateKey privateKey, ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus ) throws SocketException, IOException {
+    public ClientAplManager(String address, Integer port, PrivateKey privateKey, ObservedResource<Queue<T>> txQueue,
+            ConcurrentHashMap<Integer, PublicKey> clientKus) throws SocketException, IOException {
         super(address, port, privateKey);
         Logger.LOG("ClientAplManager: " + address + ":" + port);
     }
 
-    public ClientAplManager(String address, Integer port) throws SocketException, IOException {
-    //TODO: isto está bem?
-        this(address, port, null, null, null); 
-    }
-
     @Override
-    protected void handleUnknownSender(DatagramPacket packet){
+    protected void handleUnknownSender(DatagramPacket packet) {
         Logger.LOG("Unknown sender: " + packet.getAddress().getHostAddress() + ":" + packet.getPort());
 
-        int clientid = this.clientCounter.getAndIncrement();
-
         try {
-        RegisterReq msg = (RegisterReq) SerializationUtils.deserializeObject(packet.getData());
-        
+            RegisterReq msg = (RegisterReq) SerializationUtils.deserializeObject(packet.getData());
 
-        NodeMessageHandler<BlockchainMessage> handler = new NodeMessageHandler(clientid,txQueue,clientKus);
-        
-        PublicKey ku = CryptoUtils.bytesToPublicKey(msg.getKey());
-        clientKus.put(id, ku);
+            int clientid = msg.getSenderId();
 
-        createAPL(id, packet.getAddress().getHostAddress(), packet.getPort(), ku, handler);
+            NodeMessageHandler<T> handler = new NodeMessageHandler<>(txQueue, clientKus);
+
+            PublicKey ku = CryptoUtils.bytesToPublicKey(msg.getKey());
+            clientKus.put(clientid, ku);
+
+            createAPL(clientid, packet.getAddress().getHostAddress(), packet.getPort(), ku, handler);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
 
     }
 

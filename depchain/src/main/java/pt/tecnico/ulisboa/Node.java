@@ -55,22 +55,25 @@ public class Node<T extends RequiresEquals> {
     private ArrayList<T> blockchain;
 
     public static void main(String[] args) {
-        if (args.length < 3) {
-            System.err.println("Usage: java Node <node-id> <port_register> <port> [keys-directory]");
+        int nodeId = Integer.parseInt(args[0]);
+
+        String address = GeneralUtils.id2Addr.get(nodeId);
+        int clientPort = GeneralUtils.id2ClientPort.get(nodeId);
+        int serverPort = GeneralUtils.id2ServerPort.get(nodeId);
+
+        if (args.length < 1) {
+            System.err.println("Usage: java Node <node-id> [keys-directory]");
             System.exit(1);
         }
 
         try {
-            int nodeId = Integer.parseInt(args[0]);
-            int portRegister = Integer.parseInt(args[1]);
-            int port = Integer.parseInt(args[2]);
             Node<BlockchainMessage> node = new Node<BlockchainMessage>(nodeId);
 
             if (args.length >= 4) {
                 node.setKeysDirectory(args[3]);
             }
 
-            node.setup("localhost", portRegister, port);
+            node.setup(address, clientPort, serverPort);
             node.mainLoop();
 
         } catch (Exception e) {
@@ -176,17 +179,16 @@ public class Node<T extends RequiresEquals> {
                     continue;
                 }
 
-                String destAddr = GeneralUtils.id2ServerAddr.get(destId);
-                // divide the address into address and port
-                String[] parts = destAddr.split(":");
+                String destAddr = GeneralUtils.id2Addr.get(destId);
+                int destPort = GeneralUtils.id2ServerPort.get(destId);
 
                 ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
-                serversManager.createAPL(destId, parts[0], Integer.parseInt(parts[1]), publicKeys.get(destId), handler);
+                serversManager.createAPL(destId, destAddr, destPort, publicKeys.get(destId), handler);
                 Logger.LOG("APL created for destination node " + destId);
             }
 
             // Initialize register APL
-            clientManager = new ClientAplManager<>(address, portRegister, privateKey,transactions,clientPublicKeys);
+            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys);
 
             Logger.LOG("Node setup complete");
 

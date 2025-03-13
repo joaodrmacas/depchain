@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.network.ClientAplManager;
+import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
@@ -26,17 +26,17 @@ import pt.tecnico.ulisboa.utils.Logger;
 
 public class Client {
     private KeyPair keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
-    private ClientAplManager<?> aplManager;
+    private ServerAplManager aplManager;
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
     private int clientId;
     private long count = 0;
     private String keysDirectory;
-    
+
     private CountDownLatch responseLatch;
 
     private ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses = new ConcurrentHashMap<>();
     private AtomicReference<BlockchainMessage> acceptedResponse = new AtomicReference<>();
-    
+
     private ClientMessageHandler messageHandler;
 
     public static void main(String[] args) {
@@ -76,7 +76,7 @@ public class Client {
             try {
                 Logger.LOG("Sending message: " + message);
                 sendAppendRequest(message);
-                
+
                 // Wait for response
                 Logger.LOG("Waiting for server responses...");
                 if (!waitForResponse()) {
@@ -87,7 +87,7 @@ public class Client {
                         Logger.LOG("Accepted response: " + response);
                     }
                 }
-                
+
             } catch (Exception e) {
                 Logger.LOG("Failed to send message: " + e.getMessage());
             }
@@ -102,17 +102,17 @@ public class Client {
         responseLatch = new CountDownLatch(1);
         currentRequestResponses.clear();
         acceptedResponse.set(null);
-        
+
         messageHandler.updateForNewRequest(count, responseLatch);
-        
+
         String signature = signMessage(message);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
-        for ( int i = 0; i < Config.NUM_MEMBERS; i++) {
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             aplManager.send(i, msg);
         }
         count++;
     }
-    
+
     public boolean waitForResponse() {
         try {
             return responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -128,16 +128,16 @@ public class Client {
         responseLatch = new CountDownLatch(1);
         currentRequestResponses.clear();
         acceptedResponse.set(null);
-        
+
         // Update message handler with the current sequence number and new latch
         messageHandler.updateForNewRequest(count, responseLatch);
-        
+
         PublicKey publicKey = keyPair.getPublic();
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
             aplManager.send(i, new RegisterReq(clientId, publicKeyBytes, count));
         }
-        
+
         // Wait for response to key registration
         try {
             if (!responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
@@ -149,7 +149,7 @@ public class Client {
             Thread.currentThread().interrupt();
             Logger.LOG("Interrupted while waiting for key registration response");
         }
-        
+
         count++;
     }
 
@@ -161,12 +161,15 @@ public class Client {
     private void setup(String addr, int port) {
         try {
             readAllPublicKeys();
-            aplManager = new ClientAplManager<>(addr, port);
+            aplManager = new ServerAplManager(addr, port, keyPair.getPrivate());
+            Logger.LOG("Creating APLs for all servers");
             for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-                String[] adr = GeneralUtils.id2ClientAddr.get(serverId).split(":");
-                aplManager.createAPL(serverId, adr[0], Integer.parseInt(adr[1]), serversPublicKeys.get(serverId), messageHandler);
+                Logger.LOG("Creating APL for server " + serverId);
+                String adr = GeneralUtils.id2Addr.get(serverId);
+                int serverPort = GeneralUtils.id2ClientPort.get(serverId);
+                Logger.LOG("Server address: " + adr);
+                aplManager.createAPL(serverId, adr, serverPort, serversPublicKeys.get(serverId), messageHandler);
             }
-
         } catch (Exception e) {
             throw new RuntimeException("Failed to read public keys", e);
         }

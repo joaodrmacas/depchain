@@ -6,16 +6,15 @@ import java.util.Map;
 import pt.tecnico.ulisboa.Config;
 
 public class GeneralUtils {
-    public final static Map<Integer, String> id2ClientAddr = new HashMap<>();
-    public final static Map<Integer, String> id2ServerAddr = new HashMap<>();
-    public final static Map<String, Integer> addr2Id = new HashMap<>();
+    public final static Map<Integer, String> id2Addr = new HashMap<>();
+    public final static Map<Integer, Integer> id2ClientPort = new HashMap<>();
+    public final static Map<Integer, Integer> id2ServerPort = new HashMap<>();
 
     static {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            id2ServerAddr.put(i, String.valueOf(8080 + i));
-            id2ClientAddr.put(i, String.valueOf(10100 + i));
-            addr2Id.put(String.valueOf(8080 + i), i);
-            addr2Id.put(String.valueOf(10100 + i), i);
+            id2Addr.put(i, "localhost");
+            id2ClientPort.put(i, 9090 + i);
+            id2ServerPort.put(i, 8080 + i);
         }
 
     }

@@ -20,8 +20,8 @@ public class EpochChange<T extends RequiresEquals> {
     }
 
     public int start() {
-        
 
-        return epochNumber + 1;
+
+        return legacyStart();
     }
 }
