@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.crypto.SecretKey;
 
@@ -33,8 +34,8 @@ public class APLImpl implements APL {
     private final ConcurrentHashMap<Long, Message> pendingMessages = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, Boolean> receivedMessages = new ConcurrentHashMap<>();
 
-    private long nextSeqNum = 1L;
-    private long lastReceivedSeqNum = 1L;
+    private AtomicLong nextSeqNum = new AtomicLong(1);
+    private AtomicLong lastReceivedSeqNum = new AtomicLong(1);
 
     private final PrivateKey privateKey;
     private final PublicKey destPublicKey;
@@ -75,16 +76,17 @@ public class APLImpl implements APL {
     }
 
     public void sendKeyMessage(KeyMessage keyMessage) {
-        long seqNum = nextSeqNum++;
+        long seqNum = nextSeqNum.getAndIncrement();
         pendingMessages.put(seqNum, keyMessage);
         Logger.LOG("Sending key message: " + keyMessage);
         sendUdpPacket(keyMessage.serialize());
     }
 
     public void sendDataMessage(DataMessage dataMsg) {
-        long seqNum = nextSeqNum++;
+        long seqNum = nextSeqNum.getAndIncrement();
         pendingMessages.put(seqNum, dataMsg);
         Logger.LOG("Sending message: " + dataMsg);
+
         sendUdpPacket(dataMsg.serialize());
     }
 
@@ -99,14 +101,45 @@ public class APLImpl implements APL {
         send(messageBytes);
     }
 
+    public void sendWithTimeout(Serializable obj, int timeout) {
+        byte[] messageBytes = null;
+        try {
+            messageBytes = SerializationUtils.serializeObject(obj);
+        } catch (IOException e) {
+            System.err.println("Failed to serialize message: " + e.getMessage());
+            return;
+        }
+        sendWithTimeout(messageBytes, timeout);
+    }
+
     public void send(byte[] message) {
         SecretKey secretKey = getOrGenerateSecretKey();
-        long seqNum = nextSeqNum++;
+        long seqNum = nextSeqNum.getAndIncrement();
 
         try {
             byte[] hmac = generateHMAC(message, seqNum, secretKey);
 
             DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
+
+            // Store the message in the pending list
+            pendingMessages.put(seqNum, dataMsg);
+
+            Logger.LOG("Sending message: " + dataMsg);
+            sendUdpPacket(dataMsg.serialize());
+        } catch (Exception e) {
+            System.err.println("Failed to sign and send message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void sendWithTimeout(byte[] message, int timeout) {
+        SecretKey secretKey = getOrGenerateSecretKey();
+        long seqNum = nextSeqNum.getAndIncrement();
+
+        try {
+            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+
+            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
 
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
@@ -140,12 +173,19 @@ public class APLImpl implements APL {
         if (message == null)
             return;
 
-        if (message.getSeqNum() != lastReceivedSeqNum) {
+        // TODO: delete this commented code
+        // if (message.getSeqNum() != lastReceivedSeqNum.get()) {
+        // Logger.LOG("Received out-of-order message");
+        // return;
+        // }
+
+        if (lastReceivedSeqNum.compareAndSet(message.getSeqNum(), message.getSeqNum() + 1)) {
+            // Process message safely
+        } else {
             Logger.LOG("Received out-of-order message");
-            return;
         }
 
-        lastReceivedSeqNum++;
+        lastReceivedSeqNum.incrementAndGet();
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -285,10 +325,18 @@ public class APLImpl implements APL {
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
             // loop through all pending messages and retransmit if necessary
+            //Logger.LOG("Pending messages: " + pendingMessages.size());
             pendingMessages.forEach((seqNum, message) -> {
+                if (message.getCounter() >= message.getTimeout()) {
+                    pendingMessages.remove(seqNum);
+                    Logger.LOG("Pending messages: " + pendingMessages.size());
+                    nextSeqNum.incrementAndGet();
+                    return;
+                }
+
                 if (message.getCounter() >= message.getCooldown()) {
                     Logger.LOG("Retransmitting message with seqNum: " + seqNum +
-                            "\nWaited cooldown: " + message.getCooldown() * 0.5 + "s");
+                            "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
                         sendUdpPacket(message.serialize());
                     } catch (Exception e) {
@@ -348,7 +396,7 @@ public class APLImpl implements APL {
             SecretKey secretKey = CryptoUtils.generateSymmetricKey();
             byte[] encryptedKey = CryptoUtils.encryptSymmetricKey(secretKey, destPublicKey);
 
-            long seqNum = nextSeqNum++;
+            long seqNum = nextSeqNum.getAndIncrement();
 
             KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
             pendingMessages.put(seqNum, keyMessage);

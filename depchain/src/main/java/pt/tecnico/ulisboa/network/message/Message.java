@@ -3,8 +3,9 @@ package pt.tecnico.ulisboa.network.message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import pt.tecnico.ulisboa.Config;
 import java.io.Serializable;
+
+import pt.tecnico.ulisboa.Config;
 
 public abstract class Message implements Serializable {
     public static final byte DATA_MESSAGE_TYPE = 1;
@@ -17,14 +18,9 @@ public abstract class Message implements Serializable {
     // For retransmission mechanism
     private int counter = 1;
     private int cooldown = 1;
+    protected int timeout = (int) Math.round(Config.DEFAULT_TIMEOUT * 0.05);
 
     public Message(byte[] content, long seqNum) {
-        this.content = content;
-        this.seqNum = seqNum;
-    }
-
-    // This is just a way to create a message from a ip:port string -> Duarte
-    public Message(byte[] content, String senderId, long seqNum) {
         this.content = content;
         this.seqNum = seqNum;
     }
@@ -59,6 +55,10 @@ public abstract class Message implements Serializable {
 
     public void setCooldown(int cooldown) {
         this.cooldown = cooldown;
+    }
+
+    public int getTimeout(){
+        return this.timeout;
     }
 
     public void incrementCounter() {

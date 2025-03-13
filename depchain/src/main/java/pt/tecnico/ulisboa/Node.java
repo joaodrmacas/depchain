@@ -55,22 +55,22 @@ public class Node<T extends RequiresEquals> {
     private ArrayList<T> blockchain;
 
     public static void main(String[] args) {
+        if (args.length < 1) {
+            System.err.println("Usage: java Node <node-id> [keys-directory]");
+            System.exit(1);
+        }
+
         int nodeId = Integer.parseInt(args[0]);
 
         String address = GeneralUtils.id2Addr.get(nodeId);
         int clientPort = GeneralUtils.id2ClientPort.get(nodeId);
         int serverPort = GeneralUtils.id2ServerPort.get(nodeId);
 
-        if (args.length < 1) {
-            System.err.println("Usage: java Node <node-id> [keys-directory]");
-            System.exit(1);
-        }
-
         try {
             Node<BlockchainMessage> node = new Node<BlockchainMessage>(nodeId);
 
-            if (args.length >= 4) {
-                node.setKeysDirectory(args[3]);
+            if (args.length >= 2) {
+                node.setKeysDirectory(args[1]);
             }
 
             node.setup(address, clientPort, serverPort);
@@ -174,13 +174,22 @@ public class Node<T extends RequiresEquals> {
             serversManager = new ServerAplManager(address, port, privateKey);
 
             // Initialize APLs, one for each destination node
+
             for (int destId : publicKeys.keySet()) {
+                if (destId >= Config.NUM_MEMBERS){
+                    break;
+                }
                 if (destId == nodeId) {
                     continue;
                 }
 
+                Logger.LOG("Creating APL for destination node " + destId);
+
                 String destAddr = GeneralUtils.id2Addr.get(destId);
                 int destPort = GeneralUtils.id2ServerPort.get(destId);
+
+                Logger.LOG("Creating APL for destination node " + destAddr + ":" + destPort);
+
 
                 ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
                 serversManager.createAPL(destId, destAddr, destPort, publicKeys.get(destId), handler);

@@ -10,6 +10,15 @@ public class DataMessage extends AuthenticatedMessage {
         super(content, seqNum, hmac);
     }
 
+    public DataMessage(byte[] content, long seqNum, byte[] hmac, int timeout) {
+        this(content, seqNum, hmac);
+        this.timeout = (int) Math.round(timeout * 0.05);
+    }
+
+    public int getTimeout() {
+        return this.timeout;
+    }
+
     @Override
     public byte getType() {
         return TYPE_INDICATOR;

@@ -39,7 +39,7 @@ public class Client {
 
     private ClientMessageHandler messageHandler;
 
-    public static void main(String[] args) {
+    public static void Main(String[] args) {
         if (args.length != 3) {
             System.err.println("Usage: Client <clientId> <port> <keysDirectory>");
             System.exit(1);
@@ -108,14 +108,14 @@ public class Client {
         String signature = signMessage(message);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            aplManager.send(i, msg);
+            aplManager.sendWithTimeout(i, msg, Config.CLIENT_TIMEOUT_MS);
         }
         count++;
     }
 
     public boolean waitForResponse() {
         try {
-            return responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            return responseLatch.await(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             Logger.LOG("Interrupted while waiting for response");
@@ -135,19 +135,7 @@ public class Client {
         PublicKey publicKey = keyPair.getPublic();
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            aplManager.send(i, new RegisterReq(clientId, publicKeyBytes, count));
-        }
-
-        // Wait for response to key registration
-        try {
-            if (!responseLatch.await(Config.CLIENT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                Logger.LOG("Timed out waiting for key registration responses");
-            } else {
-                Logger.LOG("Key registration successful");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Logger.LOG("Interrupted while waiting for key registration response");
+            aplManager.sendWithTimeout(i, new RegisterReq(clientId, publicKeyBytes, count), Config.CLIENT_TIMEOUT_MS);
         }
 
         count++;

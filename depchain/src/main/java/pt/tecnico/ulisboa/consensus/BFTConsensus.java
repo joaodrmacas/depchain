@@ -60,27 +60,10 @@ public class BFTConsensus<T extends RequiresEquals> {
             if (valueToBeProposed == null) {
                 valueToBeProposed = member.peekReceivedTx();
             }
-            ConsensusState<T> state = 
-                new ConsensusState<>(new WriteTuple<>(valueToBeProposed, 0));
 
-            T value;
-            while (true) {
-                EpochConsensus<T> epoch = new EpochConsensus<>(member, epochNumber, state, readPhaseDone);
+            EpochConsensus<T> epoch = new EpochConsensus<>(member, epochNumber, valueToBeProposed);
 
-                try {
-                    value = epoch.start(valueToBeProposed);
-                } catch (AbortedSignal abs) {
-                    Logger.LOG("Aborted: " + abs.getMessage());
-
-                    EpochChange<T> epochChange = new EpochChange<>(member, epochNumber);
-                    epochNumber = epochChange.legacyStart();
-
-                    readPhaseDone.set(false);
-
-                    continue;
-                }
-                break;
-            }
+            T value = epoch.start();
 
             member.removeReceivedTx(value);
 

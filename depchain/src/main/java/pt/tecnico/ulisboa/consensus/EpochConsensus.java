@@ -19,131 +19,146 @@ public class EpochConsensus<T extends RequiresEquals> {
     private Node<T> member;
     private int epochNumber;
     private ConsensusState<T> state;
-    private AtomicBoolean readPhaseDone;
+    private boolean readPhaseDone = false;
     private CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
     private EventCounter<T> writeCounts = new EventCounter<>();
     private EventCounter<T> acceptCounts = new EventCounter<>();
     private EventCounter<T> abortCounts = new EventCounter<>();
     private boolean hasBroadcastedNewEpoch = false;
 
-    private class WriteOrAccept {
+    private class WritesOrAccepts {
         private T value;
-        private boolean accept;
+        private boolean writes;
 
-        public WriteOrAccept(T value, boolean accept) {
+        public WritesOrAccepts(T value, boolean writes) {
             this.value = value;
-            this.accept = accept;
+            this.writes = writes;
         }
 
         public T getValue() {
             return value;
         }
 
-        public boolean isAccept() {
-            return accept;
+        public boolean hasQuorumOfWrites() {
+            return writes;
         }
     }
 
-    public EpochConsensus(Node<T> member, int epochNumber, ConsensusState<T> state, AtomicBoolean readPhaseDone) {
+    public EpochConsensus(Node<T> member, int epochNumber, T valueToBeProposed) {
         this.member = member;
         this.epochNumber = epochNumber;
-        this.state = state;
-        this.readPhaseDone = readPhaseDone;
+
+        this.state = new ConsensusState<>(new WriteTuple<T>(valueToBeProposed, epochNumber));
 
         Logger.LOG("Creating epoch consensus");
     }
 
     public T start(T valueToBeProposed) throws AbortedSignal {
+        T valueDecided = null;
+
+        while (true) {
+            try {
+                epoch(valueToBeProposed);
+            } catch (AbortedSignal abs) {
+                Logger.LOG("Aborted: " + abs.getMessage());
+
+                while (true) {
+                    break;
+                }
+
+                this.epochNumber++;
+
+                readPhaseDone = false;
+
+                continue;
+            }
+            break;
+        }
+
+        return valueDecided;
+    }
+
+    public T epoch(T valueToBeProposed) throws AbortedSignal {
         Logger.LOG("Starting epoch");
 
-        WriteOrAccept writeOrAccept;
+        WritesOrAccepts writesOrAccepts = null;
 
-        // Leader
-        if (getLeader(this.epochNumber) == member.getId()) {
-            // aborts this epoch if is leader and has no value to propose
-            if (valueToBeProposed == null) {
-                abortAndBroadcast();
+        while(true) {
+            // Leader
+            if (getLeader(this.epochNumber) == member.getId()) {
+                // aborts this epoch if is leader and has no value to propose
+                if (valueToBeProposed == null) {
+                    broadcastAbort();
+                }
+
+                if (!this.readPhaseDone.get()) {
+                    sendToAll(new ReadMessage<>(this.epochNumber));
+
+                    writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.STATE);
+                    if (writesOrAccepts != null) break;
+
+                    this.readPhaseDone.set(true);
+                }
+
+                this.state.sign(member.getPrivateKey());
+                this.collected.addState(member.getId(), this.state);
+
+                sendToAll(new CollectedMessage<>(this.collected, this.epochNumber));
+
+            } else { // Not leader
+                writesOrAccepts = receiveFrom(ConsensusMessage.MessageType.READ, getLeader(epochNumber));
+                if (writesOrAccepts != null) break;
+
+                this.state.sign(member.getPrivateKey());
+                sendTo(new StateMessage<>(this.state, this.epochNumber), getLeader(epochNumber));
+
+                writesOrAccepts = receiveFrom(ConsensusMessage.MessageType.COLLECTED, getLeader(epochNumber));
+                if (writesOrAccepts != null) break;
+
+                if (!this.collected.verifyStates(member.getPublicKeys())) {
+                    broadcastAbort();
+                }
+            }
+            
+            T valueToWrite = decideFromCollected();
+            sendToAll(new WriteMessage<>(valueToWrite, this.epochNumber));
+            
+            writeCounts.inc(valueToWrite, member.getId());
+            writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.WRITE);
+
+            // if no value to write or accept we can proceed so we abort to a new epoch
+            if (writesOrAccepts == null) {
+                broadcastAbort();
+                abort();
             }
 
-            if (!this.readPhaseDone.get()) {
-                sendReads();
-
-                receiveStatesOrAbort();
-                writeOrAccept = rece
-
-                this.readPhaseDone.set(true);
-            }
-
-            this.state.sign(member.getPrivateKey());
-            this.collected.addState(member.getId(), this.state);
-
-            sendCollected();
-        } else { // Not leader
-            receiveReadOrAbort();
-
-            this.state.sign(member.getPrivateKey());
-            sendState(this.state);
-
-            receiveCollectedOrAbort();
-
-            if (!this.collected.verifyStates(member.getPublicKeys())) {
-                abortAndBroadcast();
-            }
+            break; //end the one iteration loop
         }
 
-        T valueToWrite = decideFromCollected();
-        sendWrites(valueToWrite);
-
-        writeCounts.inc(valueToWrite, member.getId());
-        T valueDecided = receiveWritesOrAbort();
-
-        sendAccepts(valueDecided);
-
-        acceptCounts.inc(valueDecided, member.getId());
-        return receiveAcceptsAndDecideOrAbort();
-    }
-
-    public void sendReads() {
-        Logger.LOG("Sending read");
-
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId()) {
-                ConsensusMessage<T> message = new ReadMessage<>(this.epochNumber);
-                member.sendToMember(i, message);
-            }
+        T valueDecided = writesOrAccepts.getValue();
+        if (writesOrAccepts.hasQuorumOfWrites()) {
+            acceptCounts.inc(valueDecided, member.getId());
         }
-    }
 
-    public void sendCollected() {
-        Logger.LOG("Sending collected");
+        sendToAll(new AcceptMessage<>(valueDecided, this.epochNumber));
+        
+        writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.ACCEPT);
 
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId()) {
-                ConsensusMessage<T> message = new CollectedMessage<>(this.collected, this.epochNumber);
-                member.sendToMember(i, message);
-            }
+        // if no value to write or accept we can proceed so we abort to a new epoch
+        if (writesOrAccepts == null) {
+            broadcastAbort();
+            abort();
         }
-    }
 
-    public void sendState(ConsensusState<T> state) {
-        Logger.LOG("Sending state");
-
-        int leaderId = getLeader(epochNumber);
-
-        ConsensusMessage<T> message = new StateMessage<>(state, this.epochNumber);
-
-        member.sendToMember(leaderId, message);
+        return writesOrAccepts.getValue();
     }
 
     public T decideFromCollected() throws AbortedSignal {
         Logger.LOG("Deciding from collected");
 
         if (this.collected.getStates().get(getLeader(epochNumber)) == null) {
-            abortAndBroadcast();
+            broadcastAbort();
         }
-
-        // we assume the leader write tuple if no tupple is read
-        WriteTuple<T> leaderWT = this.collected.getStates().get(getLeader(epochNumber)).getMostRecentQuorumWritten();
 
         WriteTuple<T> bestWT = null;
 
@@ -163,7 +178,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         }
 
         if (countCorrectStates < Config.ALLOWED_FAILURES + 1) {
-            abortAndBroadcast();
+            broadcastAbort();
         }
 
         if (bestWT != null) {
@@ -187,29 +202,7 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         // we assume the leader write tuple if no best tupple is found
         // (an already decided tuple)
-        return leaderWT.getValue();
-    }
-
-    public void sendWrites(T value) {
-        Logger.LOG("Sending writes");
-
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId()) {
-                ConsensusMessage<T> message = new WriteMessage<>(value, this.epochNumber);
-                member.sendToMember(i, message);
-            }
-        }
-    }
-
-    public void sendAccepts(T value) {
-        Logger.LOG("Sending accepts");
-
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId()) {
-                ConsensusMessage<T> message = new AcceptMessage<>(value, this.epochNumber);
-                member.sendToMember(i, message);
-            }
-        }
+        return this.collected.getStates().get(getLeader(epochNumber)).getMostRecentQuorumWritten().getValue();
     }
 
     public int getLeader(int epocNumber) {
@@ -237,14 +230,53 @@ public class EpochConsensus<T extends RequiresEquals> {
         hasBroadcastedNewEpoch = true;
     }
 
-    public void abortAndBroadcast() throws AbortedSignal {
-        Logger.LOG("Aborting and broadcasting");
+    public WritesOrAccepts checkForEvents() throws AbortedSignal {
+        T value = acceptCounts.getExeeded(2*Config.ALLOWED_FAILURES);
+        if (value != null) {
+            return new WritesOrAccepts(value, false);
+        }
 
-        broadcastAbort();
-        abort();
+        value = writeCounts.getExeeded(2*Config.ALLOWED_FAILURES);
+        if (value != null) {
+
+            synchronized(this.state) {
+                this.state.setMostRecentQuorumWritten(
+                    new WriteTuple<T>(value, this.epochNumber)
+                );
+            }
+
+            return new WritesOrAccepts(value, true);
+        }
+
+        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+            broadcastAbort();
+        }
+        if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+            abort();
+        } 
+
+        return null;
     }
 
-    public T receiveFromAll(ConsensusMessage.MessageType type) throws AbortedSignal {
+    
+    public void sendToAll(ConsensusMessage<T> message) {
+        Logger.LOG("Sending to all: " + message.getType());
+
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i != member.getId()) {
+                member.sendToMember(i, message);
+            }
+        }
+        
+    }
+
+    public void sendTo(ConsensusMessage<T> message, int receiverId) {
+        Logger.LOG("Sending to " + receiverId + ": " + message.getType());
+
+        member.sendToMember(receiverId, message);
+    }
+
+    public WritesOrAccepts receiveFromAll(ConsensusMessage.MessageType type) throws AbortedSignal {
         Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId())
@@ -267,37 +299,17 @@ public class EpochConsensus<T extends RequiresEquals> {
                     Logger.LOG("Thread interrupted: " + e);
                 }
             }
-        }
 
-        T value = acceptCounts.getExeeded(2*Config.ALLOWED_FAILURES);
-        if (value != null) {
-            return value;
-        }
-
-        value = writeCounts.getExeeded(2*Config.ALLOWED_FAILURES);
-        if (value != null) {
-
-            synchronized(this.state) {
-                this.state.setMostRecentQuorumWritten(
-                    new WriteTuple<T>(value, this.epochNumber)
-                );
+            WritesOrAccepts writesOrAccepts = checkForEvents();
+            if (writesOrAccepts != null) {
+                return writesOrAccepts;
             }
-
-            return value;
-        }
-
-        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-            broadcastAbort();
-        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-            abort();
         }
 
         return null;
     }
 
-    public void receiveFromLeader() throws AbortedSignal {
-        int leaderId = getLeader(epochNumber);
-
+    public WritesOrAccepts receiveFrom(ConsensusMessage.MessageType type, int receiverId) throws AbortedSignal {
         Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId())
@@ -306,87 +318,91 @@ public class EpochConsensus<T extends RequiresEquals> {
             // Thread that listens to each link
             // interpreting each message receive and deciding after
             final int _i = i;
-            threads[i] = new Thread(() -> receiveLoop(_i, ConsensusMessage.MessageType.READ));
+            threads[i] = new Thread(() -> receiveLoop(_i, type));
 
             threads[i].start();
         }
 
-        // In The Future: implement to also keep tracking if the other
-        // members send abort messages
         try {
-            threads[leaderId].join();
+            threads[receiverId].join();
         } catch (InterruptedException e) {
             Logger.LOG("Thread interrupted: " + e);
         }
-        
-        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-            broadcastAbort();
-        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-            abort();
-        }
+
+        return checkForEvents();
     }
 
-    public void receiveLoop(int memberId, ConsensusMessage.MessageType type) {
+    public void receiveLoop(int senderId, ConsensusMessage.MessageType type) {
         int leaderId = getLeader(epochNumber);
 
         // Prevents byzantine process to send useless messages to keep the leader stuck
         long startTime = System.currentTimeMillis();
 
-        outerloop:
         while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
-            ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(memberId);
+            ConsensusMessage<T> msg = member.peekConsensusMessageOrWait(senderId);
 
             if (msg == null) {
                 Logger.LOG("Timed out");
                 break;
             }
-
-            // In The Future: implement synchronization if unsynchronized
+            
+            // message from the future
             if (msg.getEpochNumber() > this.epochNumber) {
                 Logger.LOG("Received message from future epoch");
                 break;
-            }
-            
+            } 
+
+            member.removeFirstConsensusMessage(senderId);
+
+            // message from the past
             if (msg.getEpochNumber() < this.epochNumber) {
                 Logger.LOG("Received message from past epoch");
-                break;
+                continue;
             }
-
+            
             switch(msg.getType()) {
                 case READ:
-                    if (type != ConsensusMessage.MessageType.READ) continue;
+                    // if not from leader, return
+                    if (senderId != leaderId) return;
 
-                    if (memberId != leaderId) continue;
+                    // if received READ when not expected, return
+                    if (type != ConsensusMessage.MessageType.READ) return;
+
                     break;
                 
                 case STATE:
-                    if (type != ConsensusMessage.MessageType.STATE) continue;
+                    // if received STATE when not expected, return
+                    if (type != ConsensusMessage.MessageType.STATE) return;
 
                     StateMessage<T> stateMsg = (StateMessage<T>) msg;
 
                     // gotta check if each state received is well signed,
                     // if not dont store it (store null instead)
-                    if (stateMsg.getState().verifySignature(member.getPublicKeys().get(memberId))) {
+                    if (stateMsg.getState().verifySignature(member.getPublicKeys().get(senderId))) {
                         synchronized(this.collected) {
-                            this.collected.addState(memberId, stateMsg.getState());
+                            this.collected.addState(senderId, stateMsg.getState());
                         }
-                        return;
                     }
-                    break outerloop;
 
-                case COLLECTED:
-                    if (type != ConsensusMessage.MessageType.COLLECTED) continue;
+                    return;
 
-                    if (memberId != leaderId) continue;
+                case COLLECTED:                    
+                    // if not from leader, return
+                    if (senderId != leaderId) return;
+                    
+                    // if received COLLECTED when not expected, return
+                    if (type != ConsensusMessage.MessageType.COLLECTED) return;
 
                     CollectedMessage<T> collectedMsg = (CollectedMessage<T>) msg;
-                    this.collected.overwriteWith(collectedMsg.getStates());
+                    synchronized(this.collected) {
+                        this.collected.overwriteWith(collectedMsg.getStates());
+                    }
                     return;
 
                 case WRITE:
                     WriteMessage<T> writeMsg = (WriteMessage<T>) msg;
 
-                    writeCounts.inc(writeMsg.getValue(), memberId);
+                    writeCounts.inc(writeMsg.getValue(), senderId);
 
                     synchronized(this.state) {
                         this.state.addToWriteSet(
@@ -394,20 +410,20 @@ public class EpochConsensus<T extends RequiresEquals> {
                         );
                     }
 
+                    // if received WRITE when not expected, ignore but continue 
+                    // because we may have to receive accept message
                     if (type != ConsensusMessage.MessageType.WRITE) continue;
 
                     return;
 
                 case ACCEPT:
                     AcceptMessage<T> acceptMsg = (AcceptMessage<T>) msg;
-                    acceptCounts.inc(acceptMsg.getValue(), memberId);
-
-                    if (type != ConsensusMessage.MessageType.ACCEPT) continue;
+                    acceptCounts.inc(acceptMsg.getValue(), senderId);
 
                     return;
 
                 case NEWEPOCH:
-                    abortCounts.inc(memberId);
+                    abortCounts.inc(senderId);
                     return;
 
                 default:

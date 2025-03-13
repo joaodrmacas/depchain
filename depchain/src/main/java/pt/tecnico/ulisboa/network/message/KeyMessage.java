@@ -1,10 +1,9 @@
 package pt.tecnico.ulisboa.network.message;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.DataInputStream;
-
 
 public class KeyMessage extends Message {
     public static final byte TYPE_INDICATOR = Message.KEY_MESSAGE_TYPE;
@@ -13,7 +12,7 @@ public class KeyMessage extends Message {
         super(key, seqNum);
     }
 
-    public byte getType(){
+    public byte getType() {
         return TYPE_INDICATOR;
     }
 
@@ -32,7 +31,6 @@ public class KeyMessage extends Message {
             // Write content
             dos.writeInt(getContent().length);
             dos.write(getContent());
-
 
             dos.flush();
 

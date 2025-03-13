@@ -79,6 +79,17 @@ public abstract class AplManager {
         }
     }
 
+    public void sendWithTimeout(int destId, Serializable message, int timeout) {
+        APLImpl apl = aplInstances.get(destId);
+        if (apl != null) {
+            apl.sendWithTimeout(message, timeout);
+        } else {
+            Logger.LOG(
+                    "No APL instance found for destination ID: " + destId + " when trying to send message: " + message);
+        }
+    }
+
+
     // Start the message dispatcher thread
     private void startMessageDispatcher() {
         new Thread(() -> {
