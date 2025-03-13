@@ -1,7 +1,6 @@
 package pt.tecnico.ulisboa.consensus;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.Node;
@@ -53,15 +52,16 @@ public class EpochConsensus<T extends RequiresEquals> {
         Logger.LOG("Creating epoch consensus");
     }
 
-    public T start(T valueToBeProposed) throws AbortedSignal {
+    public T start() {
         T valueDecided = null;
 
         while (true) {
             try {
-                epoch(valueToBeProposed);
+                epoch();
             } catch (AbortedSignal abs) {
                 Logger.LOG("Aborted: " + abs.getMessage());
 
+                // TODO: wait for other aborts til 2*f+1 and then change epoch
                 while (true) {
                     break;
                 }
@@ -78,10 +78,12 @@ public class EpochConsensus<T extends RequiresEquals> {
         return valueDecided;
     }
 
-    public T epoch(T valueToBeProposed) throws AbortedSignal {
+    public T epoch() throws AbortedSignal {
         Logger.LOG("Starting epoch");
 
         WritesOrAccepts writesOrAccepts = null;
+
+        T valueToBeProposed = this.state.getMostRecentQuorumWritten().getValue();
 
         while(true) {
             // Leader
@@ -91,13 +93,13 @@ public class EpochConsensus<T extends RequiresEquals> {
                     broadcastAbort();
                 }
 
-                if (!this.readPhaseDone.get()) {
+                if (!this.readPhaseDone) {
                     sendToAll(new ReadMessage<>(this.epochNumber));
 
                     writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.STATE);
                     if (writesOrAccepts != null) break;
 
-                    this.readPhaseDone.set(true);
+                    this.readPhaseDone = true;
                 }
 
                 this.state.sign(member.getPrivateKey());
