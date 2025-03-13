@@ -148,7 +148,7 @@ public class Node<T extends RequiresEquals> {
         LocalDateTime timestamp = LocalDateTime.now();
 
         // Send answer to clients
-        serversManager.send(value.getSenderId(), new AppendResp(success, timestamp));
+        clientManager.send(value.getSenderId(), new AppendResp(success, timestamp));
     }
 
     public void setup(String address, int portRegister, int port) {

@@ -3,6 +3,7 @@ package pt.tecnico.ulisboa;
 import java.security.PublicKey;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.protocol.AppendReq;
@@ -18,9 +19,12 @@ import pt.tecnico.ulisboa.utils.SerializationUtils;
 public class NodeMessageHandler<T extends RequiresEquals> implements MessageHandler {
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
+    private int clientCounter;
     
-    public NodeMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus) {
+    public NodeMessageHandler(AtomicInteger clientId, ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus) {
         this.clientKus = clientKus;
+        this.txQueue = txQueue;
+        this.clientCounter = clientId.get();
     }
 
     public void onMessage(int senderid, byte[] message) {

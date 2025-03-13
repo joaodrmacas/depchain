@@ -38,13 +38,13 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
     protected void handleUnknownSender(DatagramPacket packet){
         Logger.LOG("Unknown sender: " + packet.getAddress().getHostAddress() + ":" + packet.getPort());
 
-        int id = this.clientCounter.getAndIncrement();
+        int clientid = this.clientCounter.getAndIncrement();
 
         try {
         RegisterReq msg = (RegisterReq) SerializationUtils.deserializeObject(packet.getData());
         
 
-        NodeMessageHandler<BlockchainMessage> handler = new NodeMessageHandler(txQueue,clientKus);
+        NodeMessageHandler<BlockchainMessage> handler = new NodeMessageHandler(clientid,txQueue,clientKus);
         
         PublicKey ku = CryptoUtils.bytesToPublicKey(msg.getKey());
         clientKus.put(id, ku);
