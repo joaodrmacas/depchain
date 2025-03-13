@@ -16,16 +16,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.network.APLImpl;
+import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 
 public class Client {
     private KeyPair keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
-    private Map<Integer, APLImpl> serversLinks = new HashMap<>();
+    private ClientAplManager<?> aplManager;
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
     private int clientId;
     private long count = 0;
@@ -39,25 +40,26 @@ public class Client {
     private ClientMessageHandler messageHandler;
 
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.err.println("Usage: Client <clientId> <keysDirectory>");
+        if (args.length != 3) {
+            System.err.println("Usage: Client <clientId> <port> <keysDirectory>");
             System.exit(1);
         }
 
         int clientId = Integer.parseInt(args[0]);
-        String keysDirectory = args[1];
+        int port = Integer.parseInt(args[1]);
+        String keysDirectory = args[2];
 
-        Client client = new Client(clientId, keysDirectory);
+        Client client = new Client(clientId, "localhost", port, keysDirectory);
         client.start();
     }
 
-    public Client(int clientId, String keysDirectory) {
+    public Client(int clientId, String addr, int port, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
         responseLatch = new CountDownLatch(1);
         this.messageHandler = new ClientMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
 
-        setup();
+        setup(addr, port);
     }
 
     private void start() {
@@ -105,8 +107,8 @@ public class Client {
         
         String signature = signMessage(message);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
-        for (APLImpl server : serversLinks.values()) {
-            server.send(msg);
+        for ( int i = 0; i < Config.NUM_MEMBERS; i++) {
+            aplManager.send(i, msg);
         }
         count++;
     }
@@ -131,9 +133,9 @@ public class Client {
         messageHandler.updateForNewRequest(count, responseLatch);
         
         PublicKey publicKey = keyPair.getPublic();
-        for (APLImpl server : serversLinks.values()) {
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            server.send(new RegisterReq(clientId, publicKeyBytes, count));
+            aplManager.send(i, new RegisterReq(clientId, publicKeyBytes, count));
         }
         
         // Wait for response to key registration
@@ -156,13 +158,13 @@ public class Client {
         return CryptoUtils.signData(dataToSign, keyPair.getPrivate());
     }
 
-    private void setup() {
+    private void setup(String addr, int port) {
         try {
             readAllPublicKeys();
+            aplManager = new ClientAplManager<>(addr, port);
             for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-                APLImpl server = new APLImpl(clientId, serverId, serversPublicKeys.get(serverId));
-                serversLinks.put(serverId, server);
-                server.setMessageHandler(messageHandler);
+                String[] adr = GeneralUtils.id2ClientAddr.get(serverId).split(":");
+                aplManager.createAPL(serverId, adr[0], Integer.parseInt(adr[1]), serversPublicKeys.get(serverId), messageHandler);
             }
 
         } catch (Exception e) {

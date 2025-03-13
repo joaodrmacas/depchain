@@ -91,7 +91,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
                 ConsensusMessage<T> message = new ReadMessage<>(this.epochNumber);
-                member.getLink(i).send(message);
+                member.sendToMember(i, message);
             }
         }
     }
@@ -109,11 +109,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             final int _i = i;
             threads[i] = new Thread(() -> {
                 boolean done = true;
-                while(true) {
+                
+                // Prevents byzantine process to send useless messages to keep the leader stuck
+                long startTime = System.currentTimeMillis();
+                while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
                     ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
-                        Logger.LOG("Timeouted");
+                        Logger.LOG("Timed out");
                         break;
                     }
 
@@ -183,7 +186,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
                 ConsensusMessage<T> message = new CollectedMessage<>(collected, this.epochNumber);
-                member.getLink(i).send(message);
+                member.sendToMember(i, message);
             }
         }
     }
@@ -201,11 +204,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             final int _i = i;
             threads[i] = new Thread(() -> {
                 boolean done = true;
-                while(true) {
+                
+                // Prevents byzantine process to send useless messages to keep the leader stuck
+                long startTime = System.currentTimeMillis();
+                while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
                     ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
-                        Logger.LOG("Timeouted");
+                        Logger.LOG("Timed out");
                         break;
                     }
 
@@ -256,7 +262,9 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         int leaderId = getLeader(epochNumber);
 
-        member.getLink(leaderId).send(state);
+        ConsensusMessage<T> message = new StateMessage<>(state, this.epochNumber);
+
+        member.sendToMember(leaderId, message);
     }
 
     // TODO
@@ -274,11 +282,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             final int _i = i;
             threads[i] = new Thread(() -> {
                 boolean done = true;
-                while(true) {
+
+                // Prevents byzantine process to send useless messages to keep the leader stuck
+                long startTime = System.currentTimeMillis();
+                while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
                     ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
-                        Logger.LOG("Timeouted");
+                        Logger.LOG("Timed out");
                         break;
                     }
 
@@ -342,9 +353,13 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         WriteTuple<T> bestWT = null;
 
+        int countCorrectStates = 0;
+
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             ConsensusState<T> state = collected.getStates().get(i);
             if (state != null) {
+                countCorrectStates++;
+
                 WriteTuple<T> wt = state.getMostRecentQuorumWritten();
                 if (bestWT == null
                         || wt.getTimestamp() < bestWT.getTimestamp()) {
@@ -353,16 +368,21 @@ public class EpochConsensus<T extends RequiresEquals> {
             }
         }
 
+        if (countCorrectStates < Config.ALLOWED_FAILURES + 1) {
+            abortAndBroadcast();
+        }
+
         if (bestWT != null) {
-            int count = 0;
+            int countIncludedInWritesets = 0;
             for (int i = 0; i < Config.NUM_MEMBERS; i++) {
                 ConsensusState<T> state = collected.getStates().get(i);
                 if (state != null) {
                     Map<T, WriteTuple<T>> ws = state.getWriteSet();
                     for (T value : ws.keySet()) {
-                        if (bestWT.getValue().equals(value)) {
-                            count++;
-                            if (count >= Config.ALLOWED_FAILURES + 1) {
+                        if (bestWT.getValue().equals(value)
+                                && bestWT.getTimestamp() <= ws.get(value).getTimestamp()) {
+                            countIncludedInWritesets++;
+                            if (countIncludedInWritesets >= Config.ALLOWED_FAILURES + 1) {
                                 return bestWT.getValue();
                             }
                         }
@@ -382,7 +402,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
                 ConsensusMessage<T> message = new WriteMessage<>(value, this.epochNumber);
-                member.getLink(i).send(message);
+                member.sendToMember(i, message);
             }
         }
     }
@@ -400,11 +420,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             final int _i = i;
             threads[i] = new Thread(() -> {
                 boolean done = true;
-                while(true) {
+
+                // Prevents byzantine process to send useless messages to keep the leader stuck
+                long startTime = System.currentTimeMillis();
+                while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
                     ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
-                        Logger.LOG("Timeouted");
+                        Logger.LOG("Timed out");
                         break;
                     }
 
@@ -484,7 +507,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
                 ConsensusMessage<T> message = new AcceptMessage<>(value, this.epochNumber);
-                member.getLink(i).send(message);
+                member.sendToMember(i, message);
             }
         }
     }
@@ -503,11 +526,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             final int _i = i;
             threads[i] = new Thread(() -> {
                 boolean done = true;
-                while(true) {
+
+                // Prevents byzantine process to send useless messages to keep the leader stuck
+                long startTime = System.currentTimeMillis();
+                while(System.currentTimeMillis() - startTime < 2*Config.LINK_TIMEOUT) {
                     ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
-                        Logger.LOG("Timeouted");
+                        Logger.LOG("Timed out");
                         break;
                     }
 
@@ -586,7 +612,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i != member.getId()) {
                 ConsensusMessage<T> message = new NewEpochMessage<>(this.epochNumber);
-                member.getLink(i).send(message);
+                member.sendToMember(i, message);
             }
         }
 

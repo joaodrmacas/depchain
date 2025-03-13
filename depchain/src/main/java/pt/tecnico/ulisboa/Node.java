@@ -12,37 +12,39 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.network.APLImpl;
+import pt.tecnico.ulisboa.network.ClientAplManager;
+import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
-import pt.tecnico.ulisboa.network.AplManager;
-
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
     private PrivateKey privateKey;
     private ConcurrentHashMap<Integer, PublicKey> publicKeys;
-    //TODO: ao termos dois sockets diferentes, os clientes vao ter que comunicar com 2 cenas diferentes, nao sei se é assim tao fixe. - massas
-    //E este registerManager nao faz nada porque no fundo o messageHandler e a APL faz tudo por ele
-    private AplManager registerManager;
-    private AplManager aplManager; //disgusting name
+    // TODO: ao termos dois sockets diferentes, os clientes vao ter que comunicar
+    // com 2 cenas diferentes, nao sei se é assim tao fixe. - massas
+    // E este registerManager nao faz nada porque no fundo o messageHandler e a APL
+    // faz tudo por ele
+    private ClientAplManager<T> clientManager;
+    private ServerAplManager serversManager; // disgusting name
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
-    
+
     private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
     private Set<T> transactionsSet = ConcurrentHashMap.newKeySet();
 
@@ -87,7 +89,7 @@ public class Node<T extends RequiresEquals> {
             Logger.ERROR("Cannot create a link to self");
         }
 
-        return aplManager.getAPL(destId);
+        return serversManager.getAPL(destId);
     }
 
     public Map<Integer, PublicKey> getPublicKeys() {
@@ -134,18 +136,19 @@ public class Node<T extends RequiresEquals> {
 
     private void handleDecidedValue(T value) {
         boolean success = false;
-        //TODO: verificar se foi um abort. Se sim, temos de mandar false no success ao cliente.
+        // TODO: verificar se foi um abort. Se sim, temos de mandar false no success ao
+        // cliente.
         if (value != null) {
             success = true;
-            //Add to blockchain
+            // Add to blockchain
             blockchain.add(value);
             Logger.LOG("Decided value: " + value);
         }
 
         LocalDateTime timestamp = LocalDateTime.now();
 
-        //Send answer to clients
-        aplManager.send(value.getSenderId(), new AppendResp(success,timestamp));
+        // Send answer to clients
+        serversManager.send(value.getSenderId(), new AppendResp(success, timestamp));
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -165,8 +168,7 @@ public class Node<T extends RequiresEquals> {
                 this.consensusMessages.put(destId, new ObservedResource<>(new LinkedList<>()));
             }
 
-            NodeMessageHandler<T> handler = new NodeMessageHandler<>(transactions, clientPublicKeys);
-            aplManager = new AplManager(address, port, handler, privateKey);
+            serversManager = new ServerAplManager(address, port, privateKey);
 
             // Initialize APLs, one for each destination node
             for (int destId : publicKeys.keySet()) {
@@ -174,17 +176,17 @@ public class Node<T extends RequiresEquals> {
                     continue;
                 }
 
-                String destAddr = GeneralUtils.serversId2Addr.get(destId);
-                //divide the address into address and port
+                String destAddr = GeneralUtils.id2ServerAddr.get(destId);
+                // divide the address into address and port
                 String[] parts = destAddr.split(":");
 
-                aplManager.createAPL(destId, parts[0], Integer.parseInt(parts[1]), publicKeys.get(destId));
+                ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
+                serversManager.createAPL(destId, parts[0], Integer.parseInt(parts[1]), publicKeys.get(destId), handler);
                 Logger.LOG("APL created for destination node " + destId);
             }
 
-            //Initialize register APL
-            RegisterMessageHandler registerHandler = new RegisterMessageHandler(publicKeys);
-            registerManager = new AplManager(address, portRegister, registerHandler, privateKey);
+            // Initialize register APL
+            clientManager = new ClientAplManager<>(address, portRegister, privateKey,transactions,clientPublicKeys);
 
             Logger.LOG("Node setup complete");
 
@@ -283,7 +285,7 @@ public class Node<T extends RequiresEquals> {
     }
 
     public T peekReceivedTxOrWait() {
-        while(true) {
+        while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {
                 return value;
@@ -367,5 +369,9 @@ public class Node<T extends RequiresEquals> {
 
     public PrivateKey getPrivateKey() {
         return privateKey;
+    }
+
+    public void sendToMember(int memberId, ConsensusMessage<T> msg) {
+        serversManager.send(memberId, msg);
     }
 }

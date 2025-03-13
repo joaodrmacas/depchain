@@ -15,7 +15,13 @@ public class EpochChange<T extends RequiresEquals> {
         Logger.LOG("Creating epoch change");
     }
 
+    public int legacyStart() {
+        return epochNumber + 1;
+    }
+
     public int start() {
+        
+
         return epochNumber + 1;
     }
 }

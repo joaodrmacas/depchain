@@ -33,7 +33,7 @@ public class ClientMessageHandler implements MessageHandler {
     }
 
     @Override
-    public void onMessage(byte[] message) {
+    public void onMessage(int senderid, byte[] message) {
         try {
             BlockchainMessage response = (BlockchainMessage) SerializationUtils.deserializeObject(message);
             long seqnum = response.getSeqNum();

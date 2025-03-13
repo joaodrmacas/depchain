@@ -73,7 +73,7 @@ public class BFTConsensus<T extends RequiresEquals> {
                     Logger.LOG("Aborted: " + abs.getMessage());
 
                     EpochChange<T> epochChange = new EpochChange<>(member, epochNumber);
-                    epochNumber = epochChange.start();
+                    epochNumber = epochChange.legacyStart();
 
                     readPhaseDone.set(false);
 
