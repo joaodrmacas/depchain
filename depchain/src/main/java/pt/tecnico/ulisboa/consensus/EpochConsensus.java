@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa.consensus;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.Node;
@@ -18,13 +19,13 @@ public class EpochConsensus<T extends RequiresEquals> {
     private Node<T> member;
     private int epochNumber;
     private ConsensusState<T> state;
-    private Boolean readPhaseDone;
+    private AtomicBoolean readPhaseDone;
     private EventCounter<T> writeCounts = new EventCounter<>();
     private EventCounter<T> acceptCounts = new EventCounter<>();
     private EventCounter<T> abortCounts = new EventCounter<>();
     private boolean hasBroadcastedNewEpoch = false;
 
-    public EpochConsensus(Node<T> member, int epochNumber, ConsensusState<T> state, Boolean readPhaseDone) {
+    public EpochConsensus(Node<T> member, int epochNumber, ConsensusState<T> state, AtomicBoolean readPhaseDone) {
         this.member = member;
         this.epochNumber = epochNumber;
         this.state = state;
@@ -40,12 +41,17 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         // Leader
         if (getLeader(this.epochNumber) == member.getId()) {
-            if (!this.readPhaseDone) {
+            // aborts this epoch if is leader and has no value to propose
+            if (valueToBeProposed == null) {
+                abortAndBroadcast();
+            }
+
+            if (!this.readPhaseDone.get()) {
                 sendReads();
 
                 collected = receiveStatesOrAbort();
 
-                this.readPhaseDone = true;
+                this.readPhaseDone.set(true);
             } else {
                 collected = new CollectedStates<>(Config.NUM_MEMBERS);
             }
@@ -63,9 +69,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             collected = receiveCollectedOrAbort();
 
             if (!collected.verifyStates(member.getPublicKeys())) {
-                synchronized(abortCounts) {
-                    abortAndBroadcast();
-                }
+                abortAndBroadcast();
             }
         }
 
@@ -106,7 +110,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             threads[i] = new Thread(() -> {
                 boolean done = true;
                 while(true) {
-                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+                    ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
                         Logger.LOG("Timeouted");
@@ -136,9 +140,7 @@ public class EpochConsensus<T extends RequiresEquals> {
                             }
                             break;
                         case NEWEPOCH:
-                            synchronized(abortCounts) {
-                                abortCounts.inc(_i);
-                            }
+                            abortCounts.inc(_i);
                             break;
                         default:
                             done = false;
@@ -165,12 +167,10 @@ public class EpochConsensus<T extends RequiresEquals> {
                 }
             }
 
-            synchronized(abortCounts) {
-                if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-                    broadcastAbort();
-                } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-                    abort();
-                }
+            if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+                broadcastAbort();
+            } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+                abort();
             }
         }
 
@@ -202,7 +202,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             threads[i] = new Thread(() -> {
                 boolean done = true;
                 while(true) {
-                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+                    ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
                         Logger.LOG("Timeouted");
@@ -223,9 +223,7 @@ public class EpochConsensus<T extends RequiresEquals> {
                             if (_i != leaderId) continue;
                             break;
                         case NEWEPOCH:
-                            synchronized(abortCounts) {
-                                abortCounts.inc(_i);
-                            }
+                            abortCounts.inc(_i);
                             break;
                         default:
                             done = false;
@@ -246,14 +244,12 @@ public class EpochConsensus<T extends RequiresEquals> {
             Logger.LOG("Thread interrupted: " + e);
         }
         
-        synchronized(abortCounts) {
-            if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-                broadcastAbort();
-            } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-                abort();
-            }
+        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+            abort();
         }
-    }
+}
 
     public void sendState(ConsensusState<T> state) {
         Logger.LOG("Sending state");
@@ -279,7 +275,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             threads[i] = new Thread(() -> {
                 boolean done = true;
                 while(true) {
-                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+                    ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
                         Logger.LOG("Timeouted");
@@ -304,9 +300,7 @@ public class EpochConsensus<T extends RequiresEquals> {
 
                             break;
                         case NEWEPOCH:
-                            synchronized(abortCounts) {
-                                abortCounts.inc(_i);
-                            }
+                            abortCounts.inc(_i);
                             break;
                         default:
                             done = false;
@@ -327,12 +321,10 @@ public class EpochConsensus<T extends RequiresEquals> {
             Logger.LOG("Thread interrupted: " + e);
         }
         
-        synchronized(abortCounts) {
-            if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-                broadcastAbort();
-            } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-                abort();
-            }
+        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+            broadcastAbort();
+        } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+            abort();
         }
 
         return collected;
@@ -342,9 +334,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         Logger.LOG("Deciding from collected");
 
         if (collected.getStates().get(getLeader(epochNumber)) == null) {
-            synchronized(abortCounts) {
-                abortAndBroadcast();
-            }
+            abortAndBroadcast();
         }
 
         // we assume the leader write tuple if no tupple is read
@@ -411,7 +401,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             threads[i] = new Thread(() -> {
                 boolean done = true;
                 while(true) {
-                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+                    ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
                         Logger.LOG("Timeouted");
@@ -431,9 +421,7 @@ public class EpochConsensus<T extends RequiresEquals> {
                         case WRITE:
                             WriteMessage<T> writeMsg = (WriteMessage<T>) msg;
 
-                            synchronized(writeCounts) {
-                                writeCounts.inc(writeMsg.getValue(), _i);
-                            }
+                            writeCounts.inc(writeMsg.getValue(), _i);
 
                             synchronized(this.state) {
                                 this.state.addToWriteSet(
@@ -443,9 +431,7 @@ public class EpochConsensus<T extends RequiresEquals> {
 
                             break;
                         case NEWEPOCH:
-                            synchronized(abortCounts) {
-                                abortCounts.inc(_i);
-                            }
+                            abortCounts.inc(_i);
                             break;
                         default:
                             done = false;
@@ -467,32 +453,27 @@ public class EpochConsensus<T extends RequiresEquals> {
                     Logger.LOG("Thread interrupted: " + e);
                 }
             }
-            synchronized(writeCounts) {
-                T value = writeCounts.getExeeded(2*Config.ALLOWED_FAILURES);
-                if (value != null) {
 
-                    synchronized(this.state) {
-                        this.state.setMostRecentQuorumWritten(
-                            new WriteTuple<T>(value, this.epochNumber)
-                        );
-                    }
+            T value = writeCounts.getExeeded(2*Config.ALLOWED_FAILURES);
+            if (value != null) {
 
-                    return value;
+                synchronized(this.state) {
+                    this.state.setMostRecentQuorumWritten(
+                        new WriteTuple<T>(value, this.epochNumber)
+                    );
                 }
+
+                return value;
             }
 
-            synchronized(abortCounts) {
-                if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-                    broadcastAbort();
-                } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-                    abort();
-                }
+            if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+                broadcastAbort();
+            } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+                abort();
             }
         }
 
-        synchronized(abortCounts) {
-            abortAndBroadcast();
-        }
+        abortAndBroadcast();
 
         return null;
     }
@@ -523,7 +504,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             threads[i] = new Thread(() -> {
                 boolean done = true;
                 while(true) {
-                    ConsensusMessage<T> msg = member.fetchConsensusMessageOrWait(_i);
+                    ConsensusMessage<T> msg = member.pollConsensusMessageOrWait(_i);
 
                     if (msg == null) {
                         Logger.LOG("Timeouted");
@@ -543,15 +524,11 @@ public class EpochConsensus<T extends RequiresEquals> {
                         case ACCEPT:
                             AcceptMessage<T> acceptMsg = (AcceptMessage<T>) msg;
 
-                            synchronized(acceptCounts) {
-                                acceptCounts.inc(acceptMsg.getValue(), _i);
-                            }
+                            acceptCounts.inc(acceptMsg.getValue(), _i);
 
                             break;
                         case NEWEPOCH:
-                            synchronized(abortCounts) {
-                                abortCounts.inc(_i);
-                            }
+                            abortCounts.inc(_i);
                             break;
                         default:
                             done = false;
@@ -573,25 +550,20 @@ public class EpochConsensus<T extends RequiresEquals> {
                     Logger.LOG("Thread interrupted: " + e);
                 }
             }
-            synchronized(acceptCounts) {
-                T value = acceptCounts.getExeeded(2*Config.ALLOWED_FAILURES);
-                if (value != null) {
-                    return value;
-                }
+            
+            T value = acceptCounts.getExeeded(2*Config.ALLOWED_FAILURES);
+            if (value != null) {
+                return value;
             }
 
-            synchronized(abortCounts) {
-                if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-                    broadcastAbort();
-                } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-                    abort();
-                }
+            if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
+                broadcastAbort();
+            } else if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
+                abort();
             }
         }
 
-        synchronized(abortCounts) {
-            abortAndBroadcast();
-        }
+        abortAndBroadcast();
 
         return null;
     }
@@ -606,7 +578,6 @@ public class EpochConsensus<T extends RequiresEquals> {
         throw new AbortedSignal("Aborted");
     }
 
-    // always use this within a synchronized block
     public void broadcastAbort() {
         Logger.LOG("Broadcasting abort");
 
@@ -622,7 +593,6 @@ public class EpochConsensus<T extends RequiresEquals> {
         hasBroadcastedNewEpoch = true;
     }
 
-    // always use this within a synchronized block
     public void abortAndBroadcast() throws AbortedSignal {
         Logger.LOG("Aborting and broadcasting");
 

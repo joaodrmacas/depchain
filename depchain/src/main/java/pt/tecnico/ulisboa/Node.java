@@ -12,9 +12,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,8 +42,13 @@ public class Node<T extends RequiresEquals> {
     private AplManager aplManager; //disgusting name
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
-    private ConcurrentLinkedQueue<T> transactions;
-    private ObservedResource<Queue<T>> decidedValues;
+    
+    private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    private Set<T> transactionsSet = ConcurrentHashMap.newKeySet();
+
+    private ObservedResource<Queue<T>> decidedValues = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    private Set<T> decidedValuesSet = ConcurrentHashMap.newKeySet();
+
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
     private ArrayList<T> blockchain;
 
@@ -264,18 +271,56 @@ public class Node<T extends RequiresEquals> {
         return content.toString();
     }
 
-    public T fetchReceivedTx() {
-        return transactions.poll();
+    public void pushReceivedTx(T value) {
+        if (decidedValuesSet.contains(value)) {
+            Logger.LOG("Received a transaction that was already decided: " + value);
+            return;
+        }
+
+        transactionsSet.add(value);
+        transactions.getResource().add(value);
+        transactions.notifyChange();
+    }
+
+    public T peekReceivedTxOrWait() {
+        while(true) {
+            T value = transactions.getResource().peek();
+            if (value != null) {
+                return value;
+            }
+
+            try {
+                boolean hasTimeouted = !transactions.waitForChange(Config.LINK_TIMEOUT);
+
+                if (hasTimeouted) {
+                    return null;
+                }
+            } catch (Exception e) {
+                Logger.ERROR("Exception: ", e);
+            }
+        }
+    }
+
+    public T peekReceivedTx() {
+        return transactions.getResource().peek();
+    }
+
+    public void removeReceivedTx(T value) {
+        if (transactionsSet.contains(value)) {
+            transactionsSet.remove(value);
+            transactions.getResource().remove(value);
+            transactions.notifyChange();
+        }
     }
 
     public void pushDecidedTx(T value) {
+        decidedValuesSet.add(value);
         decidedValues.getResource().add(value);
         decidedValues.notifyChange();
     }
 
-    public ConsensusMessage<T> fetchConsensusMessageOrWait(int senderId) {
+    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId) {
         while (true) {
-            // gotta decide if its peek() or poll() (keep or remove)
             ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().poll();
             if (msg != null) {
                 return msg;
@@ -284,8 +329,28 @@ public class Node<T extends RequiresEquals> {
             try {
                 boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
 
-                if (hasTimeouted)
+                if (hasTimeouted) {
                     return null;
+                }
+            } catch (Exception e) {
+                Logger.ERROR("Exception: ", e);
+            }
+        }
+    }
+
+    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId) {
+        while (true) {
+            ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().peek();
+            if (msg != null) {
+                return msg;
+            }
+
+            try {
+                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
+
+                if (hasTimeouted) {
+                    return null;
+                }
             } catch (Exception e) {
                 Logger.ERROR("Exception: ", e);
             }
@@ -294,5 +359,13 @@ public class Node<T extends RequiresEquals> {
 
     public void removeFirstConsensusMessage(int senderId) {
         consensusMessages.get(senderId).getResource().poll();
+    }
+
+    public int getId() {
+        return nodeId;
+    }
+
+    public PrivateKey getPrivateKey() {
+        return privateKey;
     }
 }

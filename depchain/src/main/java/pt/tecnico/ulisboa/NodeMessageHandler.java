@@ -1,8 +1,8 @@
 package pt.tecnico.ulisboa;
 
 import java.security.PublicKey;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.protocol.AppendReq;
@@ -10,14 +10,15 @@ import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage.BlockchainMessageType;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class NodeMessageHandler<T extends RequiresEquals> implements MessageHandler {
-    private ConcurrentLinkedQueue<T> txQueue;
+    private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKeys;
     
-    public NodeMessageHandler(ConcurrentLinkedQueue<T> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKeys) {
+    public NodeMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKeys) {
         this.txQueue = txQueue;
         this.clientKeys = clientKeys;
     }
@@ -55,7 +56,7 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
             Logger.LOG("Invalid signature for message: " + message);
             return;
         }
-        txQueue.add((T) message);
+        txQueue.getResource().add((T) message);
     }
 
 
