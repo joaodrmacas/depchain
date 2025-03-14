@@ -21,3 +21,4 @@ for i in $(seq -f "%02g" 0 $((N-1))); do
 done
 
 echo "Key generation completed: $N key pairs created in $KEY_DIR."
+
