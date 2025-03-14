@@ -105,4 +105,4 @@ make consensus
 
 This will start 4 server nodes and 1 client, allowing you to observe the consensus protocol in action.
 
-**Note**: Due to the limited timeframe, it wasn't possible to debug all the code before the delivery date. Some components may not function as expected.
+**Note**: We weren't able to finish debugging the consensus protocol in time for the submission deadline. However, all the code is implemented and available in the repository and can be run using the provided instructions.
