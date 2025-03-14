@@ -189,9 +189,11 @@ public class Node<T extends RequiresEquals> {
                 serversManager.createAPL(destId, destAddr, destPort, publicKeys.get(destId), handler);
                 Logger.LOG("APL created for destination node " + destId);
             }
+            serversManager.startListening();
 
             // Initialize register APL
             clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys);
+            clientManager.startListening();
 
             Logger.LOG("Node setup complete");
 

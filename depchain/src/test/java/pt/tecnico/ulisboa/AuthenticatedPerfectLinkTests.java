@@ -1,188 +1,339 @@
 package pt.tecnico.ulisboa;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.security.KeyPair;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
-import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.network.AplManager;
+import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
-
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class AuthenticatedPerfectLinkTests {
 
-    private static final int SERVER_PORT = 8079;
-    private static final int ATTACKER_PORT = 8078;
-    private static final int CLIENT_PORT = 8077;
+    private static final int SOURCE_PORT = 8079;
+    private static final int DESTINATION_PORT = 8078;
+    private static final int ATTACKER_PORT = 8077;
+    private static final String ADDR = "127.0.0.1";
+    private static final int TIMEOUT_MS = 2000;
 
-    private static final String ADDR = "localhost";
+    private AplManager senderManager;
+    private AplManager receiverManager;
+    private KeyPair senderKeys;
+    private KeyPair receiverKeys;
+    private KeyPair maliciousKeys;
+    private final int senderId = 1;
+    private final int receiverId = 2;
 
-    @Test
-    public void testBasicDelivery() {
-        KeyPair senderKeys = CryptoUtils.generateKeyPair(2048);
-        KeyPair receiverKeys = CryptoUtils.generateKeyPair(2048);
-        int senderId = 1;
-        int receiverId = 2;
-        String message = "APPEND A";
+    @Before
+    public void setup() {
+        // Generate fresh key pairs for each test
+        senderKeys = CryptoUtils.generateKeyPair(2048);
+        receiverKeys = CryptoUtils.generateKeyPair(2048);
+        maliciousKeys = CryptoUtils.generateKeyPair(2048);
+    }
 
-        try {
-            AplManager senderManager = new ServerAplManager(ADDR, SERVER_PORT, senderKeys.getPrivate());
-            
-            senderManager.createAPL(receiverId, ADDR, CLIENT_PORT, receiverKeys.getPublic(), null);
-
-            AplManager receiverManager = new ServerAplManager(ADDR, CLIENT_PORT, receiverKeys.getPrivate());
-            receiverManager.createAPL(senderId, ADDR, SERVER_PORT, senderKeys.getPublic(), (id, receivedMessage) -> {
-                assertEquals(senderId, id);
-                assertEquals(message, new String(receivedMessage));
-            });
-
-            senderManager.send(receiverId, message);
-
-        } catch (Exception e) {
-            fail();
+    @After
+    public void cleanup() {
+        // Ensure resources are properly closed after each test
+        if (senderManager != null) {
+            senderManager.close();
+            senderManager = null;
+        }
+        if (receiverManager != null) {
+            receiverManager.close();
+            receiverManager = null;
         }
     }
 
-    // @Test 
-    // public void testMessageResend() {
-    //     KeyPair senderKeys = CryptoUtils.generateKeyPair(2048);
-    //     KeyPair receiverKeys = CryptoUtils.generateKeyPair(2048);
-    //     int senderId = 3;
-    //     int receiverId = 4;
-    //     String message = "APPEND B";
-        
-    //     try {
-    //         CountDownLatch latch = new CountDownLatch(1);
-            
-    //         // Create sender but don't create receiver yet
-    //         AplManager senderManager = new ServerAplManager(ADDR, SERVER_PORT, senderKeys.getPrivate());
-    //         senderManager.createAPL(receiverId, ADDR, CLIENT_PORT, receiverKeys.getPublic(), null);
+    /**
+     * Creates and initializes sender and receiver managers for testing
+     * 
+     * @param messageHandler The callback handler for received messages or null if
+     *                       not needed
+     */
+    private void initializeManagers(MessageHandler messageHandler) throws Exception {
+        // Create sender manager
+        senderManager = new ServerAplManager(ADDR, SOURCE_PORT, senderKeys.getPrivate());
+        senderManager.createAPL(receiverId, ADDR, DESTINATION_PORT, receiverKeys.getPublic(), null);
 
-    //         // Send message while receiver is not active
-    //         senderManager.send(receiverId, message);
-            
-    //         // Sleep to allow for some retransmission attempts
-    //         Thread.sleep(2000);
-            
-    //         // Now create the receiver and set up message handler
-    //         AplManager receiverManager = new ServerAplManager(ADDR, CLIENT_PORT, receiverKeys.getPrivate());
-    //         receiverManager.createAPL(senderId, ADDR, SERVER_PORT, senderKeys.getPublic(), (id, receivedMessage) -> {
-    //             assertEquals(senderId, id);
-    //             assertEquals(message, new String(receivedMessage));
-    //             latch.countDown();
-    //         });
+        // Create receiver manager
+        receiverManager = new ServerAplManager(ADDR, DESTINATION_PORT, receiverKeys.getPrivate());
+        receiverManager.createAPL(senderId, ADDR, SOURCE_PORT, senderKeys.getPublic(), messageHandler);
+        receiverManager.startListening();
+    }
 
-            
-            
-    //         // Wait for message to be delivered via retransmission
-    //         assertTrue("Message was not delivered after retransmission", latch.await(10, TimeUnit.SECONDS));
-            
-    //     } catch (Exception e) {
-    //         fail("Exception during test: " + e.getMessage());
-    //     }
-    // }
+    @Test
+    public void testBasicMessageSendingAndReceiving() {
+        final String message = "APPEND A";
+        final CountDownLatch messageLatch = new CountDownLatch(1);
+        final AtomicReference<String> receivedMessage = new AtomicReference<>();
+        final AtomicReference<Integer> receivedId = new AtomicReference<>();
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                receivedId.set(id);
+                receivedMessage.set(SerializationUtils.deserializeObject(msgBytes));
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
 
-    // @Test
-    // public void testDuplicateDetection() {
-    //     KeyPair senderKeys = CryptoUtils.generateKeyPair(2048);
-    //     KeyPair receiverKeys = CryptoUtils.generateKeyPair(2048);
-    //     int senderId = 5;
-    //     int receiverId = 6;
-    //     String message = "APPEND C";
-        
-    //     try {
-    //         AtomicInteger deliveryCount = new AtomicInteger(0);
-    //         CountDownLatch latch = new CountDownLatch(1);
-            
-    //         APL sender = new APLImpl(senderId, receiverId, senderKeys.getPrivate(), receiverKeys.getPublic());
-            
-    //         //send a message
-    //         sender.send(message.getBytes());
-            
-    //         // Sleep to give time for retransmission
-    //         Thread.sleep(2000);
+        try {
+            initializeManagers(messageHandler);
 
-    //         // Create receiver and set up message handler
-    //         MessageHandler handler = (id, receivedMessage) -> {
-    //             assertEquals(senderId, id);
-    //             assertEquals(message, new String(receivedMessage));
-    //             deliveryCount.incrementAndGet();
-    //             latch.countDown();
-    //         };
-    //         APL receiver = new APLImpl(receiverId, senderId, receiverKeys.getPrivate(), senderKeys.getPublic(), handler);
-            
-    //         // Verify message was delivered exactly once
-    //         assertEquals("Message should be delivered exactly once", 1, deliveryCount.get());
-            
-    //     } catch (Exception e) {
-    //         fail("Exception during test: " + e.getMessage());
-    //     }
-    // }
+            senderManager.send(receiverId, message);
 
-    // @Test 
-    // public void testHMACAuthentication() {
-    //     KeyPair senderKeys = CryptoUtils.generateKeyPair(2048);
-    //     KeyPair receiverKeys = CryptoUtils.generateKeyPair(2048);
-    //     KeyPair attackerKeys = CryptoUtils.generateKeyPair(2048); // Different keys
-    //     int senderId = 7;
-    //     int receiverId = 8;
-    //     int attackerId = 9;
-    //     String message = "APPEND D";
-        
-    //     try {
-    //         CompletableFuture<Boolean> legitimateDelivery = new CompletableFuture<>();
-    //         CompletableFuture<Boolean> attackerDelivery = new CompletableFuture<>();
-            
-    //         // Set up legitimate communication
-    //         APLImpl sender = new APLImpl(senderId, receiverId, senderKeys.getPrivate(), receiverKeys.getPublic());
-    //         // Set message handler on receiver
-    //         MessageHandler handler = (id, receivedMessage) -> {
-    //             if (id == senderId) {
-    //                 legitimateDelivery.complete(true);
-    //             } else if (id == attackerId) {
-    //                 attackerDelivery.complete(true);
-    //             }
-    //         };
-    //         APLImpl receiver = new APLImpl(receiverId, senderId, receiverKeys.getPrivate(), senderKeys.getPublic(),handler);
-            
-    //         // Set up attacker trying to impersonate legitimate sender
-    //         APLImpl attacker = new APLImpl(attackerId, receiverId, attackerKeys.getPrivate(), receiverKeys.getPublic());
+            // Wait for message to be received (we use a timeout to ensure that it has
+            // enough time to arrive)
+            boolean received = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue("Message reception timed out", received);
 
-    //         SecretKey hmacKey = CryptoUtils.generateSymmetricKey();
-    //         KeyMessage keyMessage = new KeyMessage(hmacKey.getEncoded(), 1);
+            assertEquals("Sender ID should match", senderId,
+                    receivedId.get().intValue());
+            assertEquals("Message content should match", message, receivedMessage.get());
 
-    //         //Done under the hood when sending the first message on APLinks
-    //         sender.sendKeyMessage(keyMessage);
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
 
-    //         byte[] hmac = CryptoUtils.generateHMAC(message, hmacKey);
-    //         DataMessage dataMessage = new DataMessage(message.getBytes(), 2, hmac);
-            
-    //         // Simulate message interception and message change
-    //         DataMessage changedMessage = new DataMessage("APPEND ATTACK".getBytes(), 2, hmac);
-    //         attacker.sendDataMessage(dataMessage);
+    @Test
+    public void testMessagesUniqueAndInOrder() {
+        final String[] messages = { "Message 1", "Message 2", "Message 3", "Message4", "Message 5", "Message 6",
+                "Message 7", "Message 8", "Message 9", "Message 10" };
+        final CountDownLatch messageLatch = new CountDownLatch(messages.length);
+        final List<String> receivedMessages = new ArrayList<>();
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                assertEquals("Sender ID should match", senderId, id);
+                receivedMessages.add(SerializationUtils.deserializeObject(msgBytes));
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
 
-    //         sender.sendDataMessage(changedMessage);
-            
-    //         // Check that legitimate message is delivered
-    //         assertTrue("Legitimate message should be delivered", legitimateDelivery.get(5, TimeUnit.SECONDS));
-            
-    //         // The attacker message should never be delivered with the sender ID
-    //         // This is enforced by the APL's destination checking logic
-    //         try {
-    //             attackerDelivery.get(3, TimeUnit.SECONDS);
-    //             fail("Attacker message should not be accepted as legitimate");
-    //         } catch (java.util.concurrent.TimeoutException e) {
-    //             // Expected timeout - attacker message was not delivered
-    //         }
-            
-    //     } catch (Exception e) {
-    //         fail("Exception during test: " + e.getMessage());
-    //     }
-    // }
+        try {
+            initializeManagers(messageHandler);
+
+            // Send multiple messages
+            for (String message : messages) {
+                senderManager.send(receiverId, message);
+            }
+
+            // Wait for all messages to be received with timeout
+            boolean allReceived = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue("Not all messages were received within timeout", allReceived);
+
+            // Verify count and uniqueness
+            assertEquals("Should receive all messages", messages.length,
+                    receivedMessages.size());
+            assertEquals("Should receive unique messages", messages.length, new HashSet<>(receivedMessages).size());
+
+            // Verify order
+            for (int i = 0; i < messages.length; i++) {
+                assertEquals("Messages should be received in order", messages[i],
+                        receivedMessages.get(i));
+            }
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testMessageDeliveryWithNetworkPartition() {
+        final String message = "Partition Test";
+        final CountDownLatch messageLatch = new CountDownLatch(1);
+        final AtomicReference<String> receivedMessage = new AtomicReference<>();
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                receivedMessage.set(SerializationUtils.deserializeObject(msgBytes));
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
+
+        try {
+            initializeManagers(messageHandler);
+
+            // Simulate network partition by stopping the receiver from listening
+            receiverManager.stopListening();
+            senderManager.send(receiverId, message);
+
+            // Verify message was not received (wait a bit to be sure)
+            Thread.sleep(500);
+            assertEquals("No message should be received during partition", 1,
+                    messageLatch.getCount());
+
+            // Restore connection by restarting listening on the same manager
+            receiverManager.startListening();
+
+            // Wait for message to be received
+            boolean allReceived = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue("Message not received after network restored", allReceived);
+            assertEquals("Message content should match", message, receivedMessage.get());
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testSameMessageNotConsideredDuplicate() { // NOTE: In a future
+                                                          // delivery, this test will probably become
+                                                          // obsolete, but for now it made sense for us that the same
+                                                          // message content does not mean it is a duplicate
+        final String message = "I can send the same message multiple times. Itdoesn't mean it's a duplicate, just the same message content.";
+        final int sendingTimes = 5;
+        final CountDownLatch messageLatch = new CountDownLatch(sendingTimes);
+        final List<String> receivedMessages = new ArrayList<>();
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            // Ensure the correct sender and message and increment the delivery count
+            assertEquals(senderId, id);
+            try {
+                receivedMessages.add(SerializationUtils.deserializeObject(msgBytes));
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
+
+        try {
+            initializeManagers(messageHandler);
+
+            // Send the same CONTENT multiple times
+            for (int i = 0; i < 5; i++) {
+                senderManager.send(receiverId, message);
+            }
+
+            // Wait for receipt
+            boolean received = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue("No message was received", received);
+
+            // Wait a bit more to ensure delivery
+            Thread.sleep(500);
+
+            assertEquals("All instances of the message shoud be received", sendingTimes,
+                    receivedMessages.size());
+            for (String receivedMessage : receivedMessages) {
+                assertEquals("Message content should match", message, receivedMessage);
+            }
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testAttackerImpersonatingServer() {
+        final String legitimateMessage = "This is a legitimate message";
+        final String maliciousMessage = "This is a malicious message";
+        final CountDownLatch messageLatch = new CountDownLatch(1);
+        final List<String> receivedMessages = new ArrayList<>();
+        final CountDownLatch maliciousLatch = new CountDownLatch(1);
+
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                String message = SerializationUtils.deserializeObject(msgBytes);
+                receivedMessages.add(message);
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
+
+        try {
+            // Set up legitimate communication channel with our real keys
+            initializeManagers(messageHandler);
+
+            // Create a malicious manager with its own keys
+            ServerAplManager maliciousManager = new ServerAplManager(ADDR, ATTACKER_PORT,
+                    maliciousKeys.getPrivate());
+            maliciousManager.createAPL(receiverId, ADDR, DESTINATION_PORT,
+                    receiverKeys.getPublic(), null);
+
+            // First, send a legitimate message from the authorized sender
+            senderManager.send(receiverId, legitimateMessage);
+
+            // Wait for the legitimate message
+            boolean received = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue("Legitimate message was not received", received);
+            assertEquals("Should receive exactly one message", 1,
+                    receivedMessages.size());
+            assertEquals("Message content should match", legitimateMessage,
+                    receivedMessages.get(0));
+
+            // Reset for the malicious message test
+            receivedMessages.clear();
+
+            // Send a message from the malicious sender
+            maliciousManager.send(receiverId, maliciousMessage);
+
+            // Wait briefly to see if the message is delivered
+            boolean maliciousReceived = maliciousLatch.await(500, TimeUnit.MILLISECONDS);
+            assertFalse("Malicious message should not be received", maliciousReceived);
+            assertEquals("No messages should be received from malicious sender", 0,
+                    receivedMessages.size());
+
+            // Clean up
+            maliciousManager.close();
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testHmacVerification() { // NOTE: For this test, we are tampering with the message directly after its
+                                         // Hmac is computed because it is hard to spoof the ip and port of the sender.
+                                         // This way the HMAC verification should fail since it is as if the message was
+                                         // tampered with by an attacker in the network.
+        final String message = "This is a message with HMAC verification";
+        final CountDownLatch messageLatch = new CountDownLatch(1);
+        final AtomicReference<String> receivedMessage = new AtomicReference<>();
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                receivedMessage
+                        .set(SerializationUtils.deserializeObject(msgBytes));
+                messageLatch.countDown();
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+
+        };
+
+        try {
+            initializeManagers(messageHandler);
+
+            // Send the message
+            senderManager.sendAndTamper(receiverId, message);
+
+            // Wait to ensure the message would have been received
+            boolean received = messageLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+            // message should not be received since the hmac verification should fail
+            assertFalse("Message should not be received", received);
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    };
 }

@@ -5,6 +5,8 @@ import java.io.Serializable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -137,6 +139,41 @@ public class APLImpl implements APL {
         }
     }
 
+    // This method is used to test the integrity of the message
+    public void sendAndTamper(Serializable obj) {
+        byte[] message = null;
+        try {
+            message = SerializationUtils.serializeObject(obj);
+        } catch (IOException e) {
+            System.err.println("Failed to serialize message: " + e.getMessage());
+            return;
+        }
+        SecretKey secretKey = getOrGenerateSecretKey();
+        long seqNum = nextSeqNum.getAndIncrement();
+
+        try {
+            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+
+            // Tamper the message
+            byte[] tampered = "tampered".getBytes(StandardCharsets.UTF_8);
+            ByteBuffer buffer = ByteBuffer.allocate(message.length + tampered.length);
+            buffer.put(message);
+            buffer.put(tampered);
+            byte[] tamperedMessage = buffer.array();
+
+            DataMessage dataMsg = new DataMessage(tamperedMessage, seqNum, hmac);
+
+            // Store the message in the pending list
+            pendingMessages.put(seqNum, dataMsg);
+
+            Logger.LOG("Sending message: " + seqNum);
+            sendUdpPacket(dataMsg.serialize());
+        } catch (Exception e) {
+            System.err.println("Failed to sign and send message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void sendWithTimeout(byte[] message, int timeout) {
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
@@ -181,7 +218,7 @@ public class APLImpl implements APL {
         Logger.LOG("Received message: " + message.getSeqNum());
         if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
             // Process message safely
-            
+
             Logger.LOG("Received out-of-order message: " + message.getSeqNum());
             return;
         }

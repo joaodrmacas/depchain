@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.Node;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
-import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 
 public class BFTConsensus<T extends RequiresEquals> {
@@ -17,7 +16,7 @@ public class BFTConsensus<T extends RequiresEquals> {
     }
 
     public void start() {
-        Integer epochNumber = 0;
+        AtomicInteger epochNumber = new AtomicInteger(0);
         AtomicBoolean readPhaseDone = new AtomicBoolean(false);
         
         while (true) {
@@ -62,7 +61,7 @@ public class BFTConsensus<T extends RequiresEquals> {
                 valueToBeProposed = member.peekReceivedTx();
             }
 
-            EpochConsensus<T> epoch = new EpochConsensus<>(member, epochNumber, valueToBeProposed);
+            EpochConsensus<T> epoch = new EpochConsensus<>(member, epochNumber, valueToBeProposed, readPhaseDone);
 
             T value = epoch.start();
 
