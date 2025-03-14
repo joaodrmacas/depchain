@@ -1,9 +1,11 @@
 package pt.tecnico.ulisboa;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.security.KeyPair;
+import java.util.concurrent.*;
 
 import org.junit.Test;
 
@@ -32,7 +34,7 @@ public class AuthenticatedPerfectLinkTests {
         try {
             AplManager senderManager = new ServerAplManager(ADDR, SERVER_PORT, senderKeys.getPrivate());
             
-            APLImpl sender = senderManager.createAPL(receiverId, ADDR, CLIENT_PORT, receiverKeys.getPublic(), null);
+            senderManager.createAPL(receiverId, ADDR, CLIENT_PORT, receiverKeys.getPublic(), null);
 
             AplManager receiverManager = new ServerAplManager(ADDR, CLIENT_PORT, receiverKeys.getPrivate());
             receiverManager.createAPL(senderId, ADDR, SERVER_PORT, senderKeys.getPublic(), (id, receivedMessage) -> {
@@ -40,7 +42,7 @@ public class AuthenticatedPerfectLinkTests {
                 assertEquals(message, new String(receivedMessage));
             });
 
-            sender.send(message.getBytes());
+            senderManager.send(receiverId, message);
 
         } catch (Exception e) {
             fail();
@@ -59,22 +61,23 @@ public class AuthenticatedPerfectLinkTests {
     //         CountDownLatch latch = new CountDownLatch(1);
             
     //         // Create sender but don't create receiver yet
-    //         APL sender = new APLImpl(senderId, receiverId, senderKeys.getPrivate(), receiverKeys.getPublic());
-            
+    //         AplManager senderManager = new ServerAplManager(ADDR, SERVER_PORT, senderKeys.getPrivate());
+    //         senderManager.createAPL(receiverId, ADDR, CLIENT_PORT, receiverKeys.getPublic(), null);
+
     //         // Send message while receiver is not active
-    //         sender.send(message.getBytes());
+    //         senderManager.send(receiverId, message);
             
     //         // Sleep to allow for some retransmission attempts
     //         Thread.sleep(2000);
             
     //         // Now create the receiver and set up message handler
-    //         MessageHandler handler = (id, receivedMessage) -> {
+    //         AplManager receiverManager = new ServerAplManager(ADDR, CLIENT_PORT, receiverKeys.getPrivate());
+    //         receiverManager.createAPL(senderId, ADDR, SERVER_PORT, senderKeys.getPublic(), (id, receivedMessage) -> {
     //             assertEquals(senderId, id);
     //             assertEquals(message, new String(receivedMessage));
     //             latch.countDown();
-    //         };
+    //         });
 
-    //         APL receiver = new APLImpl(receiverId, senderId, receiverKeys.getPrivate(), senderKeys.getPublic(), handler);
             
             
     //         // Wait for message to be delivered via retransmission
