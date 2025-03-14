@@ -61,14 +61,21 @@ public class EpochConsensus<T extends RequiresEquals> {
             } catch (AbortedSignal abs) {
                 Logger.LOG("Aborted: " + abs.getMessage());
 
-                // TODO: wait for other aborts til 2*f+1 and then change epoch
                 while (true) {
-                    break;
+                    try {
+                        receiveFromAll(ConsensusMessage.MessageType.NEWEPOCH);
+                    } catch (AbortedSignal abs2) {
+                        Logger.LOG("Aborted: " + abs2.getMessage());
+                    }
+                    
+                    if(shouldChangeEpoch()) break;
                 }
 
                 this.epochNumber++;
 
                 readPhaseDone = false;
+
+                resetCounters();
 
                 continue;
             }
@@ -96,9 +103,9 @@ public class EpochConsensus<T extends RequiresEquals> {
                 if (!this.readPhaseDone) {
                     sendToAll(new ReadMessage<>(this.epochNumber));
 
-                    Logger.LOG("AAAAAAAAAAAA");
+                    Logger.DEBUG("AAAAAAAAAAAA");
                     writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.STATE);
-                    Logger.LOG("BBBBBBBBBBBBBB");
+                    Logger.DEBUG("BBBBBBBBBBBBBB");
                     if (writesOrAccepts != null) break;
 
                     this.readPhaseDone = true;
@@ -148,7 +155,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         
         writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.ACCEPT);
 
-        // if no value to write or accept we can proceed so we abort to a new epoch
+        // if no value to accept we can proceed so we abort to a new epoch
         if (writesOrAccepts == null) {
             broadcastAbort();
             abort();
@@ -234,6 +241,12 @@ public class EpochConsensus<T extends RequiresEquals> {
         hasBroadcastedNewEpoch = true;
     }
 
+    public void resetCounters() {
+        writeCounts = new EventCounter<>();
+        acceptCounts = new EventCounter<>();
+        abortCounts = new EventCounter<>();
+    }
+
     public WritesOrAccepts checkForEvents() throws AbortedSignal {
         T value = acceptCounts.getExeeded(2*Config.ALLOWED_FAILURES);
         if (value != null) {
@@ -252,16 +265,27 @@ public class EpochConsensus<T extends RequiresEquals> {
             return new WritesOrAccepts(value, true);
         }
 
-        if (!hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES)) {
-            broadcastAbort();
-        }
-        if (abortCounts.exceeded(2*Config.ALLOWED_FAILURES)) {
-            abort();
-        } 
+        checkForAborts(); 
 
         return null;
     }
 
+    public void checkForAborts() throws AbortedSignal {
+        if (shouldBroadcastAborts()) {
+            broadcastAbort();
+        }
+        if (shouldChangeEpoch()) {
+            abort();
+        }
+    }
+
+    public boolean shouldBroadcastAborts() {
+        return !hasBroadcastedNewEpoch && abortCounts.exceeded(Config.ALLOWED_FAILURES);
+    }
+
+    public boolean shouldChangeEpoch() {
+        return abortCounts.exceeded(Config.ALLOWED_FAILURES);
+    }
     
     public void sendToAll(ConsensusMessage<T> message) {
         Logger.LOG("Sending to all: " + message.getType());

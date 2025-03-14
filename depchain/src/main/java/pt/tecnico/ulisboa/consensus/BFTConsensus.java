@@ -57,7 +57,7 @@ public class BFTConsensus<T extends RequiresEquals> {
                 }
             }
             
-            // TODO: ??? CHECK THIS
+            // Try one last time to peek a value (new tx from clients)
             if (valueToBeProposed == null) {
                 valueToBeProposed = member.peekReceivedTx();
             }
