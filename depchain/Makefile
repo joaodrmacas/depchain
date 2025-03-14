@@ -18,3 +18,6 @@ client:
 
 server:
 	mvn exec:java -Dexec.mainClass="pt.tecnico.ulisboa.Node" -Dexec.args="1 src/main/java/pt/tecnico/ulisboa/keys"
+
+consensus:
+	bash ./src/main/java/pt/tecnico/ulisboa/scripts/consensus_4servers.sh
