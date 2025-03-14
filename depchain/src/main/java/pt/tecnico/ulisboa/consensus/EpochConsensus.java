@@ -111,11 +111,11 @@ public class EpochConsensus<T extends RequiresEquals> {
                 if (!this.readPhaseDone.get()) {
                     sendToAll(new ReadMessage<>(this.epochNumber));
 
-                    Logger.DEBUG("AAAAAAAAAAAA");
                     writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.STATE);
-                    Logger.DEBUG("BBBBBBBBBBBBBB");
                     if (writesOrAccepts != null)
                         break;
+
+                    Logger.LOG("ACABOU O READPHASE");
 
                     this.readPhaseDone.set(true);
                 }
@@ -317,7 +317,7 @@ public class EpochConsensus<T extends RequiresEquals> {
     public WritesOrAccepts receiveFromAll(ConsensusMessage.MessageType type) throws AbortedSignal {
         Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId())
+            if (i == member.getId())
                 continue;
 
             // Thread that listens to each link
@@ -350,7 +350,7 @@ public class EpochConsensus<T extends RequiresEquals> {
     public WritesOrAccepts receiveFrom(ConsensusMessage.MessageType type, int receiverId) throws AbortedSignal {
         Thread[] threads = new Thread[Config.NUM_MEMBERS];
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i != member.getId())
+            if (i == member.getId())
                 continue;
 
             // Thread that listens to each link
@@ -362,10 +362,13 @@ public class EpochConsensus<T extends RequiresEquals> {
         }
 
         try {
+            Logger.LOG("bbbbbbbbbbbbb");
             threads[receiverId].join();
         } catch (InterruptedException e) {
             Logger.LOG("Thread interrupted: " + e);
         }
+
+        Logger.LOG("AAAAAAAAAAAAA");
 
         return checkForEvents();
     }
