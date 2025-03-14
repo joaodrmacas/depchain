@@ -8,6 +8,7 @@ import java.security.PublicKey;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.NodeMessageHandler;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
@@ -34,9 +35,9 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
 
             NodeMessageHandler<T> handler = new NodeMessageHandler<>(txQueue, clientKus);
 
-            // TODO: change this shi
-            APLImpl apl = createAPL(1, packet.getAddress().getHostAddress(), packet.getPort(), handler);
-            apl.processReceivedPacket(1,packet.getData());
+            int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT; //TODO: meti isto para amanha dar para testar com varios clientes sem tar hardcode.
+            APLImpl apl = createAPL(destId, packet.getAddress().getHostAddress(), packet.getPort(), handler);
+            apl.processReceivedPacket(destId, packet.getData());
 
         } catch (Exception e) {
             e.printStackTrace();

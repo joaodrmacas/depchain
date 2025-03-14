@@ -96,7 +96,9 @@ public class EpochConsensus<T extends RequiresEquals> {
                 if (!this.readPhaseDone) {
                     sendToAll(new ReadMessage<>(this.epochNumber));
 
+                    Logger.LOG("AAAAAAAAAAAA");
                     writesOrAccepts = receiveFromAll(ConsensusMessage.MessageType.STATE);
+                    Logger.LOG("BBBBBBBBBBBBBB");
                     if (writesOrAccepts != null) break;
 
                     this.readPhaseDone = true;

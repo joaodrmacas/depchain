@@ -59,7 +59,6 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
     @SuppressWarnings("unchecked")
     public void handleAppendRequest(AppendReq<?> message) {
         String dataToValidate = message.getId().toString() + message.getMessage().toString() + message.getSeqNum().toString();
-        Logger.LOG("Data to validate: " + dataToValidate);
         PublicKey clientKU = clientKus.get(message.getId());
         if (clientKU == null) {
             Logger.LOG("Client key not found for id: " + message.getId());

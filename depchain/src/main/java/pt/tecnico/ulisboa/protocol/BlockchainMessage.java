@@ -8,7 +8,7 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
 
     private static final long serialVersionUID = 1L;
     private BlockchainMessageType type;
-    private Long seqNum; //TODO: nao me lembro pq é que têm que ter todos isto. é para ser unico? - massas
+    private Long seqNum;
 
 
     public BlockchainMessage(BlockchainMessageType type, long seqNum) {

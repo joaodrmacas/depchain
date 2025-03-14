@@ -14,4 +14,8 @@ public class Config {
     public final static String DEFAULT_KEYS_DIR = "keys";
     public final static int CLIENT_TIMEOUT_MS = 2000;
     public final static int DEFAULT_TIMEOUT = 200;
+
+    public final static int DEFAULT_CLIENT_PORT = 10010;
+    public final static int DEFAULT_SERVER_CLIENT_SOCKETS_PORT = 9090;
+    public final static int DEFAULT_SERVER_PORT = 8080;
 }

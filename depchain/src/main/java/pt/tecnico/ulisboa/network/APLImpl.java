@@ -178,19 +178,11 @@ public class APLImpl implements APL {
         if (message == null)
             return;
 
-        // TODO: delete this commented code
-        // if (message.getSeqNum() != lastReceivedSeqNum.get()) {
-        // Logger.LOG("Received out-of-order message");
-        // return;
-        // }
-
         Logger.LOG("Received message: " + message.getSeqNum());
         if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
             // Process message safely
-            // Logger.LOG("AAAlastReceiveddSeqNum: " + lastReceivedSeqNum.get() + "
-            // message.getSeqNum(): "
-            // + message.getSeqNum());
-            Logger.LOG("Received out-of-order message: " + message);
+            
+            Logger.LOG("Received out-of-order message: " + message.getSeqNum());
             return;
         }
 

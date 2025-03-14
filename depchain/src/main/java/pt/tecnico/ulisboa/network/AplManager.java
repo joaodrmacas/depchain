@@ -50,7 +50,6 @@ public abstract class AplManager {
         APLImpl apl = new APLImpl(nodeAddress, nodePort, destAddress, destPort, privateKey, destPublicKey, socket,
                 msgHandler);
         aplInstances.put(destId, apl);
-        Logger.LOG("PUTTING " + destAddress + ":" + destPort);
         senderIdMap.put(destAddress + ":" + destPort, destId);
 
         return apl;
@@ -147,10 +146,10 @@ public abstract class AplManager {
                                         + packet.getPort() + ".");
 
                         // print all known senders
-                        Logger.LOG("Known senders:");
-                        for (String key : senderIdMap.keySet()) {
-                            Logger.LOG("Known sender: " + key);
-                        }
+                        // Logger.LOG("Known senders:");
+                        // for (String key : senderIdMap.keySet()) {
+                        //     Logger.LOG("Known sender: " + key);
+                        // }
                         handleUnknownSender(packet);
                         continue;
                     }

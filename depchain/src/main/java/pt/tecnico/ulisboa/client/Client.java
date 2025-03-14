@@ -40,14 +40,16 @@ public class Client {
     private ClientMessageHandler messageHandler;
 
     public static void main(String[] args) {
-        if (args.length != 3) {
-            System.err.println("Usage: Client <clientId> <port> <keysDirectory>");
+        if (args.length != 2) {
+            System.err.println("Usage: Client <clientId> <keysDirectory>");
             System.exit(1);
         }
 
         int clientId = Integer.parseInt(args[0]);
-        int port = Integer.parseInt(args[1]);
-        String keysDirectory = args[2];
+        //int port = Integer.parseInt(args[1]);
+        String keysDirectory = args[1];
+
+        int port = Config.DEFAULT_CLIENT_PORT + clientId;
 
         Client client = new Client(clientId, "127.0.0.1", port, keysDirectory);
         client.start();
@@ -108,10 +110,12 @@ public class Client {
         Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
         
-        //TODO: fix this
+        //TODO: change this to send periodically for each. Do it later.
+        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
+            aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
+        }
         
-        aplManager.sendWithTimeout(1, msg, Config.CLIENT_TIMEOUT_MS);
-        count++;
+        count++; 
     }
 
     public boolean waitForResponse() {
@@ -137,16 +141,17 @@ public class Client {
 
         Logger.LOG("PUBLIC KEY: " + publicKey);
 
-        //TODO: fix this to send to all
-        byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-        aplManager.sendWithTimeout(1, new RegisterReq(clientId, publicKeyBytes, count), Config.CLIENT_TIMEOUT_MS);
+        //TODO: fix this to send periodically (...). Do it later
+        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
+            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+            aplManager.sendWithTimeout(serverId, new RegisterReq(clientId, publicKeyBytes, count), Config.CLIENT_TIMEOUT_MS);
+        }
 
         count++;
     }
 
     private String signMessage(String message) {
         String dataToSign = clientId.toString() + message.toString() + count.toString();
-        Logger.LOG("Data to sign: " + dataToSign);
 
         return CryptoUtils.signData(dataToSign, keyPair.getPrivate());
     }
