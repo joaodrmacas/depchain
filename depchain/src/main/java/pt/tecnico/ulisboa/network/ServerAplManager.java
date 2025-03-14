@@ -5,6 +5,8 @@ import java.net.DatagramPacket;
 import java.net.SocketException;
 import java.security.PrivateKey;
 
+import pt.tecnico.ulisboa.utils.Logger;
+
 
 public class ServerAplManager extends AplManager {
     public ServerAplManager(String address, Integer port, PrivateKey privateKey) throws SocketException, IOException {
@@ -14,6 +16,7 @@ public class ServerAplManager extends AplManager {
     @Override
     protected void handleUnknownSender(DatagramPacket packet) {
         //drop it 
+        Logger.LOG("Dropping packet.");
         return;
     }
 }

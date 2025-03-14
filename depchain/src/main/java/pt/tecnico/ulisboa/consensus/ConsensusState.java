@@ -84,6 +84,8 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
             return false;
         }
 
+
+
         return true;
     }
 }

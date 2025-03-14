@@ -17,13 +17,18 @@ import pt.tecnico.ulisboa.utils.Logger;
 
 public abstract class AplManager {
     private final DatagramSocket socket;
-    private final Map<Integer, APLImpl> aplInstances = new ConcurrentHashMap<>();
-    private final Map<String, Integer> senderIdMap = new ConcurrentHashMap<>();
+
+    private final String nodeAddress;
+    private final Integer nodePort;
+    private final ConcurrentHashMap<Integer, APLImpl> aplInstances = new ConcurrentHashMap<>();
+    protected final Map<String, Integer> senderIdMap = new ConcurrentHashMap<>();
     private final PrivateKey privateKey;
     private boolean isRunning = true;
 
     public AplManager(String address, Integer port, PrivateKey privateKey) throws SocketException, IOException {
         this.privateKey = privateKey;
+        this.nodeAddress = address;
+        this.nodePort = port;
 
         Logger.LOG("Creating shared socket - IP: " + address + " Port: " + port);
         this.socket = new DatagramSocket(port, InetAddress.getByName(address));
@@ -42,8 +47,25 @@ public abstract class AplManager {
             return aplInstances.get(destId);
         }
 
-        APLImpl apl = new APLImpl(destAddress, destPort, privateKey, destPublicKey, socket, msgHandler);
+        APLImpl apl = new APLImpl(nodeAddress, nodePort, destAddress, destPort, privateKey, destPublicKey, socket,
+                msgHandler);
         aplInstances.put(destId, apl);
+        Logger.LOG("PUTTING " + destAddress + ":" + destPort);
+        senderIdMap.put(destAddress + ":" + destPort, destId);
+
+        return apl;
+    }
+
+    public APLImpl createAPL(Integer destId, String destAddress, Integer destPort,
+            MessageHandler msgHandler) throws Exception {
+        if (aplInstances.containsKey(destId)) {
+            Logger.LOG("APL instance already exists for destination ID: " + destId + ". Returning existing instance.");
+            return aplInstances.get(destId);
+        }
+
+        APLImpl apl = new APLImpl(nodeAddress, nodePort, destAddress, destPort, privateKey, socket, msgHandler);
+        aplInstances.put(destId, apl);
+        senderIdMap.put(destAddress + ":" + destPort, destId);
 
         return apl;
     }
@@ -58,6 +80,7 @@ public abstract class AplManager {
 
     public void removeAPL(int destId) {
         aplInstances.remove(destId);
+        senderIdMap.entrySet().removeIf(entry -> entry.getValue().equals(destId));
     }
 
     public void send(int destId, byte[] message) {
@@ -65,7 +88,13 @@ public abstract class AplManager {
         if (apl != null) {
             apl.send(message);
         } else {
-            Logger.LOG("No APL instance found for destination ID: " + destId);
+            Logger.LOG(
+                    "No APL instance found for destination ID: " + destId + " when trying to send message: " + message);
+            // print known senders
+            Logger.LOG("Known senders:");
+            for (Integer key : aplInstances.keySet()) {
+                Logger.LOG("Known sender: " + key);
+            }
         }
     }
 
@@ -76,6 +105,11 @@ public abstract class AplManager {
         } else {
             Logger.LOG(
                     "No APL instance found for destination ID: " + destId + " when trying to send message: " + message);
+            // print known senders
+            Logger.LOG("Known senders:");
+            for (String key : senderIdMap.keySet()) {
+                Logger.LOG("Known sender: " + key);
+            }
         }
     }
 
@@ -86,9 +120,13 @@ public abstract class AplManager {
         } else {
             Logger.LOG(
                     "No APL instance found for destination ID: " + destId + " when trying to send message: " + message);
+            // print known senders
+            Logger.LOG("Known senders:");
+            for (String key : senderIdMap.keySet()) {
+                Logger.LOG("Known sender: " + key);
+            }
         }
     }
-
 
     // Start the message dispatcher thread
     private void startMessageDispatcher() {
@@ -102,12 +140,19 @@ public abstract class AplManager {
 
                     // Determine the sender
                     // TODO: this might be spoofed no?
-                    String senderAddr = packet.getAddress().getHostAddress() + ":" + packet.getPort();
-
-                    Integer senderId = senderIdMap.get(senderAddr);
+                    Integer senderId = getSenderId(packet.getAddress().getHostAddress(), packet.getPort());
                     if (senderId == null) {
-                        Logger.LOG("Received packet from unknown sender: " + senderAddr + "Creating new apl instance");
+                        Logger.LOG(
+                                "Received packet from unknown sender: " + packet.getAddress().getHostAddress() + ":"
+                                        + packet.getPort() + ".");
+
+                        // print all known senders
+                        Logger.LOG("Known senders:");
+                        for (String key : senderIdMap.keySet()) {
+                            Logger.LOG("Known sender: " + key);
+                        }
                         handleUnknownSender(packet);
+                        continue;
                     }
 
                     Logger.LOG("Received packet from sender ID: " + senderId);
@@ -117,7 +162,9 @@ public abstract class AplManager {
                     if (apl != null) {
                         byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                         apl.handleData(senderId, data);
-                    } else {
+                    }
+
+                    else {
                         Logger.LOG("No APL instance found for sender ID: " + senderId);
                     }
 
@@ -128,9 +175,10 @@ public abstract class AplManager {
                 }
             }
         }).start();
+
     }
 
-    protected abstract void handleUnknownSender(DatagramPacket packet);
+    protected abstract void handleUnknownSender(DatagramPacket data);
 
     // Clean shutdown
     public void close() {

@@ -14,7 +14,6 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-
 public class CryptoUtils {
 
     public static SecretKey generateSymmetricKey() {
@@ -129,7 +128,7 @@ public class CryptoUtils {
         try {
             Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initSign(privateKey);
-            signature.update(data.getBytes());
+            signature.update(data.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(signature.sign());
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,19 +137,19 @@ public class CryptoUtils {
     }
 
     public static boolean verifySignature(String data, String base64Signature, PublicKey publicKey) {
+
         try {
             Signature signature = Signature.getInstance("SHA256withRSA");
             signature.initVerify(publicKey);
             signature.update(data.getBytes(StandardCharsets.UTF_8));
-            byte[] signatureBytes = Base64.getDecoder().decode(base64Signature);
-            return signature.verify(signatureBytes);
+            return signature.verify(Base64.getDecoder().decode(base64Signature));
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    public static String bytesToBase64(byte[] bytes){
+    public static String bytesToBase64(byte[] bytes) {
         return Base64.getEncoder().encodeToString(bytes);
     }
 

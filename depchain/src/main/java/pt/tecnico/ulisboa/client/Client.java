@@ -28,8 +28,8 @@ public class Client {
     private KeyPair keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);
     private ServerAplManager aplManager;
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
-    private int clientId;
-    private long count = 0;
+    private Integer clientId;
+    private Long count = 0L;
     private String keysDirectory;
 
     private CountDownLatch responseLatch;
@@ -39,7 +39,7 @@ public class Client {
 
     private ClientMessageHandler messageHandler;
 
-    public static void Main(String[] args) {
+    public static void main(String[] args) {
         if (args.length != 3) {
             System.err.println("Usage: Client <clientId> <port> <keysDirectory>");
             System.exit(1);
@@ -49,7 +49,7 @@ public class Client {
         int port = Integer.parseInt(args[1]);
         String keysDirectory = args[2];
 
-        Client client = new Client(clientId, "localhost", port, keysDirectory);
+        Client client = new Client(clientId, "127.0.0.1", port, keysDirectory);
         client.start();
     }
 
@@ -104,12 +104,13 @@ public class Client {
         acceptedResponse.set(null);
 
         messageHandler.updateForNewRequest(count, responseLatch);
-
         String signature = signMessage(message);
+        Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            aplManager.sendWithTimeout(i, msg, Config.CLIENT_TIMEOUT_MS);
-        }
+        
+        //TODO: fix this
+        
+        aplManager.sendWithTimeout(1, msg, Config.CLIENT_TIMEOUT_MS);
         count++;
     }
 
@@ -133,16 +134,20 @@ public class Client {
         messageHandler.updateForNewRequest(count, responseLatch);
 
         PublicKey publicKey = keyPair.getPublic();
-        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            aplManager.sendWithTimeout(i, new RegisterReq(clientId, publicKeyBytes, count), Config.CLIENT_TIMEOUT_MS);
-        }
+
+        Logger.LOG("PUBLIC KEY: " + publicKey);
+
+        //TODO: fix this to send to all
+        byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+        aplManager.sendWithTimeout(1, new RegisterReq(clientId, publicKeyBytes, count), Config.CLIENT_TIMEOUT_MS);
 
         count++;
     }
 
     private String signMessage(String message) {
-        String dataToSign = clientId + message + count;
+        String dataToSign = clientId.toString() + message.toString() + count.toString();
+        Logger.LOG("Data to sign: " + dataToSign);
+
         return CryptoUtils.signData(dataToSign, keyPair.getPrivate());
     }
 
@@ -155,7 +160,7 @@ public class Client {
                 Logger.LOG("Creating APL for server " + serverId);
                 String adr = GeneralUtils.id2Addr.get(serverId);
                 int serverPort = GeneralUtils.id2ClientPort.get(serverId);
-                Logger.LOG("Server address: " + adr);
+                Logger.LOG("Server address: " + adr + ":" + serverPort);
                 aplManager.createAPL(serverId, adr, serverPort, serversPublicKeys.get(serverId), messageHandler);
             }
         } catch (Exception e) {

@@ -36,14 +36,10 @@ public class Node<T extends RequiresEquals> {
     private int nodeId;
     private PrivateKey privateKey;
     private ConcurrentHashMap<Integer, PublicKey> publicKeys;
-    // TODO: ao termos dois sockets diferentes, os clientes vao ter que comunicar
-    // com 2 cenas diferentes, nao sei se é assim tao fixe. - massas
-    // E este registerManager nao faz nada porque no fundo o messageHandler e a APL
-    // faz tudo por ele
     private ClientAplManager<T> clientManager;
     private ServerAplManager serversManager; // disgusting name
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
-    private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys;
+    private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
 
     private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
     private Set<T> transactionsSet = ConcurrentHashMap.newKeySet();
@@ -139,8 +135,6 @@ public class Node<T extends RequiresEquals> {
 
     private void handleDecidedValue(T value) {
         boolean success = false;
-        // TODO: verificar se foi um abort. Se sim, temos de mandar false no success ao
-        // cliente.
         if (value != null) {
             success = true;
             // Add to blockchain

@@ -12,7 +12,7 @@ public class GeneralUtils {
 
     static {
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            id2Addr.put(i, "localhost");
+            id2Addr.put(i, "127.0.0.1");
             id2ClientPort.put(i, 9090 + i);
             id2ServerPort.put(i, 8080 + i);
         }

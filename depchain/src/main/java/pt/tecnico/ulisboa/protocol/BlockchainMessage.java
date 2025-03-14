@@ -8,11 +8,12 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
 
     private static final long serialVersionUID = 1L;
     private BlockchainMessageType type;
-    private long seqNum; //TODO: nao me lembro pq é que têm que ter todos isto. é para ser unico? - massas
+    private Long seqNum; //TODO: nao me lembro pq é que têm que ter todos isto. é para ser unico? - massas
 
 
     public BlockchainMessage(BlockchainMessageType type, long seqNum) {
         this.type = type;
+        this.seqNum = seqNum;
     }
 
     public static enum BlockchainMessageType {
@@ -26,7 +27,7 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
         return type;
     }
 
-    public long getSeqNum() {
+    public Long getSeqNum() {
         return seqNum;
     }
 

@@ -8,6 +8,7 @@ import java.io.Serializable;
 import pt.tecnico.ulisboa.Config;
 
 public abstract class Message implements Serializable {
+    private static final long serialVersionUID = 1L;
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
     public static final byte KEY_MESSAGE_TYPE = 3;

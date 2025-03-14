@@ -35,22 +35,27 @@ public class APLImpl implements APL {
     private final ConcurrentHashMap<Long, Boolean> receivedMessages = new ConcurrentHashMap<>();
 
     private AtomicLong nextSeqNum = new AtomicLong(1);
-    private AtomicLong lastReceivedSeqNum = new AtomicLong(1);
+    private AtomicLong lastReceivedSeqNum = new AtomicLong(0);
 
     private final PrivateKey privateKey;
     private final PublicKey destPublicKey;
     private SecretKey secretKey;
 
+    InetAddress nodeAddress;
+    Integer nodePort;
+
     InetAddress destAddress;
     Integer destPort;
 
     // Constructor that accepts an existing socket
-    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey,
-            DatagramSocket socket, MessageHandler messageHandler)
+    public APLImpl(String nodeAddress, Integer nodePort, String destAddress, Integer destPort, PrivateKey privateKey,
+            PublicKey destPublicKey, DatagramSocket socket, MessageHandler messageHandler)
             throws GeneralSecurityException, IOException {
-        this.socket = socket;
+        this.nodeAddress = InetAddress.getByName(nodeAddress);
+        this.nodePort = nodePort;
         this.destAddress = InetAddress.getByName(destAddress);
         this.destPort = destPort;
+        this.socket = socket;
         this.privateKey = privateKey;
         this.destPublicKey = destPublicKey;
         setMessageHandler(messageHandler);
@@ -68,11 +73,11 @@ public class APLImpl implements APL {
     // this.messageHandler = messageHandler;
     // }
 
-    // For unit tests with existing socket
-    public APLImpl(String destAddress, Integer destPort, PrivateKey privateKey, PublicKey destPublicKey,
-            MessageHandler messageHandler, DatagramSocket socket)
+    // No public key needed. This is used for clients
+    public APLImpl(String nodeAddress, Integer nodePort, String destAddress, Integer destPort, PrivateKey privateKey,
+            DatagramSocket socket, MessageHandler messageHandler)
             throws GeneralSecurityException, IOException {
-        this(destAddress, destPort, privateKey, destPublicKey, socket, messageHandler);
+        this(nodeAddress, nodePort, destAddress, destPort, privateKey, null, socket, messageHandler);
     }
 
     public void sendKeyMessage(KeyMessage keyMessage) {
@@ -85,7 +90,7 @@ public class APLImpl implements APL {
     public void sendDataMessage(DataMessage dataMsg) {
         long seqNum = nextSeqNum.getAndIncrement();
         pendingMessages.put(seqNum, dataMsg);
-        Logger.LOG("Sending message: " + dataMsg);
+        Logger.LOG("Sending message: " + seqNum);
 
         sendUdpPacket(dataMsg.serialize());
     }
@@ -124,7 +129,7 @@ public class APLImpl implements APL {
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
 
-            Logger.LOG("Sending message: " + dataMsg);
+            Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             System.err.println("Failed to sign and send message: " + e.getMessage());
@@ -144,7 +149,7 @@ public class APLImpl implements APL {
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
 
-            Logger.LOG("Sending message: " + dataMsg);
+            Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             System.err.println("Failed to sign and send message: " + e.getMessage());
@@ -167,7 +172,7 @@ public class APLImpl implements APL {
         }
     }
 
-    private void processReceivedPacket(int senderId, byte[] data) {
+    protected void processReceivedPacket(int senderId, byte[] data) {
         Logger.LOG("Processing message from destination");
         Message message = Message.deserialize(data);
         if (message == null)
@@ -179,13 +184,15 @@ public class APLImpl implements APL {
         // return;
         // }
 
-        if (lastReceivedSeqNum.compareAndSet(message.getSeqNum(), message.getSeqNum() + 1)) {
+        Logger.LOG("Received message: " + message.getSeqNum());
+        if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
             // Process message safely
-        } else {
-            Logger.LOG("Received out-of-order message");
+            // Logger.LOG("AAAlastReceiveddSeqNum: " + lastReceivedSeqNum.get() + "
+            // message.getSeqNum(): "
+            // + message.getSeqNum());
+            Logger.LOG("Received out-of-order message: " + message);
+            return;
         }
-
-        lastReceivedSeqNum.incrementAndGet();
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -238,17 +245,31 @@ public class APLImpl implements APL {
         byte[] hmac = ackMessage.getMac();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            System.err.println("Authentication failed for ACK");
+            System.err.println("Authentication failed for ACK: " + seqNum);
             return;
         }
 
         // Remove the message from the pending list
         if (!pendingMessages.containsKey(seqNum)) {
             Logger.LOG("Received ACK for unsent message: " + seqNum);
+            return;
         }
 
+        Logger.LOG("Received ACK for message: " + seqNum);
+        Logger.LOG("attempting to remove message: " + seqNum + " from pending list\n...");
+        // print messages in pending list
+        Logger.LOG("Pending messages before:");
+        for (Long key : pendingMessages.keySet()) {
+            Logger.LOG("Pending message: " + key);
+        }
         pendingMessages.remove(seqNum);
 
+        // print messages in pending list
+        Logger.LOG("...\nPending messages after:");
+        for (Long key : pendingMessages.keySet()) {
+            Logger.LOG("Pending message: " + key);
+        }
+        Logger.LOG("...");
     }
 
     private void handleData(Integer senderId, DataMessage dataMessage) {
@@ -306,6 +327,7 @@ public class APLImpl implements APL {
 
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
 
+            Logger.LOG("Sending ACK for message: " + seqNum);
             sendUdpPacket(ackMessage.serialize());
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send ACK", e);
@@ -323,13 +345,12 @@ public class APLImpl implements APL {
     }
 
     private void startRetransmissionScheduler() {
+        // print pending messages before retransmission
         scheduler.scheduleAtFixedRate(() -> {
-            // loop through all pending messages and retransmit if necessary
-            //Logger.LOG("Pending messages: " + pendingMessages.size());
             pendingMessages.forEach((seqNum, message) -> {
                 if (message.getCounter() >= message.getTimeout()) {
+                    Logger.LOG("Message timed out: " + seqNum);
                     pendingMessages.remove(seqNum);
-                    Logger.LOG("Pending messages: " + pendingMessages.size());
                     nextSeqNum.incrementAndGet();
                     return;
                 }
@@ -355,7 +376,7 @@ public class APLImpl implements APL {
         try {
             SecretKey secretKey = getSecretKey();
 
-            String data = destAddress.toString() + String.valueOf(destPort) +
+            String data = nodeAddress.toString() + String.valueOf(nodePort) +
                     Arrays.toString(content) + Long.toString(seqNum);
 
             return CryptoUtils.verifyHMAC(data, secretKey, hmac);
@@ -367,8 +388,10 @@ public class APLImpl implements APL {
 
     private byte[] generateHMAC(byte[] content, long seqNum, SecretKey secretKey) {
         try {
+
             String data = destAddress.toString() + String.valueOf(destPort) +
                     Arrays.toString(content) + Long.toString(seqNum);
+
             return CryptoUtils.generateHMAC(data, secretKey);
         } catch (Exception e) {
             System.err.println("Failed to generate HMAC: " + e.getMessage());
@@ -394,6 +417,7 @@ public class APLImpl implements APL {
     private SecretKey generateAndShareSecretKey() {
         try {
             SecretKey secretKey = CryptoUtils.generateSymmetricKey();
+
             byte[] encryptedKey = CryptoUtils.encryptSymmetricKey(secretKey, destPublicKey);
 
             long seqNum = nextSeqNum.getAndIncrement();
