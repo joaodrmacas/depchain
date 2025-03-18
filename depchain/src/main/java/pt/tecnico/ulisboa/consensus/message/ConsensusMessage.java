@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa.consensus.message;
 
 import java.io.Serializable;
+
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 
 public abstract class ConsensusMessage<T extends RequiresEquals> implements Serializable {
@@ -28,5 +29,9 @@ public abstract class ConsensusMessage<T extends RequiresEquals> implements Seri
 
     public int getEpochNumber() {
         return epochNumber;
+    }
+
+    public String toString() {
+        return "ConsensusMessage(" + type + ", " + epochNumber + ")";
     }
 }

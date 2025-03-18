@@ -1,0 +1,336 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< pt.tecnico.ulisboa:depchain >---------------------
+[INFO] Building depchain 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- exec:3.5.0:java (default-cli) @ depchain ---
+[LOG] Setting up node 1
+|_Node.java::155::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading private key from: src/main/java/pt/tecnico/ulisboa/keys/priv01.key
+|_Node.java::209::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public keys from: /home/DuarteSJ/Tecnico/sec/depchain/depchain/src/main/java/pt/tecnico/ulisboa/keys
+|_Node.java::240::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public key from: src/main/java/pt/tecnico/ulisboa/keys/pub01.key
+|_Node.java::251::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public key from: src/main/java/pt/tecnico/ulisboa/keys/pub04.key
+|_Node.java::251::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public key from: src/main/java/pt/tecnico/ulisboa/keys/pub00.key
+|_Node.java::251::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public key from: src/main/java/pt/tecnico/ulisboa/keys/pub03.key
+|_Node.java::251::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Reading public key from: src/main/java/pt/tecnico/ulisboa/keys/pub02.key
+|_Node.java::251::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating shared socket - IP: 127.0.0.1 Port: 8081
+|_AplManager.java::34::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 0
+|_Node.java::183::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 127.0.0.1:8080
+|_Node.java::188::pt.tecnico.ulisboa.Node.main()
+
+[LOG] APL created for destination node 0
+|_Node.java::192::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 2
+|_Node.java::183::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 127.0.0.1:8082
+|_Node.java::188::pt.tecnico.ulisboa.Node.main()
+
+[LOG] APL created for destination node 2
+|_Node.java::192::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 3
+|_Node.java::183::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating APL for destination node 127.0.0.1:8083
+|_Node.java::188::pt.tecnico.ulisboa.Node.main()
+
+[LOG] APL created for destination node 3
+|_Node.java::192::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Creating shared socket - IP: 127.0.0.1 Port: 9091
+|_AplManager.java::34::pt.tecnico.ulisboa.Node.main()
+
+[LOG] ClientAplManager: 127.0.0.1:9091
+|_ClientAplManager.java::26::pt.tecnico.ulisboa.Node.main()
+
+[LOG] Node setup complete
+|_Node.java::200::pt.tecnico.ulisboa.Node.main()
+
+[DEBUG] Waiting for work
+|_BFTConsensus.java::73::BFT-Consensus-Thread
+
+[LOG] Received packet from sender ID: 0
+|_AplManager.java::173::Thread-2
+
+[LOG] Processing message from destination
+|_APLImpl.java::201::Thread-2
+
+[LOG] 0) Received message: KEY, 1}
+|_APLImpl.java::206::Thread-2
+
+[LOG] Received key message
+|_APLImpl.java::236::Thread-2
+
+[LOG] Received key: javax.crypto.spec.SecretKeySpec@87a064cf
+|_APLImpl.java::247::Thread-2
+
+[LOG] Sending ACK for message: 1
+|_APLImpl.java::361::Thread-2
+
+[LOG] Received packet from sender ID: 0
+|_AplManager.java::173::Thread-2
+
+[LOG] Processing message from destination
+|_APLImpl.java::201::Thread-2
+
+[LOG] 0) Received message: DT{Consensus{READ(0)}}, 2}
+|_APLImpl.java::206::Thread-2
+
+[LOG] Sending ACK for message: 2
+|_APLImpl.java::361::Thread-2
+
+[LOG] Received consensus message of type: READ from node: 0
+|_ConsensusMessageHandler.java::31::Thread-2
+
+[DEBUG] Consensus work detected
+|_BFTConsensus.java::46::pool-1-thread-1
+
+[LOG] Peeking received tx
+|_Node.java::322::BFT-Consensus-Thread
+
+[LOG] Peeked value: null
+|_Node.java::324::BFT-Consensus-Thread
+
+[LOG] No value to peek
+|_Node.java::327::BFT-Consensus-Thread
+
+[LOG] Creating epoch consensus
+|_EpochConsensus.java::63::BFT-Consensus-Thread
+
+[DEBUG] Starting consensus for epoch 0 with value null
+|_BFTConsensus.java::86::BFT-Consensus-Thread
+
+[LOG] Starting epoch
+|_EpochConsensus.java::103::BFT-Consensus-Thread
+
+[DEBUG] 0) Received READ message
+|_EpochConsensus.java::449::pool-1-thread-5
+
+[LOG] receive READ done
+|_EpochConsensus.java::143::BFT-Consensus-Thread
+
+[LOG] Sending to 0: STATE
+|_EpochConsensus.java::354::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8080 Next seqnum: 2
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8080) Sending message: 1
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] send STATE done
+|_EpochConsensus.java::148::BFT-Consensus-Thread
+
+[LOG] Received packet from sender ID: 0
+|_AplManager.java::173::Thread-2
+
+[LOG] Processing message from destination
+|_APLImpl.java::201::Thread-2
+
+[LOG] 0) Received message: ACK, 1}
+|_APLImpl.java::206::Thread-2
+
+[LOG] Received ACK for message: 1
+|_APLImpl.java::278::Thread-2
+
+[DEBUG] Work detected in another thread
+|_BFTConsensus.java::60::pool-1-thread-4
+
+[LOG] 2) Timed out
+|_EpochConsensus.java::429::pool-1-thread-6
+
+[LOG] 3) Timed out
+|_EpochConsensus.java::429::pool-1-thread-7
+
+[LOG] Received packet from sender ID: 2
+|_AplManager.java::173::Thread-2
+
+[LOG] Processing message from destination
+|_APLImpl.java::201::Thread-2
+
+[LOG] 2) Received message: KEY, 1}
+|_APLImpl.java::206::Thread-2
+
+[LOG] Received key message
+|_APLImpl.java::236::Thread-2
+
+[LOG] 0) Timed out
+|_EpochConsensus.java::429::pool-1-thread-8
+
+[LOG] 3) Timed out
+|_EpochConsensus.java::429::pool-1-thread-5
+
+[LOG] 2) Timed out
+|_EpochConsensus.java::429::pool-1-thread-1
+
+[LOG] receive COLLECTED done
+|_EpochConsensus.java::154::BFT-Consensus-Thread
+
+[LOG] state 0 not found in collected states
+|_CollectedStates.java::43::BFT-Consensus-Thread
+
+[LOG] Broadcasting abort
+|_EpochConsensus.java::279::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8080 Next seqnum: 3
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8080) Sending message: 2
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Generating new secret key
+|_APLImpl.java::439::BFT-Consensus-Thread
+
+[LOG] Port: 8082 Next seqnum: 2
+|_APLImpl.java::458::BFT-Consensus-Thread
+
+[LOG] Sending key: javax.crypto.spec.SecretKeySpec@87a064cf
+|_APLImpl.java::463::BFT-Consensus-Thread
+
+[LOG] Port: 8082 Next seqnum: 3
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8082) Sending message: 2
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Generating new secret key
+|_APLImpl.java::439::BFT-Consensus-Thread
+
+[LOG] Port: 8083 Next seqnum: 2
+|_APLImpl.java::458::BFT-Consensus-Thread
+
+[LOG] Sending key: javax.crypto.spec.SecretKeySpec@87a064cf
+|_APLImpl.java::463::BFT-Consensus-Thread
+
+[LOG] Port: 8083 Next seqnum: 3
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8083) Sending message: 2
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[DEBUG] Collected states:
+|_EpochConsensus.java::162::BFT-Consensus-Thread
+
+{
+	0: null
+	1: null
+	2: null
+	3: null
+}
+
+
+[LOG] Deciding from collected
+|_EpochConsensus.java::217::BFT-Consensus-Thread
+
+[LOG] Broadcasting abort
+|_EpochConsensus.java::279::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8080 Next seqnum: 4
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8080) Sending message: 3
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8082 Next seqnum: 4
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8082) Sending message: 3
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8083 Next seqnum: 4
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8083) Sending message: 3
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Broadcasting abort
+|_EpochConsensus.java::279::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8080 Next seqnum: 5
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8080) Sending message: 4
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8082 Next seqnum: 5
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8082) Sending message: 4
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[LOG] Getting or generating secret key
+|_APLImpl.java::436::BFT-Consensus-Thread
+
+[LOG] Port: 8083 Next seqnum: 5
+|_APLImpl.java::132::BFT-Consensus-Thread
+
+[LOG] 8083) Sending message: 4
+|_APLImpl.java::142::BFT-Consensus-Thread
+
+[ERROR] Consensus thread failed with exception
+|_Node.java::126::BFT-Consensus-Thread
+
+java.lang.NullPointerException: Cannot invoke "pt.tecnico.ulisboa.consensus.ConsensusState.getMostRecentQuorumWritten()" because the return value of "java.util.Map.get(Object)" is null
+	at pt.tecnico.ulisboa.consensus.EpochConsensus.decideFromCollected(EpochConsensus.java:265)
+	at pt.tecnico.ulisboa.consensus.EpochConsensus.epoch(EpochConsensus.java:166)
+	at pt.tecnico.ulisboa.consensus.EpochConsensus.start(EpochConsensus.java:71)
+	at pt.tecnico.ulisboa.consensus.BFTConsensus.start(BFTConsensus.java:87)
+	at pt.tecnico.ulisboa.Node.lambda$1(Node.java:124)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+[LOG] Received key: javax.crypto.spec.SecretKeySpec@87a064cf
+|_APLImpl.java::247::Thread-2
+
+[LOG] Sending ACK for message: 1
+|_APLImpl.java::361::Thread-2
+

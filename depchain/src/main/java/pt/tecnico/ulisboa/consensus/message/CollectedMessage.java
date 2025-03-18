@@ -16,4 +16,9 @@ public class CollectedMessage<T extends RequiresEquals> extends ConsensusMessage
     public CollectedStates<T> getStates() {
         return states;
     }
+
+    @Override
+    public String toString() {
+        return "COLLECTED(e=" + epochNumber + "\nstates=" + states + ")";
+    }
 }

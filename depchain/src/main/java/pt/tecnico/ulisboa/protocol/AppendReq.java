@@ -8,8 +8,8 @@ public class AppendReq<T> extends BlockchainMessage {
     private T content;
     private String signature;
 
-    public AppendReq(Integer id, T content, long seqNum, String signature) {
-        super(BlockchainMessageType.APPEND_REQ, seqNum);
+    public AppendReq(Integer id, T content, long count, String signature) {
+        super(BlockchainMessageType.APPEND_REQ, count);
         this.id = id;
         this.content = content;
         this.signature = signature;
@@ -32,7 +32,7 @@ public class AppendReq<T> extends BlockchainMessage {
         if (obj instanceof AppendReq) {
             AppendReq<?> other = (AppendReq<?>) obj;
             return getType() == other.getType() && id.equals(other.id) &&
-                    content.equals(other.content) && getSeqNum() == other.getSeqNum()
+                    content.equals(other.content) && getCount() == other.getCount()
                     && signature.equals(other.signature);
         }
         return false;
@@ -40,12 +40,11 @@ public class AppendReq<T> extends BlockchainMessage {
 
     @Override
     public String toString() {
-        return toStringShort();
-            // return "AppendReq{" +
-            //         "id=" + id +
-            //         ", content=" + content +
-            //         ", signature=" + signature +
-            //         '}';
+        String str = "("  + content.toString() + ", "
+                            + id + ", " 
+                            + getCount() + ")";
+
+        return str;
     }
 
     public String toStringShort() {

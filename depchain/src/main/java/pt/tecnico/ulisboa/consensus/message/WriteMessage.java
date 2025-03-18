@@ -15,4 +15,9 @@ public class WriteMessage<T extends RequiresEquals> extends ConsensusMessage<T> 
     public T getValue() {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return "WRITE(" + "v=" + value + ", e=" + epochNumber + ")";
+    }
 }

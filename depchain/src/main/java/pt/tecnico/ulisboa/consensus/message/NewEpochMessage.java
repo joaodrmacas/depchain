@@ -8,4 +8,9 @@ public class NewEpochMessage<T extends RequiresEquals> extends ConsensusMessage<
     public NewEpochMessage(int epochNumber) {
         super(MessageType.NEWEPOCH, epochNumber);
     }
+
+    @Override
+    public String toString() {
+        return "NEWEPOCH(" + getEpochNumber() + ')';
+    }
 }

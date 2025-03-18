@@ -16,4 +16,9 @@ public class StateMessage<T extends RequiresEquals> extends ConsensusMessage<T> 
     public ConsensusState<T> getState() {
         return state;
     }
+
+    @Override
+    public String toString() {
+        return "STATE(" + "s=" + state + ", e=" + epochNumber + ")";
+    }
 }

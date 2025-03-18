@@ -36,7 +36,7 @@ public class ClientMessageHandler implements MessageHandler {
     public void onMessage(int senderid, byte[] message) {
         try {
             BlockchainMessage response = (BlockchainMessage) SerializationUtils.deserializeObject(message);
-            long seqnum = response.getSeqNum();
+            long seqnum = response.getCount();
             if (this.requestSeqNum != seqnum) {
                 Logger.LOG("Ignoring response with wrong sequence number in client on Message: " + seqnum
                         + "; expected: " + this.requestSeqNum);

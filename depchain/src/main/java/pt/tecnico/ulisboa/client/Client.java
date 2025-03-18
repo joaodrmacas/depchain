@@ -115,9 +115,10 @@ public class Client {
         Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
 
-        // TODO: change this to send periodically for each. Do it later. CHANGED TO ONLY SEND TO LEADER
+        // TODO: change this to send periodically for each. Do it later. CHANGED TO ONLY
+        // SEND TO LEADER
         // for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-        //     aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
+        // aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
         // }
         aplManager.sendWithTimeout(0, msg, Config.CLIENT_TIMEOUT_MS);
 
@@ -147,12 +148,18 @@ public class Client {
 
         Logger.LOG("PUBLIC KEY: " + publicKey);
 
-        // TODO: fix this to send periodically (...). Do it later
-        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            aplManager.sendWithTimeout(serverId, new RegisterReq(clientId, publicKeyBytes, count),
-                    Config.CLIENT_TIMEOUT_MS);
-        }
+        // // TODO: fix this to send periodically (...). Only send to leader change
+        // later plsp ls pls
+        // for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
+        // byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+        // aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
+        // publicKeyBytes, count),
+        // Config.CLIENT_TIMEOUT_MS);
+        // }
+        aplManager.sendWithTimeout(0, new RegisterReq(
+                clientId,
+                CryptoUtils.publicKeyToBytes(publicKey),
+                count), Config.CLIENT_TIMEOUT_MS);
 
         count++;
     }

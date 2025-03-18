@@ -15,4 +15,9 @@ public class AcceptMessage<T extends RequiresEquals> extends ConsensusMessage<T>
     public T getValue() {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return "ACCEPT(" + "v=" + value + ", e=" + epochNumber + ")";
+    }
 }

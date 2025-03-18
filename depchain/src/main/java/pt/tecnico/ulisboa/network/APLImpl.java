@@ -62,7 +62,7 @@ public class APLImpl implements APL {
         this.destPublicKey = destPublicKey;
         setMessageHandler(messageHandler);
 
-        //startRetransmissionScheduler();
+        // startRetransmissionScheduler();
     }
 
     // // For unit tests
@@ -79,21 +79,6 @@ public class APLImpl implements APL {
             DatagramSocket socket, MessageHandler messageHandler)
             throws GeneralSecurityException, IOException {
         this(nodeAddress, nodePort, destAddress, destPort, privateKey, null, socket, messageHandler);
-    }
-
-    public void sendKeyMessage(KeyMessage keyMessage) {
-        long seqNum = nextSeqNum.getAndIncrement();
-        pendingMessages.put(seqNum, keyMessage);
-        Logger.LOG("Sending key message: " + keyMessage);
-        sendUdpPacket(keyMessage.serialize());
-    }
-
-    public void sendDataMessage(DataMessage dataMsg) {
-        long seqNum = nextSeqNum.getAndIncrement();
-        pendingMessages.put(seqNum, dataMsg);
-        Logger.LOG("Sending message: " + seqNum);
-
-        sendUdpPacket(dataMsg.serialize());
     }
 
     public void send(Serializable obj) {
@@ -118,9 +103,33 @@ public class APLImpl implements APL {
         sendWithTimeout(messageBytes, timeout);
     }
 
+    public void sendWithTimeout(byte[] message, int timeout) {
+        SecretKey secretKey = getOrGenerateSecretKey();
+        long seqNum = nextSeqNum.getAndIncrement();
+        // print the seqnum
+        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
+
+        try {
+            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+
+            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
+
+            // Store the message in the pending list
+            pendingMessages.put(seqNum, dataMsg);
+
+            Logger.LOG(destPort + ") Sending message: " + seqNum);
+            sendUdpPacket(dataMsg.serialize());
+        } catch (Exception e) {
+            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
+            e.printStackTrace();
+        }
+    }
+
     public void send(byte[] message) {
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
+        // print the seqnum
+        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
 
         try {
             byte[] hmac = generateHMAC(message, seqNum, secretKey);
@@ -148,6 +157,8 @@ public class APLImpl implements APL {
         }
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
+        // print the seqnum
+        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
 
         try {
             byte[] hmac = generateHMAC(message, seqNum, secretKey);
@@ -168,26 +179,6 @@ public class APLImpl implements APL {
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
-        }
-    }
-
-    public void sendWithTimeout(byte[] message, int timeout) {
-        SecretKey secretKey = getOrGenerateSecretKey();
-        long seqNum = nextSeqNum.getAndIncrement();
-
-        try {
-            byte[] hmac = generateHMAC(message, seqNum, secretKey);
-
-            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
-
-            // Store the message in the pending list
-            pendingMessages.put(seqNum, dataMsg);
-
-            Logger.LOG(destPort + ") Sending message: " + seqNum);
-            sendUdpPacket(dataMsg.serialize());
-        } catch (Exception e) {
-            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
-            e.printStackTrace();
         }
     }
 
@@ -213,14 +204,6 @@ public class APLImpl implements APL {
             return;
 
         Logger.LOG(senderId + ") Received message: " + message.toStringExtended());
-        
-        if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
-            // Process message safely
-
-            Logger.LOG("Received out-of-order message: " + message.getSeqNum());
-            Logger.DEBUG("Last rcv: " + lastReceivedSeqNum.get());
-            return;
-        }
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -241,6 +224,15 @@ public class APLImpl implements APL {
     }
 
     private void handleKey(KeyMessage keyMessage) {
+        if (!lastReceivedSeqNum.compareAndSet(keyMessage.getSeqNum() - 1, keyMessage.getSeqNum())) {
+
+            Logger.LOG(
+                    "Received message was out-of-order : Message seqnum: " + keyMessage.getSeqNum() + ". From: "
+                            + " unavailable sender id"
+                            + ". Last received: " + lastReceivedSeqNum.get());
+
+            return;
+        }
         Logger.LOG("Received key message");
         SecretKey secretKey = null;
         try {
@@ -284,23 +276,34 @@ public class APLImpl implements APL {
         }
 
         Logger.LOG("Received ACK for message: " + seqNum);
-        Logger.LOG("attempting to remove message: " + seqNum + " from pending list\n...");
+        // Logger.LOG("attempting to remove message: " + seqNum + " from pending
+        // list\n...");
         // print messages in pending list
-        Logger.LOG("Pending messages before:");
-        for (Long key : pendingMessages.keySet()) {
-            Logger.LOG("Pending message: " + key);
-        }
+        // Logger.LOG("Pending messages before:");
+        // for (Long key : pendingMessages.keySet()) {
+        // Logger.LOG("Pending message: " + key);
+        // }
         pendingMessages.remove(seqNum);
 
         // print messages in pending list
-        Logger.LOG("...\nPending messages after:");
-        for (Long key : pendingMessages.keySet()) {
-            Logger.LOG("Pending message: " + key);
-        }
-        Logger.LOG("...");
+        // Logger.LOG("...\nPending messages after:");
+        // for (Long key : pendingMessages.keySet()) {
+        // Logger.LOG("Pending message: " + key);
+        // }
+        // Logger.LOG("...");
     }
 
     private void handleData(Integer senderId, DataMessage dataMessage) {
+        if (!lastReceivedSeqNum.compareAndSet(dataMessage.getSeqNum() - 1, dataMessage.getSeqNum())) {
+
+            Logger.LOG(
+                    "Received message was out-of-order : Message seqnum: " + dataMessage.getSeqNum() + ". From: "
+                            + senderId
+                            + ". Last received: " + lastReceivedSeqNum.get());
+
+            return;
+        }
+
         byte[] content = dataMessage.getContent();
         long seqNum = dataMessage.getSeqNum();
         byte[] hmac = dataMessage.getMac();
@@ -379,7 +382,9 @@ public class APLImpl implements APL {
                 if (message.getCounter() >= message.getTimeout()) {
                     Logger.LOG("Message timed out: " + seqNum);
                     pendingMessages.remove(seqNum);
-                    nextSeqNum.incrementAndGet();
+                    nextSeqNum.incrementAndGet(); // TODO esta merda ta mal
+                    // print the seqnum
+                    Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
                     return;
                 }
 
@@ -389,7 +394,7 @@ public class APLImpl implements APL {
                     try {
                         sendUdpPacket(message.serialize());
                     } catch (Exception e) {
-                       Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
+                        Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
                     }
                     message.setCounter(1);
                     message.doubleCooldown(); // Exponential backoff
@@ -449,6 +454,8 @@ public class APLImpl implements APL {
             byte[] encryptedKey = CryptoUtils.encryptSymmetricKey(secretKey, destPublicKey);
 
             long seqNum = nextSeqNum.getAndIncrement();
+            // print the seqnum
+            Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
 
             KeyMessage keyMessage = new KeyMessage(encryptedKey, seqNum);
             pendingMessages.put(seqNum, keyMessage);

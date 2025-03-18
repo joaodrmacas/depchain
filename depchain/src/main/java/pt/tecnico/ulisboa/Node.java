@@ -18,6 +18,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
@@ -31,8 +33,6 @@ import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
@@ -44,14 +44,13 @@ public class Node<T extends RequiresEquals> {
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
 
     private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
-    private Set<T> transactionsSet = ConcurrentHashMap.newKeySet();
 
     private ObservedResource<Queue<T>> decidedValues = new ObservedResource<>(new ConcurrentLinkedQueue<>());
     private Set<T> decidedValuesSet = ConcurrentHashMap.newKeySet();
 
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
     private ArrayList<T> blockchain;
-    
+
     // should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 2);
 
@@ -174,7 +173,7 @@ public class Node<T extends RequiresEquals> {
             // Initialize APLs, one for each destination node
 
             for (int destId : publicKeys.keySet()) {
-                if (destId >= Config.NUM_MEMBERS){
+                if (destId >= Config.NUM_MEMBERS) {
                     break;
                 }
                 if (destId == nodeId) {
@@ -187,7 +186,6 @@ public class Node<T extends RequiresEquals> {
                 int destPort = GeneralUtils.id2ServerPort.get(destId);
 
                 Logger.LOG("Creating APL for destination node " + destAddr + ":" + destPort);
-
 
                 ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
                 serversManager.createAPL(destId, destAddr, destPort, publicKeys.get(destId), handler);
@@ -289,7 +287,6 @@ public class Node<T extends RequiresEquals> {
             return;
         }
 
-        transactionsSet.add(value);
         transactions.getResource().add(value);
         transactions.notifyChange();
     }
@@ -298,6 +295,10 @@ public class Node<T extends RequiresEquals> {
         while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {
+                if (decidedValuesSet.contains(value)) {
+                    transactions.getResource().poll();
+                    continue;
+                }
                 return value;
             }
 
@@ -313,18 +314,29 @@ public class Node<T extends RequiresEquals> {
         }
     }
 
-
-
     public T peekReceivedTx() {
-        return transactions.getResource().peek();
-    }
+        T value;
 
-    public void removeReceivedTx(T value) {
-        if (transactionsSet.contains(value)) {
-            transactionsSet.remove(value);
-            transactions.getResource().remove(value);
-            transactions.notifyChange();
+        while (true) {
+            // print ola
+            Logger.LOG("Peeking received tx");
+            value = transactions.getResource().peek();
+            Logger.LOG("Peeked value: " + value);
+            // TODO: Check if this is the correct way to handle this @carrao
+            if (value == null) {
+                Logger.LOG("No value to peek");
+                return null;
+            }
+            if (decidedValuesSet.contains(value)) {
+                Logger.LOG("Peeked value was already decided: " + value);
+                transactions.getResource().poll();
+                Logger.LOG("alo tas ocupada");
+                continue;
+            }
+            break;
         }
+        Logger.LOG("Returning value: " + value);
+        return transactions.getResource().peek();
     }
 
     public void pushDecidedTx(T value) {
@@ -389,7 +401,7 @@ public class Node<T extends RequiresEquals> {
 
     public void printReceivedTxs() {
         String str = "***** BEGIN Received transactions: \n";
-    
+
         for (T value : transactions.getResource()) {
             str += value.toString() + "\n";
         }
@@ -400,7 +412,7 @@ public class Node<T extends RequiresEquals> {
 
     public void printDecidedValues() {
         String str = "***** BEGIN Decided values: \n";
-    
+
         for (T value : decidedValues.getResource()) {
             str += value.toString() + "\n";
         }
@@ -411,7 +423,7 @@ public class Node<T extends RequiresEquals> {
 
     public void printConsensusMessages() {
         String str = "***** BEGIN Consensus messages: \n";
-    
+
         for (int destId : consensusMessages.keySet()) {
             str += "\nDestination: " + destId + "\n";
             for (ConsensusMessage<T> msg : consensusMessages.get(destId).getResource()) {

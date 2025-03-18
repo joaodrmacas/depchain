@@ -8,4 +8,9 @@ public class ReadMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
     public ReadMessage(int epochNumber) {
         super(MessageType.READ, epochNumber);
     }
+
+    @Override
+    public String toString() {
+        return "READ(" + epochNumber + ')';
+    }
 }

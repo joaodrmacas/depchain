@@ -59,6 +59,6 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
         for (Map.Entry<Integer, ConsensusState<T>> entry : this.states.entrySet()) {
             res += "\t" + entry.getKey() + ": " + entry.getValue() + "\n";
         }
-        return res + "}";
+        return res + "}\n";
     }
 }

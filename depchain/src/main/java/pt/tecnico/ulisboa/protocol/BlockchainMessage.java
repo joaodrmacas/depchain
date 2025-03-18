@@ -8,12 +8,12 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
 
     private static final long serialVersionUID = 1L;
     private BlockchainMessageType type;
-    private Long seqNum;
+    private Long count;
 
 
-    public BlockchainMessage(BlockchainMessageType type, long seqNum) {
+    public BlockchainMessage(BlockchainMessageType type, long count) {
         this.type = type;
-        this.seqNum = seqNum;
+        this.count = count;
     }
 
     public static enum BlockchainMessageType {
@@ -27,8 +27,8 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
         return type;
     }
 
-    public Long getSeqNum() {
-        return seqNum;
+    public Long getCount() {
+        return count;
     }
 
     public int getSenderId(){

@@ -58,7 +58,7 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
 
     @SuppressWarnings("unchecked")
     public void handleAppendRequest(AppendReq<?> message) {
-        String dataToValidate = message.getId().toString() + message.getMessage().toString() + message.getSeqNum().toString();
+        String dataToValidate = message.getId().toString() + message.getMessage().toString() + message.getCount().toString();
         PublicKey clientKU = clientKus.get(message.getId());
         if (clientKU == null) {
             Logger.LOG("Client key not found for id: " + message.getId());
@@ -68,7 +68,7 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
             Logger.LOG("Invalid signature for message: " + message);
             return;
         }
-        Logger.LOG("Valid signature for message: " + message.getSeqNum());
+        Logger.LOG("Valid signature for message: " + message.getCount());
         txQueue.getResource().add((T) message);
     }
 }

@@ -86,8 +86,6 @@ public class BFTConsensus<T extends RequiresEquals> {
             Logger.DEBUG("Starting consensus for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
             T value = consensus.start();
 
-            member.removeReceivedTx(value);
-
             member.pushDecidedTx(value);
 
             Logger.LOG("Consensus for epoch " + epochNumber.get() + " decided on value " + value);

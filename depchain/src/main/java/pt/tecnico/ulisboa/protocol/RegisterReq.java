@@ -26,7 +26,7 @@ public class RegisterReq extends BlockchainMessage {
     public boolean equals(Object obj) {
         if (obj instanceof RegisterReq) {
             RegisterReq other = (RegisterReq) obj;
-            return this.getSeqNum().equals(other.getSeqNum()) && this.getSenderId() == other.getSenderId();
+            return this.getCount().equals(other.getCount()) && this.getSenderId() == other.getSenderId();
         }
         return false;
     }
