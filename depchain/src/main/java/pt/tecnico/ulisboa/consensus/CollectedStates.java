@@ -1,5 +1,6 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.io.Serializable;
 import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,7 +8,8 @@ import java.util.Map;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 
-public class CollectedStates<T extends RequiresEquals> {
+public class CollectedStates<T extends RequiresEquals> implements Serializable {
+    private static final long serialVersionUID = 1L;
     private Map<Integer, ConsensusState<T>> states = new HashMap<>();
     private int memberCount;
 
@@ -26,7 +28,7 @@ public class CollectedStates<T extends RequiresEquals> {
         if (this.states.containsKey(memberId)) {
             this.states.put(memberId, state);
         } else {
-            Logger.ERROR("member ID not found in collected states");
+            Logger.ERROR("member ID not found in collected states", new Exception());
         }
     }
 
@@ -38,7 +40,8 @@ public class CollectedStates<T extends RequiresEquals> {
                     return false;
                 }
             } else {
-                Logger.ERROR("state not found in collected states");
+                Logger.LOG("state " + i + " not found in collected states");
+                return false;
             }
         }
         return true;
@@ -49,5 +52,13 @@ public class CollectedStates<T extends RequiresEquals> {
         for (Map.Entry<Integer, ConsensusState<T>> entry : other.states.entrySet()) {
             this.states.put(entry.getKey(), entry.getValue());   
         }
+    }
+
+    public String toString() {
+        String res = "{\n";
+        for (Map.Entry<Integer, ConsensusState<T>> entry : this.states.entrySet()) {
+            res += "\t" + entry.getKey() + ": " + entry.getValue() + "\n";
+        }
+        return res + "}";
     }
 }

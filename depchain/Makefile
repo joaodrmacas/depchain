@@ -21,3 +21,6 @@ server:
 
 consensus:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/consensus_4servers.sh
+
+kill:
+	bash ./src/main/java/pt/tecnico/ulisboa/scripts/kill.sh

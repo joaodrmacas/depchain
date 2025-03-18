@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.Serializable;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.utils.Logger;
 
 public abstract class Message implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -86,11 +87,11 @@ public abstract class Message implements Serializable {
                 case KEY_MESSAGE_TYPE:
                     return KeyMessage.deserialize(dis);
                 default:
-                    System.err.println("Unknown message type: " + type);
+                    Logger.ERROR("Unknown message type: " + type);
                     return null;
             }
         } catch (IOException e) {
-            System.err.println("Failed to deserialize message of type: " + e.getMessage());
+            Logger.ERROR("Failed to deserialize message of type: " + e.getMessage(), e);
             return null;
         }
     }

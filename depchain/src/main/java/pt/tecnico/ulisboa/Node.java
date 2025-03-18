@@ -31,6 +31,8 @@ import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Node<T extends RequiresEquals> {
     private int nodeId;
@@ -49,6 +51,9 @@ public class Node<T extends RequiresEquals> {
 
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
     private ArrayList<T> blockchain;
+    
+    // should be closed: exec.shutdown();
+    private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 2);
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -74,7 +79,6 @@ public class Node<T extends RequiresEquals> {
 
         } catch (Exception e) {
             Logger.ERROR("Node setup failed", e);
-            System.exit(1);
         }
     }
 
@@ -85,7 +89,7 @@ public class Node<T extends RequiresEquals> {
 
     public APLImpl getLink(int destId) {
         if (destId == nodeId) {
-            Logger.ERROR("Cannot create a link to self");
+            Logger.ERROR("Cannot create a link to self", new Exception());
         }
 
         return serversManager.getAPL(destId);
@@ -105,7 +109,7 @@ public class Node<T extends RequiresEquals> {
             try {
                 while (true) {
                     // consensus thread already changes the decided queue
-                    decidedValues.waitForChange(Integer.MAX_VALUE);
+                    decidedValues.waitForChange(-1);
                     T value = decidedValues.getResource().poll();
                     handleDecidedValue(value);
                 }
@@ -198,8 +202,7 @@ public class Node<T extends RequiresEquals> {
             Logger.LOG("Node setup complete");
 
         } catch (Exception e) {
-            System.err.println("Setup failed: " + e.getMessage());
-            throw new RuntimeException("Node setup failed", e);
+            Logger.ERROR("Setup failed: " + e.getMessage(), e);
         }
     }
 
@@ -291,7 +294,7 @@ public class Node<T extends RequiresEquals> {
         transactions.notifyChange();
     }
 
-    public T peekReceivedTxOrWait() {
+    public T peekReceivedTxOrWait(Integer timeout) {
         while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {
@@ -299,7 +302,7 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !transactions.waitForChange(Config.LINK_TIMEOUT);
+                boolean hasTimeouted = !transactions.waitForChange(timeout);
 
                 if (hasTimeouted) {
                     return null;
@@ -309,6 +312,8 @@ public class Node<T extends RequiresEquals> {
             }
         }
     }
+
+
 
     public T peekReceivedTx() {
         return transactions.getResource().peek();
@@ -328,7 +333,7 @@ public class Node<T extends RequiresEquals> {
         decidedValues.notifyChange();
     }
 
-    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId) {
+    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId, int timeout) {
         while (true) {
             ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().poll();
             if (msg != null) {
@@ -336,7 +341,7 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
+                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(timeout);
 
                 if (hasTimeouted) {
                     return null;
@@ -347,7 +352,7 @@ public class Node<T extends RequiresEquals> {
         }
     }
 
-    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId) {
+    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId, int timeout) {
         while (true) {
             ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().peek();
             if (msg != null) {
@@ -355,7 +360,7 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(Config.LINK_TIMEOUT);
+                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(timeout);
 
                 if (hasTimeouted) {
                     return null;
@@ -380,5 +385,45 @@ public class Node<T extends RequiresEquals> {
 
     public void sendToMember(int memberId, ConsensusMessage<T> msg) {
         serversManager.send(memberId, msg);
+    }
+
+    public void printReceivedTxs() {
+        String str = "***** BEGIN Received transactions: \n";
+    
+        for (T value : transactions.getResource()) {
+            str += value.toString() + "\n";
+        }
+
+        str += "***** END Received transactions\n";
+        System.err.println(str);
+    }
+
+    public void printDecidedValues() {
+        String str = "***** BEGIN Decided values: \n";
+    
+        for (T value : decidedValues.getResource()) {
+            str += value.toString() + "\n";
+        }
+
+        str += "***** END Decided values\n";
+        System.err.println(str);
+    }
+
+    public void printConsensusMessages() {
+        String str = "***** BEGIN Consensus messages: \n";
+    
+        for (int destId : consensusMessages.keySet()) {
+            str += "\nDestination: " + destId + "\n";
+            for (ConsensusMessage<T> msg : consensusMessages.get(destId).getResource()) {
+                str += msg.toString() + "\n";
+            }
+        }
+
+        str += "***** END Consensus messages\n";
+        System.err.println(str);
+    }
+
+    public ExecutorService getExecutor() {
+        return exec;
     }
 }

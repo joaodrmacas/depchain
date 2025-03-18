@@ -38,4 +38,18 @@ public class AppendReq<T> extends BlockchainMessage {
         return false;
     }
 
+    @Override
+    public String toString() {
+        return toStringShort();
+            // return "AppendReq{" +
+            //         "id=" + id +
+            //         ", content=" + content +
+            //         ", signature=" + signature +
+            //         '}';
+    }
+
+    public String toStringShort() {
+        return "R" + id.toString();
+    }
+
 }

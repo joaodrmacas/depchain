@@ -84,8 +84,24 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
             return false;
         }
 
-
-
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return toStringShort();
+
+        // return "ConsensusState{" +
+        //         "mostRecentQuorumWritten=" + mostRecentQuorumWritten +
+        //         ", writeSet=" + writeSet +
+        //         ", signature='" + signature + '\'' +
+        //         '}';
+    }
+
+    public String toStringShort() {
+        return "{" +
+                "MRQW=" + mostRecentQuorumWritten +
+                ", writeSet=" + writeSet +
+                '}';
     }
 }

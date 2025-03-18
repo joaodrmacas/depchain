@@ -18,9 +18,13 @@ public class ObservedResource<T> {
         lock.lock();
         try {
             while (!hasChanged) {
+                if (timeout == -1) {
+                    condition.await();
+                } else {
                 boolean hasTimeouted =
                     !condition.await(timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
                 if (hasTimeouted) return false;
+                }
             }
             hasChanged = false;
         }  catch (InterruptedException e) {

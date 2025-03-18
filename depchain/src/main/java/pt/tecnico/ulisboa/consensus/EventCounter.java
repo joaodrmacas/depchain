@@ -24,8 +24,12 @@ public class EventCounter<T extends RequiresEquals> {
     }
 
     public synchronized boolean exceeded(T value, int max_counts) {
-        // TODO check if this is the correct behavior @CARRAO
-        return counter.get(value) > max_counts;
+        Integer count = counter.get(value);
+        if (count == null) {
+            return false;
+        }
+
+        return count > max_counts;
     }
 
     public synchronized boolean exceeded(int max_counts) {
@@ -44,5 +48,10 @@ public class EventCounter<T extends RequiresEquals> {
     public synchronized void reset() {
         counter.clear();
         alreadyCounted.clear();
+    }
+
+    @Override
+    public String toString() {
+        return counter.toString();
     }
 }

@@ -10,6 +10,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -67,9 +68,10 @@ public class Client {
     private void start() {
         Logger.LOG("Starting client " + clientId);
 
+        Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.println("Enter a message to send to the server: ");
-            String message = System.console().readLine();
+            String message = scanner.nextLine();
 
             if (message == null || message.isEmpty()) {
                 continue;
@@ -84,6 +86,7 @@ public class Client {
                 if (!waitForResponse()) {
                     Logger.LOG("Timed out waiting for enough responses");
                 } else {
+                    Logger.DEBUG("Got a response");
                     BlockchainMessage response = acceptedResponse.get();
                     if (response != null) {
                         Logger.LOG("Accepted response: " + response);
@@ -91,9 +94,11 @@ public class Client {
                 }
 
             } catch (Exception e) {
-                Logger.LOG("Failed to send message: " + e.getMessage());
+                Logger.ERROR("Failed to send message: " + e.getMessage(), e);
+                break;
             }
         }
+        scanner.close();
     }
 
     private void sendAppendRequest(String message) {
@@ -110,10 +115,11 @@ public class Client {
         Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
         AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
 
-        // TODO: change this to send periodically for each. Do it later.
-        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-            aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
-        }
+        // TODO: change this to send periodically for each. Do it later. CHANGED TO ONLY SEND TO LEADER
+        // for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
+        //     aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
+        // }
+        aplManager.sendWithTimeout(0, msg, Config.CLIENT_TIMEOUT_MS);
 
         count++;
     }

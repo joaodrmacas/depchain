@@ -102,7 +102,7 @@ public class APLImpl implements APL {
         try {
             messageBytes = SerializationUtils.serializeObject(obj);
         } catch (IOException e) {
-            System.err.println("Failed to serialize message: " + e.getMessage());
+            Logger.ERROR("Failed to serialize message: " + e.getMessage(), e);
             return;
         }
         send(messageBytes);
@@ -113,7 +113,7 @@ public class APLImpl implements APL {
         try {
             messageBytes = SerializationUtils.serializeObject(obj);
         } catch (IOException e) {
-            System.err.println("Failed to serialize message: " + e.getMessage());
+            Logger.ERROR("Failed to serialize message: " + e.getMessage(), e);
             return;
         }
         sendWithTimeout(messageBytes, timeout);
@@ -134,8 +134,7 @@ public class APLImpl implements APL {
             Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
-            System.err.println("Failed to sign and send message: " + e.getMessage());
-            e.printStackTrace();
+            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
         }
     }
 
@@ -145,7 +144,7 @@ public class APLImpl implements APL {
         try {
             message = SerializationUtils.serializeObject(obj);
         } catch (IOException e) {
-            System.err.println("Failed to serialize message: " + e.getMessage());
+            Logger.ERROR("Failed to serialize message: " + e.getMessage(), e);
             return;
         }
         SecretKey secretKey = getOrGenerateSecretKey();
@@ -169,8 +168,7 @@ public class APLImpl implements APL {
             Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
-            System.err.println("Failed to sign and send message: " + e.getMessage());
-            e.printStackTrace();
+            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
         }
     }
 
@@ -189,7 +187,7 @@ public class APLImpl implements APL {
             Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
-            System.err.println("Failed to sign and send message: " + e.getMessage());
+            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
             e.printStackTrace();
         }
     }
@@ -220,6 +218,7 @@ public class APLImpl implements APL {
             // Process message safely
 
             Logger.LOG("Received out-of-order message: " + message.getSeqNum());
+            Logger.DEBUG("Last rcv: " + lastReceivedSeqNum.get());
             return;
         }
 
@@ -237,7 +236,7 @@ public class APLImpl implements APL {
                 handleKey(keyMessage);
                 break;
             default:
-                System.err.println("Unknown message type: " + message.getType());
+                Logger.ERROR("Unknown message type: " + message.getType());
         }
     }
 
@@ -247,7 +246,7 @@ public class APLImpl implements APL {
         try {
             secretKey = CryptoUtils.decryptSymmetricKey(keyMessage.getContent(), privateKey);
         } catch (Exception e) {
-            System.err.println("Failed to decrypt symmetric key: " + e.getMessage());
+            Logger.ERROR("Failed to decrypt symmetric key: " + e.getMessage(), e);
             return;
         }
 
@@ -259,7 +258,7 @@ public class APLImpl implements APL {
         try {
             sendAuthenticatedAcknowledgment(keyMessage.getSeqNum());
         } catch (Exception e) {
-            System.err.println("Failed to send acknowledgment: " + e.getMessage());
+            Logger.ERROR("Failed to send acknowledgment: " + e.getMessage(), e);
         }
 
         // Check for duplicates
@@ -274,7 +273,7 @@ public class APLImpl implements APL {
         byte[] hmac = ackMessage.getMac();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            System.err.println("Authentication failed for ACK: " + seqNum);
+            Logger.ERROR("Authentication failed for ACK: " + seqNum);
             return;
         }
 
@@ -307,7 +306,7 @@ public class APLImpl implements APL {
         byte[] hmac = dataMessage.getMac();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            System.err.println("Authentication failed for message");
+            Logger.ERROR("Authentication failed for message");
             return;
         }
 
@@ -315,7 +314,7 @@ public class APLImpl implements APL {
         try {
             sendAuthenticatedAcknowledgment(seqNum);
         } catch (Exception e) {
-            System.err.println("Failed to send acknowledgment: " + e.getMessage());
+            Logger.ERROR("Failed to send acknowledgment: " + e.getMessage(), e);
         }
 
         // Check for duplicates
@@ -329,7 +328,7 @@ public class APLImpl implements APL {
             if (messageHandler != null) {
                 messageHandler.onMessage(senderId, content);
             } else {
-                Logger.ERROR("No message handler set. Failed to deliver message.");
+                Logger.ERROR("No message handler set. Failed to deliver message.", new Exception());
             }
         } catch (Exception e) {
             Logger.ERROR("Failed to deserialize message content: ", e);
@@ -339,7 +338,7 @@ public class APLImpl implements APL {
             if (messageHandler != null) {
                 messageHandler.onMessage(senderId, content);
             } else {
-                Logger.ERROR("No message handler set. Failed to deliver message.");
+                Logger.ERROR("No message handler set. Failed to deliver message.", new Exception());
             }
         }
     }
@@ -390,7 +389,7 @@ public class APLImpl implements APL {
                     try {
                         sendUdpPacket(message.serialize());
                     } catch (Exception e) {
-                        System.err.println("Failed to retransmit message: " + e.getMessage());
+                       Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
                     }
                     message.setCounter(1);
                     message.doubleCooldown(); // Exponential backoff
@@ -410,7 +409,7 @@ public class APLImpl implements APL {
 
             return CryptoUtils.verifyHMAC(data, secretKey, hmac);
         } catch (Exception e) {
-            System.err.println("Failed to verify HMAC: " + e.getMessage());
+            Logger.ERROR("Failed to verify HMAC: " + e.getMessage(), e);
             return false;
         }
     }
@@ -423,7 +422,7 @@ public class APLImpl implements APL {
 
             return CryptoUtils.generateHMAC(data, secretKey);
         } catch (Exception e) {
-            System.err.println("Failed to generate HMAC: " + e.getMessage());
+            Logger.ERROR("Failed to generate HMAC: " + e.getMessage(), e);
             return null;
         }
     }
@@ -459,7 +458,7 @@ public class APLImpl implements APL {
 
             return secretKey;
         } catch (Exception e) {
-            System.err.println("Failed to generate and share secret key: " + e.getMessage());
+            Logger.ERROR("Failed to generate and share secret key: " + e.getMessage(), e);
             return null;
         }
     }

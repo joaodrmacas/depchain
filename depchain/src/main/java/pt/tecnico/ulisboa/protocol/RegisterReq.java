@@ -17,8 +17,17 @@ public class RegisterReq extends BlockchainMessage {
         return key;
     }
 
+    @Override
     public int getSenderId() {
         return senderId;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof RegisterReq) {
+            RegisterReq other = (RegisterReq) obj;
+            return this.getSeqNum().equals(other.getSeqNum()) && this.getSenderId() == other.getSenderId();
+        }
+        return false;
+    }
 }
