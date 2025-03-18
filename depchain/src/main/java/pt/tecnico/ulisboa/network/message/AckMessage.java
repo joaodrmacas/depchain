@@ -6,8 +6,8 @@ import java.io.IOException;
 public class AckMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.ACK_MESSAGE_TYPE;
 
-    public AckMessage(long seqNum, byte[] hmac) {
-        super(new byte[0], seqNum, hmac);
+    public AckMessage(byte[] content, long seqNum, byte[] hmac) {
+        super(content, seqNum, hmac);
     }
 
     @Override
@@ -30,6 +30,6 @@ public class AckMessage extends AuthenticatedMessage {
         byte[] hmac = new byte[hmacLength];
         dis.readFully(hmac);
 
-        return new AckMessage(seqNum, hmac);
+        return new AckMessage(content, seqNum, hmac);
     }
 }

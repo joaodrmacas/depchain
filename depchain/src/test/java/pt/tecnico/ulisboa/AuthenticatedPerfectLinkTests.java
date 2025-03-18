@@ -335,5 +335,5 @@ public class AuthenticatedPerfectLinkTests {
         } catch (Exception e) {
             fail("Test failed with exception: " + e.getMessage());
         }
-    };
+    }
 }

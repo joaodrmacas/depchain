@@ -62,7 +62,7 @@ public class APLImpl implements APL {
         this.destPublicKey = destPublicKey;
         setMessageHandler(messageHandler);
 
-        // startRetransmissionScheduler();
+        startRetransmissionScheduler();
     }
 
     // // For unit tests
@@ -90,39 +90,6 @@ public class APLImpl implements APL {
             return;
         }
         send(messageBytes);
-    }
-
-    public void sendWithTimeout(Serializable obj, int timeout) {
-        byte[] messageBytes = null;
-        try {
-            messageBytes = SerializationUtils.serializeObject(obj);
-        } catch (IOException e) {
-            Logger.ERROR("Failed to serialize message: " + e.getMessage(), e);
-            return;
-        }
-        sendWithTimeout(messageBytes, timeout);
-    }
-
-    public void sendWithTimeout(byte[] message, int timeout) {
-        SecretKey secretKey = getOrGenerateSecretKey();
-        long seqNum = nextSeqNum.getAndIncrement();
-        // print the seqnum
-        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
-
-        try {
-            byte[] hmac = generateHMAC(message, seqNum, secretKey);
-
-            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
-
-            // Store the message in the pending list
-            pendingMessages.put(seqNum, dataMsg);
-
-            Logger.LOG(destPort + ") Sending message: " + seqNum);
-            sendUdpPacket(dataMsg.serialize());
-        } catch (Exception e) {
-            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
-            e.printStackTrace();
-        }
     }
 
     public void send(byte[] message) {
@@ -182,6 +149,39 @@ public class APLImpl implements APL {
         }
     }
 
+    public void sendWithTimeout(Serializable obj, int timeout) {
+        byte[] messageBytes = null;
+        try {
+            messageBytes = SerializationUtils.serializeObject(obj);
+        } catch (IOException e) {
+            Logger.ERROR("Failed to serialize message: " + e.getMessage(), e);
+            return;
+        }
+        sendWithTimeout(messageBytes, timeout);
+    }
+
+    public void sendWithTimeout(byte[] message, int timeout) {
+        SecretKey secretKey = getOrGenerateSecretKey();
+        long seqNum = nextSeqNum.getAndIncrement();
+        // print the seqnum
+        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
+
+        try {
+            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+
+            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
+
+            // Store the message in the pending list
+            pendingMessages.put(seqNum, dataMsg);
+
+            Logger.LOG(destPort + ") Sending message: " + seqNum);
+            sendUdpPacket(dataMsg.serialize());
+        } catch (Exception e) {
+            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void setMessageHandler(MessageHandler handler) {
         this.messageHandler = handler;
@@ -205,6 +205,15 @@ public class APLImpl implements APL {
 
         Logger.LOG(senderId + ") Received message: " + message.toStringExtended());
 
+        if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
+
+            Logger.LOG(
+                    "Received message was out-of-order : Message seqnum: " + message.getSeqNum() + ". From: " + senderId
+                            + ". Last received: " + lastReceivedSeqNum.get());
+
+            return;
+        }
+
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
                 DataMessage dataMessage = (DataMessage) message;
@@ -224,15 +233,6 @@ public class APLImpl implements APL {
     }
 
     private void handleKey(KeyMessage keyMessage) {
-        if (!lastReceivedSeqNum.compareAndSet(keyMessage.getSeqNum() - 1, keyMessage.getSeqNum())) {
-
-            Logger.LOG(
-                    "Received message was out-of-order : Message seqnum: " + keyMessage.getSeqNum() + ". From: "
-                            + " unavailable sender id"
-                            + ". Last received: " + lastReceivedSeqNum.get());
-
-            return;
-        }
         Logger.LOG("Received key message");
         SecretKey secretKey = null;
         try {
@@ -250,7 +250,7 @@ public class APLImpl implements APL {
         try {
             sendAuthenticatedAcknowledgment(keyMessage.getSeqNum());
         } catch (Exception e) {
-            Logger.ERROR("Failed to send acknowledgment: " + e.getMessage(), e);
+            Logger.LOG("Failed to send acknowledgment: " + e.getMessage());
         }
 
         // Check for duplicates
@@ -265,7 +265,7 @@ public class APLImpl implements APL {
         byte[] hmac = ackMessage.getMac();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            Logger.ERROR("Authentication failed for ACK: " + seqNum);
+            Logger.LOG("Authentication failed for ACK: " + seqNum);
             return;
         }
 
@@ -294,22 +294,12 @@ public class APLImpl implements APL {
     }
 
     private void handleData(Integer senderId, DataMessage dataMessage) {
-        if (!lastReceivedSeqNum.compareAndSet(dataMessage.getSeqNum() - 1, dataMessage.getSeqNum())) {
-
-            Logger.LOG(
-                    "Received message was out-of-order : Message seqnum: " + dataMessage.getSeqNum() + ". From: "
-                            + senderId
-                            + ". Last received: " + lastReceivedSeqNum.get());
-
-            return;
-        }
-
         byte[] content = dataMessage.getContent();
         long seqNum = dataMessage.getSeqNum();
         byte[] hmac = dataMessage.getMac();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            Logger.ERROR("Authentication failed for message");
+            Logger.LOG("Authentication failed for message");
             return;
         }
 
@@ -350,13 +340,16 @@ public class APLImpl implements APL {
         return receivedMessages.putIfAbsent(seqNum, Boolean.TRUE) != null;
     }
 
-    private void sendAuthenticatedAcknowledgment(long seqNum) throws Exception {
+    private void sendAuthenticatedAcknowledgment(long dataSeqNum) throws Exception {
         try {
             SecretKey secretKey = getSecretKey();
+            long seqNum = nextSeqNum.getAndIncrement();
+            // create the content from the dataSeqNum
+            byte[] content = ByteBuffer.allocate(Long.BYTES).putLong(dataSeqNum).array();
 
-            byte[] hmac = generateHMAC(new byte[0], seqNum, secretKey);
+            byte[] hmac = generateHMAC(content, seqNum, secretKey);
 
-            AckMessage ackMessage = new AckMessage(seqNum, hmac);
+            AckMessage ackMessage = new AckMessage(content, seqNum, hmac);
 
             Logger.LOG("Sending ACK for message: " + seqNum);
             sendUdpPacket(ackMessage.serialize());
@@ -380,9 +373,9 @@ public class APLImpl implements APL {
         scheduler.scheduleAtFixedRate(() -> {
             pendingMessages.forEach((seqNum, message) -> {
                 if (message.getCounter() >= message.getTimeout()) {
+                    // TODO: isto ta tudo mal nao? @massas
                     Logger.LOG("Message timed out: " + seqNum);
                     pendingMessages.remove(seqNum);
-                    nextSeqNum.incrementAndGet(); // TODO esta merda ta mal
                     // print the seqnum
                     Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
                     return;
