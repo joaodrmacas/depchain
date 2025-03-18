@@ -62,8 +62,7 @@ public class APLImpl implements APL {
         this.destPublicKey = destPublicKey;
         setMessageHandler(messageHandler);
 
-        startRetransmissionScheduler();
-
+        //startRetransmissionScheduler();
     }
 
     // // For unit tests
@@ -131,7 +130,7 @@ public class APLImpl implements APL {
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
 
-            Logger.LOG("Sending message: " + seqNum);
+            Logger.LOG(destPort + ") Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
@@ -184,7 +183,7 @@ public class APLImpl implements APL {
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
 
-            Logger.LOG("Sending message: " + seqNum);
+            Logger.LOG(destPort + ") Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
@@ -213,7 +212,8 @@ public class APLImpl implements APL {
         if (message == null)
             return;
 
-        Logger.LOG("Received message: " + message.getSeqNum());
+        Logger.LOG(senderId + ") Received message: " + message.toStringExtended());
+        
         if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
             // Process message safely
 

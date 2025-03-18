@@ -20,8 +20,9 @@ public class ConsensusMessageHandler<T extends RequiresEquals> implements Messag
     @Override
     public void onMessage(int senderId, byte[] message) {
         try {
-            ConsensusMessage<T> deserializedObject = SerializationUtils.deserializeObject(message);
+            Object deserializedObject = SerializationUtils.deserializeObject(message);
             if (deserializedObject instanceof ConsensusMessage<?>) {
+                @SuppressWarnings("unchecked")
                 ConsensusMessage<T> consensusMessage = (ConsensusMessage<T>) deserializedObject;
 
                 receivedMessages.get(senderId).getResource().add(consensusMessage);

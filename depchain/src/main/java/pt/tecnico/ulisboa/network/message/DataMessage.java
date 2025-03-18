@@ -2,6 +2,9 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;
@@ -42,4 +45,23 @@ public class DataMessage extends AuthenticatedMessage {
         return new DataMessage(content, seqNum, hmac);
     }
 
-}
+    public String toString() {
+        String str = "";
+
+        Object content = null;
+        try {
+            content = SerializationUtils.deserializeObject(this.getContent());
+        } catch (IOException | ClassNotFoundException e) {
+            Logger.LOG("Failed to deserialize content: " + e.getMessage());
+        }
+
+        if (content instanceof ConsensusMessage<?>) {
+            ConsensusMessage<?> consensusMessage = (ConsensusMessage<?>) content;
+            str += "Consensus{" + consensusMessage.getType() + "}";
+        } else {
+            str += "NO_consensus{}";
+        }
+
+        return str;
+    }
+}  

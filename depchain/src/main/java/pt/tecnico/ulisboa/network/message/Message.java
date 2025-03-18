@@ -104,4 +104,30 @@ public abstract class Message implements Serializable {
                 ", content=" + new String(content) +
                 '}';
     }
+
+    public String toStringExtended() {
+        String str = "{";
+        switch (this.getType()) {
+            case Message.DATA_MESSAGE_TYPE:
+                str = "DT";
+                break;
+            case Message.ACK_MESSAGE_TYPE:
+                str = "ACK";
+                break;
+            case Message.KEY_MESSAGE_TYPE:
+                str = "KEY";
+                break;
+            default:
+                str = "UNKNOWN";
+                break;
+        }
+
+        if (str == "DT") {
+            str += "{" + (DataMessage) this + "}";
+        }
+
+        str += ", " + this.getSeqNum() + "}";
+
+        return str;
+    }
 }
