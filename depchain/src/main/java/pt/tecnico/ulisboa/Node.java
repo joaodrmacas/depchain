@@ -323,6 +323,7 @@ public class Node<T extends RequiresEquals> {
             value = transactions.getResource().peek();
             Logger.LOG("Peeked value: " + value);
             // TODO: Check if this is the correct way to handle this @carrao
+            // adicionei o if value == null. acho que ta mal tho
             if (value == null) {
                 Logger.LOG("No value to peek");
                 return null;

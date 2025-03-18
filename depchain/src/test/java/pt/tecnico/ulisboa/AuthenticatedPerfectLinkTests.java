@@ -336,4 +336,53 @@ public class AuthenticatedPerfectLinkTests {
             fail("Test failed with exception: " + e.getMessage());
         }
     }
+
+    @Test
+    public void testMessageDeliveryAfterTimeout() {
+        final String timeoutMessage = "This message will time out";
+        final String followupMessage = "This message should still be delivered";
+        final CountDownLatch followupLatch = new CountDownLatch(1);
+        final AtomicReference<String> receivedMessage = new AtomicReference<>();
+
+        final MessageHandler messageHandler = (id, msgBytes) -> {
+            try {
+                String message = SerializationUtils.deserializeObject(msgBytes);
+                if (message.equals(followupMessage)) {
+                    receivedMessage.set(message);
+                    followupLatch.countDown();
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                fail("Failed to deserialize message: " + e.getMessage());
+            }
+        };
+
+        try {
+            senderManager = new ServerAplManager(ADDR, SOURCE_PORT, senderKeys.getPrivate());
+            senderManager.createAPL(receiverId, ADDR, DESTINATION_PORT, receiverKeys.getPublic(), null);
+            //Listen to get ACK's back
+            senderManager.startListening();
+
+            // Create receiver manager
+            receiverManager = new ServerAplManager(ADDR, DESTINATION_PORT, receiverKeys.getPrivate());
+            receiverManager.createAPL(senderId, ADDR, SOURCE_PORT, senderKeys.getPublic(), messageHandler);
+            
+            
+            //Send 2 messages where the first timesout because the receiver is not listening yet
+            final int shortTimeout = 1;
+            senderManager.sendWithTimeout(receiverId, timeoutMessage, shortTimeout);
+            senderManager.send(receiverId, followupMessage);
+            
+            Thread.sleep(1000);
+
+            receiverManager.startListening();
+
+            // Wait for the follow-up message to be received
+            boolean received = followupLatch.await(10000, TimeUnit.MILLISECONDS);
+            assertTrue("Follow-up message was not received after timeout", received);
+            assertEquals("Message content should match", followupMessage, receivedMessage.get());
+
+        } catch (Exception e) {
+            fail("Test failed with exception: " + e.getMessage());
+        }
+    }
 }

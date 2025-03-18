@@ -10,7 +10,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -198,12 +204,11 @@ public class APLImpl implements APL {
     }
 
     protected void processReceivedPacket(int senderId, byte[] data) {
-        Logger.LOG("Processing message from destination");
         Message message = Message.deserialize(data);
         if (message == null)
             return;
 
-        Logger.LOG(senderId + ") Received message: " + message.toStringExtended());
+        Logger.LOG(nodePort + ") Received message: " + message.toStringExtended());
 
         if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
 
@@ -369,18 +374,62 @@ public class APLImpl implements APL {
     }
 
     private void startRetransmissionScheduler() {
-        // print pending messages before retransmission
         scheduler.scheduleAtFixedRate(() -> {
-            pendingMessages.forEach((seqNum, message) -> {
+            Logger.LOG("Pending messages before retransmission 1:");
+            for (Long key : pendingMessages.keySet()) {
+                Logger.LOG("Pending message: " + key);
+            }
+            
+            Set<Long> timedOutSeqNums = new HashSet<>();
+            
+            //Check timeouts
+            for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
+                Long seqNum = entry.getKey();
+                Message message = entry.getValue();
+                
                 if (message.getCounter() >= message.getTimeout()) {
-                    // TODO: isto ta tudo mal nao? @massas
                     Logger.LOG("Message timed out: " + seqNum);
-                    pendingMessages.remove(seqNum);
-                    // print the seqnum
-                    Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
-                    return;
+                    timedOutSeqNums.add(seqNum);
                 }
-
+            }
+            
+            //handle timeouts
+            if (!timedOutSeqNums.isEmpty()) {
+                for (Long seqNum : timedOutSeqNums) {
+                    pendingMessages.remove(seqNum);
+                }
+                
+                Logger.LOG("Decreasing every message's seqnum");
+                
+                Long lowestTimedOutSeqNum = Collections.min(timedOutSeqNums);
+                List<Message> messagesToUpdate = new ArrayList<>();
+                
+                for (Message msg : pendingMessages.values()) {
+                    if (msg.getSeqNum() > lowestTimedOutSeqNum) {
+                        messagesToUpdate.add(msg);
+                    }
+                }
+                
+                messagesToUpdate.sort((m1, m2) -> Long.compare(m2.getSeqNum(), m1.getSeqNum()));
+                
+                // Update sequence numbers
+                for (Message msg : messagesToUpdate) {
+                    pendingMessages.remove(msg.getSeqNum());
+                    msg.setSeqNum(msg.getSeqNum() - timedOutSeqNums.size());
+                    pendingMessages.put(msg.getSeqNum(), msg);
+                    //TODO: reset the timeout of the message?
+                }
+                
+                nextSeqNum.addAndGet(-timedOutSeqNums.size());
+                Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
+                
+                return;
+            }
+            
+            for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
+                Long seqNum = entry.getKey();
+                Message message = entry.getValue();
+                
                 if (message.getCounter() >= message.getCooldown()) {
                     Logger.LOG("Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
@@ -394,7 +443,12 @@ public class APLImpl implements APL {
                 } else {
                     message.incrementCounter();
                 }
-            });
+            }
+
+            Logger.LOG("Pending messages before retransmission 2:");
+            for (Long key : pendingMessages.keySet()) {
+                Logger.LOG("Pending message: " + key);
+            }
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 

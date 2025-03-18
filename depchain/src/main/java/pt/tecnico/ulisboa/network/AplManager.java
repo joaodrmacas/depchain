@@ -177,9 +177,7 @@ public abstract class AplManager {
                     if (apl != null) {
                         byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                         apl.handleData(senderId, data);
-                    }
-
-                    else {
+                    } else {
                         Logger.LOG("No APL instance found for sender ID: " + senderId);
                     }
 
