@@ -268,19 +268,20 @@ public class APLImpl implements APL {
         byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
         byte[] hmac = ackMessage.getMac();
+        long dataSeqNum = ByteBuffer.wrap(content).getLong();
 
         if (!verifyHMAC(content, seqNum, hmac)) {
-            Logger.LOG("Authentication failed for ACK: " + seqNum);
+            Logger.LOG("Authentication failed for ACK: " + dataSeqNum);
             return;
         }
 
         // Remove the message from the pending list
         if (!pendingMessages.containsKey(seqNum)) {
-            Logger.LOG("Received ACK for unsent message: " + seqNum);
+            Logger.LOG("Received ACK for unsent message: " + dataSeqNum);
             return;
         }
 
-        Logger.LOG("Received ACK for message: " + seqNum);
+        Logger.LOG("Received ACK for message: " + dataSeqNum);
         // Logger.LOG("attempting to remove message: " + seqNum + " from pending
         // list\n...");
         // print messages in pending list
@@ -288,7 +289,7 @@ public class APLImpl implements APL {
         // for (Long key : pendingMessages.keySet()) {
         // Logger.LOG("Pending message: " + key);
         // }
-        pendingMessages.remove(seqNum);
+        pendingMessages.remove(dataSeqNum);
 
         // print messages in pending list
         // Logger.LOG("...\nPending messages after:");
