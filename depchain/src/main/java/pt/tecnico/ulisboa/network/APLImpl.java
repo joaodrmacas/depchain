@@ -375,11 +375,6 @@ public class APLImpl implements APL {
 
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
-            Logger.LOG("Pending messages before retransmission 1:");
-            for (Long key : pendingMessages.keySet()) {
-                Logger.LOG("Pending message: " + key);
-            }
-            
             Set<Long> timedOutSeqNums = new HashSet<>();
             
             //Check timeouts
@@ -443,11 +438,6 @@ public class APLImpl implements APL {
                 } else {
                     message.incrementCounter();
                 }
-            }
-
-            Logger.LOG("Pending messages before retransmission 2:");
-            for (Long key : pendingMessages.keySet()) {
-                Logger.LOG("Pending message: " + key);
             }
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
