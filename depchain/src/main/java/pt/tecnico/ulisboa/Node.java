@@ -52,7 +52,7 @@ public class Node<T extends RequiresEquals> {
     private ArrayList<T> blockchain;
 
     // should be closed: exec.shutdown();
-    private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 2);
+    private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -161,35 +161,35 @@ public class Node<T extends RequiresEquals> {
             readAllPublicKeys();
 
             // Initialize the consensus messages queues
-            for (int destId : publicKeys.keySet()) {
-                if (destId == nodeId) {
+            for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+                if (i == nodeId) {
                     continue;
                 }
-                this.consensusMessages.put(destId, new ObservedResource<>(new LinkedList<>()));
+                this.consensusMessages.put(i, new ObservedResource<>(new LinkedList<>()));
             }
 
             serversManager = new ServerAplManager(address, port, privateKey);
 
             // Initialize APLs, one for each destination node
 
-            for (int destId : publicKeys.keySet()) {
-                if (destId >= Config.NUM_MEMBERS) {
+            for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+                if (i >= Config.NUM_MEMBERS) {
                     break;
                 }
-                if (destId == nodeId) {
+                if (i == nodeId) {
                     continue;
                 }
 
-                Logger.LOG("Creating APL for destination node " + destId);
+                Logger.LOG("Creating APL for destination node " + i);
 
-                String destAddr = GeneralUtils.id2Addr.get(destId);
-                int destPort = GeneralUtils.id2ServerPort.get(destId);
+                String destAddr = GeneralUtils.id2Addr.get(i);
+                int destPort = GeneralUtils.id2ServerPort.get(i);
 
                 Logger.LOG("Creating APL for destination node " + destAddr + ":" + destPort);
 
                 ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
-                serversManager.createAPL(destId, destAddr, destPort, publicKeys.get(destId), handler);
-                Logger.LOG("APL created for destination node " + destId);
+                serversManager.createAPL(i, destAddr, destPort, publicKeys.get(i), handler);
+                Logger.LOG("APL created for destination node " + i);
             }
             serversManager.startListening();
 
@@ -244,7 +244,7 @@ public class Node<T extends RequiresEquals> {
             throw new RuntimeException("No public keys found in " + keysDir.getAbsolutePath());
         }
 
-        for (int i = 0; i < keyFiles.length; i++) {
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             String keyPath = keyFiles[i].getPath();
             String keyName = keyFiles[i].getName();
             int keyId = Integer.parseInt(keyName.substring(3, 5));
@@ -267,6 +267,11 @@ public class Node<T extends RequiresEquals> {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             PublicKey publicKey = keyFactory.generatePublic(spec);
             publicKeys.put(keyId, publicKey);
+        }
+
+        if (Logger.IS_DEBUGGING()) {
+            Logger.DEBUG("public keys map");
+            System.err.println(publicKeys);
         }
     }
 
@@ -303,9 +308,9 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !transactions.waitForChange(timeout);
+                boolean hasTimedOut = !transactions.waitForChange(timeout);
 
-                if (hasTimeouted) {
+                if (hasTimedOut) {
                     return null;
                 }
             } catch (Exception e) {
@@ -354,9 +359,9 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(timeout);
+                boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
 
-                if (hasTimeouted) {
+                if (hasTimedOut) {
                     return null;
                 }
             } catch (Exception e) {
@@ -373,9 +378,14 @@ public class Node<T extends RequiresEquals> {
             }
 
             try {
-                boolean hasTimeouted = !consensusMessages.get(senderId).waitForChange(timeout);
+                boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
 
-                if (hasTimeouted) {
+                if (hasTimedOut) {
+                    if (Logger.IS_DEBUGGING()) {
+                        Logger.DEBUG("consensus messages:");
+                        printConsensusMessages();
+                    }
+
                     return null;
                 }
             } catch (Exception e) {
@@ -397,6 +407,8 @@ public class Node<T extends RequiresEquals> {
     }
 
     public void sendToMember(int memberId, ConsensusMessage<T> msg) {
+        Logger.LOG((memberId + 8080) + ") Sending message: DT{Consensus{" + msg.toString() + "}}");
+
         serversManager.send(memberId, msg);
     }
 
@@ -425,14 +437,16 @@ public class Node<T extends RequiresEquals> {
     public void printConsensusMessages() {
         String str = "***** BEGIN Consensus messages: \n";
 
-        for (int destId : consensusMessages.keySet()) {
-            str += "\nDestination: " + destId + "\n";
-            for (ConsensusMessage<T> msg : consensusMessages.get(destId).getResource()) {
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i == nodeId) continue;
+
+            str += "\nDestination: " + i + "\n";
+            for (ConsensusMessage<T> msg : consensusMessages.get(i).getResource()) {
                 str += msg.toString() + "\n";
             }
         }
 
-        str += "***** END Consensus messages\n";
+        str += "\n***** END Consensus messages\n";
         System.err.println(str);
     }
 

@@ -205,10 +205,11 @@ public class APLImpl implements APL {
 
     protected void processReceivedPacket(int senderId, byte[] data) {
         Message message = Message.deserialize(data);
-        if (message == null)
+        if (message == null) {
             return;
+        }
 
-        Logger.LOG(nodePort + ") Received message: " + message.toStringExtended());
+        Logger.LOG(destPort + ") Received message: " + message.toStringExtended());
 
         if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
 
@@ -318,6 +319,7 @@ public class APLImpl implements APL {
 
         // Check for duplicates
         if (isDuplicate(seqNum)) {
+            Logger.LOG("Received duplicate message: " + seqNum);
             return;
         }
 
@@ -331,7 +333,6 @@ public class APLImpl implements APL {
             }
         } catch (Exception e) {
             Logger.ERROR("Failed to deserialize message content: ", e);
-            e.printStackTrace();
 
             // Still deliver the raw bytes if deserialization fails
             if (messageHandler != null) {

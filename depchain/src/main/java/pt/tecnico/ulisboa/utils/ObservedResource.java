@@ -15,20 +15,36 @@ public class ObservedResource<T> {
     }
 
     public boolean waitForChange(int timeout) {
+        Logger.DEBUG("Begining waiting for change");
         lock.lock();
         try {
             while (!hasChanged) {
                 if (timeout == -1) {
                     condition.await();
                 } else {
-                boolean hasTimeouted =
+                boolean hasTimedout =
                     !condition.await(timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
-                if (hasTimeouted) return false;
+                
+                    if(Logger.IS_DEBUGGING()) {
+                        Logger.DEBUG("Timeouted: " + hasTimedout);
+                        System.err.println(resource);
+                    }
+                    
+                    if (hasTimedout) return false;
+                }
+                if (Logger.IS_DEBUGGING()) {
+                    if (!hasChanged) {
+                        Logger.DEBUG("Woked up but not changed nor timed out");
+                    } else Logger.DEBUG("Woked up and changed");
+
+                    new Exception().printStackTrace();
                 }
             }
             hasChanged = false;
+            Logger.DEBUG("Flag changed to false");
         }  catch (InterruptedException e) {
-            e.printStackTrace();
+            Logger.LOG("Interrupted while waiting for change: " + e.getMessage());
+            return false;
         } finally {
             lock.unlock();
         }
@@ -38,6 +54,7 @@ public class ObservedResource<T> {
     public void notifyChange() {
         lock.lock();
         try {
+            Logger.DEBUG("Notifying change: flag changed to true");
             hasChanged = true;
             condition.signalAll();
         } finally {

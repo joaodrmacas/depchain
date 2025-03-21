@@ -70,5 +70,6 @@ public class NodeMessageHandler<T extends RequiresEquals> implements MessageHand
         }
         Logger.LOG("Valid signature for message: " + message.getCount());
         txQueue.getResource().add((T) message);
+        txQueue.notifyChange();
     }
 }

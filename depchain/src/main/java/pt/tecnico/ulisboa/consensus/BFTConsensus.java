@@ -1,6 +1,9 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,15 +31,19 @@ public class BFTConsensus<T extends RequiresEquals> {
 
             AtomicInteger firstAwaken = new AtomicInteger(-1);
 
-            // wait to be awaken either by new consensus from another member
+            // Create a list to keep track of all submitted futures
+            List<Future<?>> waitingTasks = new ArrayList<>();
+
+            // Wait to be awaken either by new consensus from another member
             for (int i = 0; i < Config.NUM_MEMBERS; i++) {
                 if (i == member.getId()) continue;
 
                 final int _i = i;
-                this.service.submit(() -> {
+                Future<?> task = this.service.submit(() -> {
                     while (true) {
                         ConsensusMessage<T> msg = member.peekConsensusMessageOrWait(_i, -1);
 
+                        Logger.DEBUG("firstAwaken is " + firstAwaken.get());
                         if (firstAwaken.get() != -1) {
                             Logger.DEBUG("Work detected in another thread");
                             return null;
@@ -49,12 +56,14 @@ public class BFTConsensus<T extends RequiresEquals> {
                         }
                     }
                 });
+                
+                waitingTasks.add(task);
             }
 
-            // or wait to be awaken by new tx from clients
-            this.service.submit(() -> {
+            // Wait to be awaken by new tx from clients
+            Future<?> txTask = this.service.submit(() -> {
                 while (true) {
-                    T tx = member.peekReceivedTxOrWait(Config.NEW_TRANSACTION_TIMEOUT);
+                    T tx = member.peekReceivedTxOrWait(-1);
 
                     if (firstAwaken.get() != -1) {
                         Logger.DEBUG("Work detected in another thread");
@@ -64,14 +73,25 @@ public class BFTConsensus<T extends RequiresEquals> {
                     if (tx != null) {
                         Logger.DEBUG("New transaction detected");
                         firstAwaken.set(Config.NUM_MEMBERS);
+                        Logger.DEBUG("firstAwaken set to " + firstAwaken.get());
                         return null;
                     }
                 }
             });
 
+            waitingTasks.add(txTask);
+
             try {
                 Logger.DEBUG("Waiting for work");
+                // Wait for any of the tasks to complete
                 this.service.take();
+                
+                // Ensure all tasks are cancelled after one completes
+                for (Future<?> task : waitingTasks) {
+                    if (!task.isDone()) {
+                        task.cancel(true);
+                    }
+                }
             } catch (Exception e) {
                 Logger.ERROR("Error while waiting for first awaken", e);
             }

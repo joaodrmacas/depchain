@@ -1,5 +1,5 @@
 # Generate keys
-make keys
+make keys N=4
 
 ROOTPACKAGE=pt.tecnico.ulisboa
 ROOTDIR=src/main/java/pt/tecnico/ulisboa
@@ -19,9 +19,6 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
     -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_02.log" 2>&1 &
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
     -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_03.log" 2>&1 &
-
-# Give servers time to start
-sleep 5
 
 # Run client
 echo "a" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \

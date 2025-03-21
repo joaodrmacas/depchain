@@ -1,5 +1,7 @@
 package pt.tecnico.ulisboa.consensus;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -83,6 +85,9 @@ public class EpochConsensus<T extends RequiresEquals> {
                         break;
                 }
 
+                // TODO: just a debug thing
+                Logger.ERROR("SHOULD NOT CHANGE EPOCH");
+
                 this.epochNumber++;
 
                 readPhaseDone.set(false);
@@ -111,7 +116,7 @@ public class EpochConsensus<T extends RequiresEquals> {
             if (getLeader(this.epochNumber) == member.getId()) {
                 // aborts this epoch if is leader and has no value to propose
                 if (valueToBeProposed == null) {
-                    broadcastAbort();
+                    abort();
                 }
 
                 if (!this.readPhaseDone.get()) {
@@ -125,6 +130,11 @@ public class EpochConsensus<T extends RequiresEquals> {
                     }
 
                     Logger.LOG("receive STATEs done");
+
+                    if (Logger.IS_DEBUGGING()) {
+                        Logger.DEBUG("Collected states:");
+                        System.err.println(this.collected + "\n");
+                    }
 
                     this.readPhaseDone.set(true);
                 }
@@ -154,7 +164,11 @@ public class EpochConsensus<T extends RequiresEquals> {
                 Logger.LOG("receive COLLECTED done");
 
                 if (!this.collected.verifyStates(member.getPublicKeys())) {
-                    broadcastAbort();
+                    if (Logger.IS_DEBUGGING()) {
+                        Logger.DEBUG("Collected states:");
+                        System.err.println(this.collected + "\n");
+                    }
+                    abort();
                 }
             }
 
@@ -182,8 +196,7 @@ public class EpochConsensus<T extends RequiresEquals> {
                     Logger.DEBUG("Accept counts: " + acceptCounts);
                 }
 
-                broadcastAbort();
-                throwAbort();
+                abort();
             }
 
             break; // end the one iteration loop
@@ -206,8 +219,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         if (writesOrAccepts == null) {
             Logger.LOG("No value to accept");
 
-            broadcastAbort();
-            throwAbort();
+            abort();
         }
 
         return writesOrAccepts.getValue();
@@ -216,8 +228,9 @@ public class EpochConsensus<T extends RequiresEquals> {
     public T decideFromCollected() throws AbortedSignal {
         Logger.LOG("Deciding from collected");
 
+        // if the leader didn't send its own state, abort
         if (this.collected.getStates().get(getLeader(epochNumber)) == null) {
-            broadcastAbort();
+            abort();
         }
 
         WriteTuple<T> bestWT = null;
@@ -231,14 +244,15 @@ public class EpochConsensus<T extends RequiresEquals> {
 
                 WriteTuple<T> wt = state.getMostRecentQuorumWritten();
                 if (bestWT == null
-                        || wt.getTimestamp() < bestWT.getTimestamp()) {
+                        || wt.getTimestamp() > bestWT.getTimestamp()) {
                     bestWT = wt;
                 }
             }
         }
 
+        // if the leader didn't send enough states, abort
         if (countCorrectStates < Config.ALLOWED_FAILURES + 1) {
-            broadcastAbort();
+            abort();
         }
 
         if (bestWT != null) {
@@ -267,6 +281,11 @@ public class EpochConsensus<T extends RequiresEquals> {
 
     public int getLeader(int epocNumber) {
         return epocNumber % Config.NUM_MEMBERS;
+    }
+
+    public void abort() throws AbortedSignal {
+        broadcastAbort();
+        throwAbort();
     }
 
     public void throwAbort() throws AbortedSignal {
@@ -357,14 +376,16 @@ public class EpochConsensus<T extends RequiresEquals> {
     }
 
     public WritesOrAccepts receiveFromAll(ConsensusMessage.MessageType type) throws AbortedSignal {
+        List<Future<?>> tasks = new ArrayList<>();
+        
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i == member.getId())
-                continue;
+            if (i == member.getId()) continue;
 
             // Thread that listens to each link
             // interpreting each message receive and deciding after
             final int _i = i;
-            this.service.submit(() -> receiveLoop(_i, type));
+            Future<?> task = this.service.submit(() -> receiveLoop(_i, type));
+            tasks.add(task);
 
             Logger.DEBUG("Task " + i + " started");
         }
@@ -384,6 +405,14 @@ public class EpochConsensus<T extends RequiresEquals> {
             WritesOrAccepts writesOrAccepts = checkForEvents();
             if (writesOrAccepts != null) {
                 Logger.DEBUG("Quorum reached");
+
+                // Cancel all remaining tasks since we've reached a quorum
+                for (Future<?> task : tasks) {
+                    if (!task.isDone()) {
+                        task.cancel(true);
+                    }
+                }
+
                 return writesOrAccepts;
             }
         }
@@ -393,16 +422,21 @@ public class EpochConsensus<T extends RequiresEquals> {
     }
 
     public WritesOrAccepts receiveFrom(ConsensusMessage.MessageType type, int senderId) throws AbortedSignal {
-        Future<Void> senderTask = null;
+        Future<?> senderTask = null;
         
+        List<Future<?>> otherTasks = new ArrayList<>();
+
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             if (i == member.getId()) continue;
 
             // Thread that listens to each link
             // interpreting each message receive and deciding after
             final int _i = i;
-            Future<Void> future = this.service.submit(() -> receiveLoop(_i, type));
+            Future<?> future = this.service.submit(() -> receiveLoop(_i, type));
             if (i == senderId) senderTask = future;
+            else {
+                otherTasks.add(future);
+            }
         }
 
         try {
@@ -410,6 +444,12 @@ public class EpochConsensus<T extends RequiresEquals> {
             senderTask.get();
         } catch (ExecutionException | InterruptedException e) {
             Logger.ERROR("Error executing the task: " + e, e);
+        }
+
+        for (Future<?> task : otherTasks) {
+            if (!task.isDone()) {
+                task.cancel(true);
+            }
         }
 
         return checkForEvents();
@@ -427,6 +467,7 @@ public class EpochConsensus<T extends RequiresEquals> {
 
             if (msg == null) {
                 Logger.LOG(senderId + ") Timed out");
+                
                 return null;
             }
 
@@ -474,10 +515,11 @@ public class EpochConsensus<T extends RequiresEquals> {
                     // gotta check if each state received is well signed,
                     // if not dont store it (store null instead)
                     if (stateMsg.getState().verifySignature(member.getPublicKeys().get(senderId))) {
+                        Logger.DEBUG("Adding state to collected");
                         synchronized (this.collected) {
                             this.collected.addState(senderId, stateMsg.getState());
                         }
-                    }
+                    } else Logger.LOG("Not a valid state");
 
                     return null;
 

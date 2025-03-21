@@ -2,6 +2,7 @@ package pt.tecnico.ulisboa.network.message;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.Serializable;
 
@@ -78,6 +79,11 @@ public abstract class Message implements Serializable {
 
     public static Message deserialize(byte[] data) {
         try (DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data))) {
+            if (dis.available() == 0) {
+                Logger.LOG("Empty message received");
+                return null;
+            }
+            
             byte type = dis.readByte();
             switch (type) {
                 case DATA_MESSAGE_TYPE:
@@ -90,8 +96,11 @@ public abstract class Message implements Serializable {
                     Logger.ERROR("Unknown message type: " + type);
                     return null;
             }
+        } catch (EOFException e) {
+            Logger.LOG("Reached end of stream unexpectedly: " + e.getMessage());
+            return null;
         } catch (IOException e) {
-            Logger.ERROR("Failed to deserialize message of type: " + e.getMessage(), e);
+            Logger.ERROR("Failed to deserialize message: " + e.getMessage(), e);
             return null;
         }
     }

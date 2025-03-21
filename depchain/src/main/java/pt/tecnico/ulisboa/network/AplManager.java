@@ -154,7 +154,6 @@ public abstract class AplManager {
                     socket.receive(packet);
 
                     // Determine the sender
-                    // TODO: this might be spoofed no?
                     Integer senderId = getSenderId(packet.getAddress().getHostAddress(), packet.getPort());
                     if (senderId == null) {
                         Logger.LOG(
