@@ -12,6 +12,10 @@ import pt.tecnico.ulisboa.utils.SerializationUtils;
 public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;
 
+    private int fragmentIndex;
+    private int totalFragments;
+    private int originalMessageSize;
+
     public DataMessage(byte[] content, long seqNum, byte[] hmac) {
         super(content, seqNum, hmac);
     }

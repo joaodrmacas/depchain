@@ -21,6 +21,7 @@ public abstract class ConsensusMessage<T extends RequiresEquals> implements Seri
         WRITE,
         ACCEPT,
         NEWEPOCH,
+        DUMMY,
     }
 
     public MessageType getType() {

@@ -15,6 +15,7 @@ import pt.tecnico.ulisboa.Node;
 import pt.tecnico.ulisboa.consensus.message.AcceptMessage;
 import pt.tecnico.ulisboa.consensus.message.CollectedMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.consensus.message.DummyMessage;
 import pt.tecnico.ulisboa.consensus.message.NewEpochMessage;
 import pt.tecnico.ulisboa.consensus.message.ReadMessage;
 import pt.tecnico.ulisboa.consensus.message.StateMessage;
@@ -143,6 +144,8 @@ public class EpochConsensus<T extends RequiresEquals> {
                 this.collected.addState(member.getId(), this.state);
 
                 sendToAll(new CollectedMessage<>(this.collected, this.epochNumber));
+                
+                // sendToAll(new DummyMessage<>(-1, "-> THIS CAN GO LMAO BUT COLLECTED WONT"));
 
                 Logger.LOG("send COLLECTEDs done");
             } else { // Not leader

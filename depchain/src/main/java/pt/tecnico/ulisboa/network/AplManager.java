@@ -9,12 +9,15 @@ import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.network.message.FragmentedMessage;
 import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public abstract class AplManager {
     private final DatagramSocket socket;
@@ -25,6 +28,7 @@ public abstract class AplManager {
     protected final Map<String, Integer> senderIdMap = new ConcurrentHashMap<>();
     private final PrivateKey privateKey;
     private AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final Map<Integer, Map<Long, List<FragmentedMessage>>> fragmentBuffer = new ConcurrentHashMap<>();
 
     public AplManager(String address, Integer port, PrivateKey privateKey) throws SocketException, IOException {
         this.privateKey = privateKey;
@@ -170,6 +174,24 @@ public abstract class AplManager {
                     }
 
                     Logger.LOG("Received packet from sender ID: " + senderId);
+
+                    //receive fragment
+                    FragmentedMessage fragmentedMessage = SerializationUtils.deserializeObject(packet.getData());
+
+                    //how many fragments are there
+                    long totalFragments = fragmentedMessage.getTotalFragments();
+                    
+                    if (totalFragments != 1) {
+
+                        if (!fragmentBuffer.containsKey(senderId)) {
+                            fragmentBuffer.put(senderId, new ConcurrentHashMap<>());
+                        }
+                        fragmentBuffer.get(senderId).putIfAbsent(fragmentedMessage.getMessageId(), [] );
+
+                    }
+                    
+
+                    fragmentBuffer.putIfAbsent(senderId, new ConcurrentHashMap<>());
 
                     // Get the APL for this sender and dispatch the data of the packet
                     APLImpl apl = aplInstances.get(senderId);

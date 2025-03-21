@@ -28,6 +28,7 @@ import javax.crypto.SecretKey;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.AckMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
+import pt.tecnico.ulisboa.network.message.FragmentedMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
@@ -98,24 +99,32 @@ public class APLImpl implements APL {
         send(messageBytes);
     }
 
-    public void send(byte[] message) {
+    public void send(byte[] message){
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
-        // print the seqnum
-        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
+        String msgId = nodePort.toString() + seqNum;
 
-        try {
-            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+        byte[] hmac = generateHMAC(message, seqNum, secretKey);
+        DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
-            DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
+        // Store the message in the pending list
+        pendingMessages.put(seqNum, dataMsg);
 
-            // Store the message in the pending list
-            pendingMessages.put(seqNum, dataMsg);
-
-            Logger.LOG(destPort + ") Sending message: " + seqNum);
-            sendUdpPacket(dataMsg.serialize());
-        } catch (Exception e) {
-            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
+        // Fragment the message
+        int fragmentCount = (int) Math.ceil((double) message.length / Config.MAX_FRAGMENT_SIZE);
+        for (int i = 0; i < fragmentCount; i++) {
+            int startIndex = i * Config.MAX_FRAGMENT_SIZE;
+            int endIndex = Math.min(startIndex + Config.MAX_FRAGMENT_SIZE, message.length);
+            
+            byte[] fragment = Arrays.copyOfRange(message, startIndex, endIndex);
+            
+            FragmentedMessage fragmentMsg = new FragmentedMessage(fragment, i, fragmentCount, message.length, msgId);
+                
+            try {
+                sendUdpPacket(SerializationUtils.serializeObject(fragmentMsg));
+            } catch (IOException e) {
+                Logger.ERROR("Failed to send fragment: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -369,6 +378,7 @@ public class APLImpl implements APL {
     private void sendUdpPacket(byte[] data) {
         try {
             DatagramPacket packet = new DatagramPacket(data, data.length, destAddress, destPort);
+            Logger.LOG("Sending UDP packet of size " + data.length);
             socket.send(packet);
         } catch (Exception e) {
             Logger.ERROR("Failed to send UDP packet", e);

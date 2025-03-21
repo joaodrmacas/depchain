@@ -14,6 +14,7 @@ public abstract class Message implements Serializable {
     public static final byte DATA_MESSAGE_TYPE = 1;
     public static final byte ACK_MESSAGE_TYPE = 2;
     public static final byte KEY_MESSAGE_TYPE = 3;
+    public static final byte FRAGMENTED_MESSAGE_TYPE = 4;
 
     private byte[] content;
     private long seqNum;
