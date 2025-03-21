@@ -9,13 +9,13 @@ import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
+import pt.tecnico.ulisboa.utils.ArrayWithCounter;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
@@ -28,7 +28,7 @@ public abstract class AplManager {
     protected final Map<String, Integer> senderIdMap = new ConcurrentHashMap<>();
     private final PrivateKey privateKey;
     private AtomicBoolean isRunning = new AtomicBoolean(false);
-    private final Map<Integer, Map<Long, List<FragmentedMessage>>> fragmentBuffer = new ConcurrentHashMap<>();
+    private final Map<Integer, Map<String, ArrayWithCounter<FragmentedMessage>>> fragmentBuffers = new ConcurrentHashMap<>();
 
     public AplManager(String address, Integer port, PrivateKey privateKey) throws SocketException, IOException {
         this.privateKey = privateKey;
@@ -146,6 +146,8 @@ public abstract class AplManager {
         }
     }
 
+    
+
     // Start the message dispatcher thread
     public void startListening() {
         isRunning.set(true);
@@ -163,12 +165,6 @@ public abstract class AplManager {
                         Logger.LOG(
                                 "Received packet from unknown sender: " + packet.getAddress().getHostAddress() + ":"
                                         + packet.getPort() + ".");
-
-                        // print all known senders
-                        // Logger.LOG("Known senders:");
-                        // for (String key : senderIdMap.keySet()) {
-                        // Logger.LOG("Known sender: " + key);
-                        // }
                         handleUnknownSender(packet);
                         continue;
                     }
@@ -176,27 +172,37 @@ public abstract class AplManager {
                     Logger.LOG("Received packet from sender ID: " + senderId);
 
                     //receive fragment
-                    FragmentedMessage fragmentedMessage = SerializationUtils.deserializeObject(packet.getData());
+                    byte[] actualData = Arrays.copyOf(packet.getData(), packet.getLength());
+                    FragmentedMessage fragmentedMessage = SerializationUtils.deserializeObject(actualData);
 
                     //how many fragments are there
-                    long totalFragments = fragmentedMessage.getTotalFragments();
+                    int totalFragments = fragmentedMessage.getTotalFragments();
                     
-                    if (totalFragments != 1) {
-
-                        if (!fragmentBuffer.containsKey(senderId)) {
-                            fragmentBuffer.put(senderId, new ConcurrentHashMap<>());
-                        }
-                        fragmentBuffer.get(senderId).putIfAbsent(fragmentedMessage.getMessageId(), [] );
-
+                    if (!fragmentBuffers.containsKey(senderId)) {
+                        fragmentBuffers.put(senderId, new ConcurrentHashMap<>());
                     }
                     
+                    fragmentBuffers.get(senderId).putIfAbsent(fragmentedMessage.getMessageId(), new ArrayWithCounter<FragmentedMessage>(totalFragments));
+                    ArrayWithCounter<FragmentedMessage> fragmentsArray = fragmentBuffers.get(senderId).get(fragmentedMessage.getMessageId());
+                    fragmentsArray.put(fragmentedMessage, fragmentedMessage.getFragmentIndex());
+                    Object[] objectArray = fragmentsArray.getIfFullAndReset();
+                    if (objectArray == null) {
+                        continue;
+                    }
 
-                    fragmentBuffer.putIfAbsent(senderId, new ConcurrentHashMap<>());
+                    FragmentedMessage[] frags = new FragmentedMessage[objectArray.length];
+                    for (int i = 0; i < objectArray.length; i++) {
+                        frags[i] = (FragmentedMessage) objectArray[i];
+                    }
+
+                    byte[] data = FragmentedMessage.reassembleFragments(frags);
+
+                    Logger.LOG("Original message size: " + frags[0].getOriginalMessageSize());
+                    Logger.LOG("Reassembled message size: " + data.length);
 
                     // Get the APL for this sender and dispatch the data of the packet
                     APLImpl apl = aplInstances.get(senderId);
                     if (apl != null) {
-                        byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                         apl.handleData(senderId, data);
                     } else {
                         Logger.LOG("No APL instance found for sender ID: " + senderId);

@@ -102,7 +102,6 @@ public class APLImpl implements APL {
     public void send(byte[] message){
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
-        String msgId = nodePort.toString() + seqNum;
 
         byte[] hmac = generateHMAC(message, seqNum, secretKey);
         DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
@@ -110,7 +109,16 @@ public class APLImpl implements APL {
         // Store the message in the pending list
         pendingMessages.put(seqNum, dataMsg);
 
+        message = dataMsg.serialize();
+
         // Fragment the message
+        fragmentAndSend(message, seqNum);
+    }
+
+    public void fragmentAndSend(byte[] message, long seqNum){
+        // Fragment the message
+        String msgId = nodePort.toString() + seqNum;
+
         int fragmentCount = (int) Math.ceil((double) message.length / Config.MAX_FRAGMENT_SIZE);
         for (int i = 0; i < fragmentCount; i++) {
             int startIndex = i * Config.MAX_FRAGMENT_SIZE;
@@ -175,26 +183,19 @@ public class APLImpl implements APL {
         sendWithTimeout(messageBytes, timeout);
     }
 
-    public void sendWithTimeout(byte[] message, int timeout) {
+    public void sendWithTimeout(byte[] message, int timeout){
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
-        // print the seqnum
-        Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
 
-        try {
-            byte[] hmac = generateHMAC(message, seqNum, secretKey);
+        byte[] hmac = generateHMAC(message, seqNum, secretKey);
+        DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
 
-            DataMessage dataMsg = new DataMessage(message, seqNum, hmac, timeout);
+        // Store the message in the pending list
+        pendingMessages.put(seqNum, dataMsg);
 
-            // Store the message in the pending list
-            pendingMessages.put(seqNum, dataMsg);
+        message = dataMsg.serialize();
 
-            Logger.LOG(destPort + ") Sending message: " + seqNum);
-            sendUdpPacket(dataMsg.serialize());
-        } catch (Exception e) {
-            Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
-            e.printStackTrace();
-        }
+        fragmentAndSend(message, seqNum);
     }
 
     @Override
@@ -368,7 +369,14 @@ public class APLImpl implements APL {
             AckMessage ackMessage = new AckMessage(content, seqNum, hmac);
 
             Logger.LOG("Sending ACK for message: " + seqNum);
-            sendUdpPacket(ackMessage.serialize());
+
+            byte[] byteMsg = ackMessage.serialize();
+
+            String msgId = "ack_" + nodePort.toString() + seqNum;
+
+            FragmentedMessage msg = new FragmentedMessage(byteMsg, 0, 1,byteMsg.length,msgId);
+
+            sendUdpPacket(SerializationUtils.serializeObject(msg));
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send ACK", e);
             throw e;
@@ -378,7 +386,6 @@ public class APLImpl implements APL {
     private void sendUdpPacket(byte[] data) {
         try {
             DatagramPacket packet = new DatagramPacket(data, data.length, destAddress, destPort);
-            Logger.LOG("Sending UDP packet of size " + data.length);
             socket.send(packet);
         } catch (Exception e) {
             Logger.ERROR("Failed to send UDP packet", e);
@@ -441,7 +448,8 @@ public class APLImpl implements APL {
                     Logger.LOG("Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
-                        sendUdpPacket(message.serialize());
+                        //TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar refactor para ir tudo como um fragment
+                        fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {
                         Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
                     }
@@ -510,7 +518,10 @@ public class APLImpl implements APL {
             pendingMessages.put(seqNum, keyMessage);
 
             Logger.LOG("Sending key: " + secretKey);
-            sendUdpPacket(keyMessage.serialize());
+
+            FragmentedMessage frag = new FragmentedMessage(keyMessage.serialize(), 0, 1, keyMessage.serialize().length, nodePort.toString() + seqNum);
+
+            sendUdpPacket(SerializationUtils.serializeObject(frag));
 
             return secretKey;
         } catch (Exception e) {

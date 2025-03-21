@@ -10,9 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.NodeMessageHandler;
+import pt.tecnico.ulisboa.network.message.FragmentedMessage;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.SerializationUtils;
 public class ClientAplManager<T extends RequiresEquals> extends AplManager {
  
     private ObservedResource<Queue<T>> txQueue;
@@ -35,9 +37,11 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
 
             NodeMessageHandler<T> handler = new NodeMessageHandler<>(txQueue, clientKus);
 
+            FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
+
             int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT; //TODO: meti isto para amanha dar para testar com varios clientes sem tar hardcode.
             APLImpl apl = createAPL(destId, packet.getAddress().getHostAddress(), packet.getPort(), handler);
-            apl.processReceivedPacket(destId, packet.getData());
+            apl.processReceivedPacket(destId, frag.getFragmentData());
 
         } catch (Exception e) {
             e.printStackTrace();
