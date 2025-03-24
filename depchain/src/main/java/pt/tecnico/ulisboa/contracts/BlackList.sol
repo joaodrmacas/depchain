@@ -6,18 +6,28 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Blacklist is Ownable {
     mapping(address => bool) private _blacklist;
 
+    // Event for logging blacklist changes
+    event AddedToBlacklist(address indexed account);
+    event RemovedFromBlacklist(address indexed account);
+
+    constructor() Ownable(msg.sender) {}
+
     // Add an address to the blacklist
-    function addToBlacklist(address account) external onlyOwner returns (bool) {
+    function addToBlacklist(address account) external onlyOwner {
         require(account != address(0), "Invalid address");
+        require(!_blacklist[account], "Address already blacklisted");
+        
         _blacklist[account] = true;
-        return true;
+        emit AddedToBlacklist(account);
     }
 
     // Remove an address from the blacklist
-    function removeFromBlacklist(address account) external onlyOwner returns (bool) {
+    function removeFromBlacklist(address account) external onlyOwner {
         require(account != address(0), "Invalid address");
+        require(_blacklist[account], "Address not blacklisted");
+        
         _blacklist[account] = false;
-        return true;
+        emit RemovedFromBlacklist(account);
     }
 
     // Check if an address is blacklisted

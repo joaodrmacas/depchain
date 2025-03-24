@@ -3,13 +3,24 @@
 
 pragma solidity ^0.8.20;
 
-import "./ERC20.sol";
+// Import ERC20 from OpenZeppelin Contracts library
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+// Import Blacklist from the library or package (replace this with the actual path)
+import "./Blacklist.sol"; // Adjust the path based on the library setup
 
 contract ISTCoin is ERC20 {
 
     Blacklist private _blacklist;
 
-    constructor() ERC20("IST Coin", "IST") {}
+    constructor(address blacklistContract) ERC20("IST Coin", "IST") {
+        // Initialize the Blacklist contract
+        _blacklist = Blacklist(blacklistContract);
+
+        // TODO: this is probably wrong, but for now its good
+        uint256 initialSupply = 100_000_000 * (10 ** 2); // 100 million with 2 decimals
+        _mint(msg.sender, initialSupply);
+    }
 
     function decimals() public view virtual override returns (uint8) {
         return 2;
@@ -48,6 +59,4 @@ contract ISTCoin is ERC20 {
 
         return super.approve(spender, value);
     }
-
-    
 }
