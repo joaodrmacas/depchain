@@ -14,7 +14,7 @@ public class ObservedResource<T> {
         this.resource = resource;
     }
 
-    public boolean waitForChange(int timeout) {
+    public boolean waitForChange(int timeout) throws InterruptedException {
         Logger.DEBUG("Begining waiting for change");
         lock.lock();
         try {
@@ -44,7 +44,7 @@ public class ObservedResource<T> {
             Logger.DEBUG("Flag changed to false");
         }  catch (InterruptedException e) {
             Logger.LOG("Interrupted while waiting for change: " + e.getMessage());
-            return false;
+            throw e;
         } finally {
             lock.unlock();
         }

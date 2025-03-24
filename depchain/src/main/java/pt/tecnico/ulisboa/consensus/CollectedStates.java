@@ -37,6 +37,7 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
             ConsensusState<T> state = this.states.get(i);
             if (state != null) {
                 if (!state.isValid(publicKeys.get(i))) {
+                    Logger.LOG("state " + i + " is not valid");
                     return false;
                 }
             } else {

@@ -41,7 +41,16 @@ public class BFTConsensus<T extends RequiresEquals> {
                 final int _i = i;
                 Future<?> task = this.service.submit(() -> {
                     while (true) {
-                        ConsensusMessage<T> msg = member.peekConsensusMessageOrWait(_i, -1);
+                        ConsensusMessage<T> msg = null;
+                        try {
+                            msg = member.peekConsensusMessageOrWait(_i, -1);
+                        } catch (InterruptedException e) {
+                            Logger.LOG("Interrupted while peeking consensus message");
+                            return null;
+                        }
+                        catch (Exception e) {
+                            Logger.ERROR("Error while peeking consensus message", e);
+                        }
 
                         Logger.DEBUG("firstAwaken is " + firstAwaken.get());
                         if (firstAwaken.get() != -1) {
@@ -63,7 +72,15 @@ public class BFTConsensus<T extends RequiresEquals> {
             // Wait to be awaken by new tx from clients
             Future<?> txTask = this.service.submit(() -> {
                 while (true) {
-                    T tx = member.peekReceivedTxOrWait(-1);
+                    T tx = null;
+                    try {
+                        tx = member.peekReceivedTxOrWait(-1);
+                    } catch (InterruptedException e) {
+                        Logger.LOG("Interrupted while peeking received tx");
+                        return null;
+                    } catch (Exception e) {
+                        Logger.ERROR("Error while peeking received tx", e);
+                    }
 
                     if (firstAwaken.get() != -1) {
                         Logger.DEBUG("Work detected in another thread");

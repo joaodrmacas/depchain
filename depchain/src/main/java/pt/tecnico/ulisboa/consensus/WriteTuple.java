@@ -28,7 +28,17 @@ public class WriteTuple<T extends RequiresEquals> implements Serializable {
         return "[val=" + value + ", ts=" + ts + "]";
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) return false;
+        if (obj == this) return true;
+        if (obj.getClass() != this.getClass()) return false;
+
+        WriteTuple<?> other = (WriteTuple<?>) obj;
+        return value.equals(other.value) && ts == other.ts;
+    }
+
     public boolean isValid() {
-        return value != null && ts >= 0;
+        return ts >= 0;
     }
 }
