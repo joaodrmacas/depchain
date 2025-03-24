@@ -15,7 +15,6 @@ import pt.tecnico.ulisboa.Node;
 import pt.tecnico.ulisboa.consensus.message.AcceptMessage;
 import pt.tecnico.ulisboa.consensus.message.CollectedMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
-import pt.tecnico.ulisboa.consensus.message.DummyMessage;
 import pt.tecnico.ulisboa.consensus.message.NewEpochMessage;
 import pt.tecnico.ulisboa.consensus.message.ReadMessage;
 import pt.tecnico.ulisboa.consensus.message.StateMessage;
@@ -396,7 +395,9 @@ public class EpochConsensus<T extends RequiresEquals> {
         Logger.LOG("Waiting for all tasks to finish");
 
         // Wait for all threads to finish
-        for (int i = 0; i < Config.NUM_MEMBERS - 1; i++) {
+        for (int i = 0; i < Config.NUM_MEMBERS; i++) {
+            if (i == member.getId()) continue;
+
             try {
                 this.service.take();
 
@@ -466,8 +467,18 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         while (System.currentTimeMillis() - startTime < 2 * Config.CONSENSUS_LINK_TIMEOUT) {
             //Logger.DEBUG("Recv loop: time left: " + (2 * Config.LINK_TIMEOUT - (System.currentTimeMillis() - startTime)));
-            ConsensusMessage<T> msg = member.peekConsensusMessageOrWait(senderId, Config.CONSENSUS_LINK_TIMEOUT);
-
+            ConsensusMessage<T> msg = null;
+            
+            try {
+                msg = member.peekConsensusMessageOrWait(senderId, Config.CONSENSUS_LINK_TIMEOUT);
+            } catch (InterruptedException e) {
+                Logger.LOG("Interrupted while peeking consensus message");
+                return null;
+            } catch (Exception e) {
+                Logger.ERROR("Error while peeking consensus message", e);
+                return null;
+            }
+            
             if (msg == null) {
                 Logger.LOG(senderId + ") Timed out");
                 

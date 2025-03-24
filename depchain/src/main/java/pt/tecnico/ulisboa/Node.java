@@ -112,7 +112,8 @@ public class Node<T extends RequiresEquals> {
                     T value = decidedValues.getResource().poll();
                     handleDecidedValue(value);
                 }
-            } catch (Exception e) {
+            } 
+            catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
                 // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
             }
@@ -296,7 +297,7 @@ public class Node<T extends RequiresEquals> {
         transactions.notifyChange();
     }
 
-    public T peekReceivedTxOrWait(Integer timeout) {
+    public T peekReceivedTxOrWait(Integer timeout) throws InterruptedException {
         while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {
@@ -307,14 +308,10 @@ public class Node<T extends RequiresEquals> {
                 return value;
             }
 
-            try {
-                boolean hasTimedOut = !transactions.waitForChange(timeout);
+            boolean hasTimedOut = !transactions.waitForChange(timeout);
 
-                if (hasTimedOut) {
-                    return null;
-                }
-            } catch (Exception e) {
-                Logger.ERROR("Exception: ", e);
+            if (hasTimedOut) {
+                return null;
             }
         }
     }
@@ -351,45 +348,37 @@ public class Node<T extends RequiresEquals> {
         decidedValues.notifyChange();
     }
 
-    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId, int timeout) {
+    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
         while (true) {
             ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().poll();
             if (msg != null) {
                 return msg;
             }
 
-            try {
-                boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
+            boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
 
-                if (hasTimedOut) {
-                    return null;
-                }
-            } catch (Exception e) {
-                Logger.ERROR("Exception: ", e);
+            if (hasTimedOut) {
+                return null;
             }
         }
     }
 
-    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId, int timeout) {
+    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
         while (true) {
             ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().peek();
             if (msg != null) {
                 return msg;
             }
 
-            try {
-                boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
+            boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
 
-                if (hasTimedOut) {
-                    if (Logger.IS_DEBUGGING()) {
-                        Logger.DEBUG("consensus messages:");
-                        printConsensusMessages();
-                    }
-
-                    return null;
+            if (hasTimedOut) {
+                if (Logger.IS_DEBUGGING()) {
+                    Logger.DEBUG("consensus messages:");
+                    printConsensusMessages();
                 }
-            } catch (Exception e) {
-                Logger.ERROR("Exception: ", e);
+
+                return null;
             }
         }
     }

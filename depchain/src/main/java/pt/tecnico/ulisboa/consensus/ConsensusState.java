@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.RequiresEquals;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
@@ -71,17 +72,21 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
     public boolean isValid(PublicKey pubKey) {
         if (mostRecentQuorumWritten == null | writeSet == null 
             | !mostRecentQuorumWritten.isValid()) {
+            Logger.ERROR("Invalid MRQW");
+            
             return false;
         }
 
         for (WriteTuple<T> writeTuple : writeSet.values()) {
             if (!writeTuple.isValid()) {
+                Logger.ERROR("Invalid write tuple");
                 return false;
             }
         }
 
         if (!verifySignature(pubKey)) {
-            return false;
+            Logger.ERROR("Invalid signature");
+            return false;   
         }
 
         return true;
