@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
-import pt.tecnico.ulisboa.protocol.AppendReq;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
@@ -79,7 +79,7 @@ public class Client {
 
             try {
                 Logger.LOG("Sending message: " + message);
-                sendAppendRequest(message);
+                sendClientReq(message);
 
                 // Wait for response
                 Logger.LOG("Waiting for server responses...");
@@ -101,7 +101,7 @@ public class Client {
         scanner.close();
     }
 
-    private void sendAppendRequest(String message) {
+    private void sendClientReq(String message) {
         if (count == 0) { // First message. Send public key to servers
             sendPublicKeyToServers();
         }
@@ -113,7 +113,7 @@ public class Client {
         messageHandler.updateForNewRequest(count, responseLatch);
         String signature = signMessage(message);
         Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
-        AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
+        ClientReq<String> msg = new ClientReq<String>(clientId, message, count, signature);
 
         // TODO: change this to send periodically for each. Do it later. CHANGED TO ONLY
         // SEND TO LEADER

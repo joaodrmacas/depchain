@@ -1,75 +1,42 @@
 package pt.tecnico.ulisboa.protocol;
 
-import pt.tecnico.ulisboa.utils.Logger;
-
-public class AppendReq<T> extends BlockchainMessage {
-
-    private static final long serialVersionUID = 1L;
-
-    private Integer id;
+// TODO: This should be deleted. It is here for compatibility with previous versions -> Duarte
+public class AppendReq<T> extends ClientReq {
     private T content;
-    private String signature;
 
-    public AppendReq(Integer id, T content, long count, String signature) {
-        super(BlockchainMessageType.APPEND_REQ, count);
-        this.id = id;
+    public AppendReq(Integer id, String signature, long count, T content) {
+        super(id, signature, count);
         this.content = content;
-        this.signature = signature;
+    }
+
+    @Override
+    public ClientReqType getReqType() {
+        return ClientReqType.TRANSFER; // Default to maintain previous behavior
     }
 
     public T getMessage() {
         return content;
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public String getSignature() {
-        return signature;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof AppendReq) {
-            AppendReq<?> other = (AppendReq<?>) obj;
-
-            return super.equals(obj) && id.equals(other.id) &&
-                    content.equals(other.content) && signature.equals(other.signature);
-        }
-        return false;
-    }
-
     @Override
     public String toString() {
-        return toStringShort();
+        return String.format("AppendReq(id=%d, content=%s)", id, content);
     }
 
-    public String toStringShort() {
-        String str = "("  + content.toString() + ", "
-                            + id + ", " 
-                            + getCount() + ")";
-
-        return str;
-    }
-
-    public String toStringExtended() {
-        String str = "("  + content.toString() + ", "
-                            + id + ", " 
-                            + getCount() + ", "
-                            + signature + ")";
-
-        return str;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        
+        AppendReq<?> appendReq = (AppendReq<?>) o;
+        return content.equals(appendReq.content);
     }
 
     @Override
     public int hashCode() {
-        int result = 17;
-        result = 31 * result + super.hashCode();
-        result = 31 * result + id.hashCode();
+        int result = super.hashCode();
         result = 31 * result + content.hashCode();
-        result = 31 * result + signature.hashCode();
         return result;
     }
-
 }

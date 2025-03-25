@@ -99,7 +99,7 @@ public class APLImpl implements APL {
         send(messageBytes);
     }
 
-    public void send(byte[] message){
+    public void send(byte[] message) {
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
 
@@ -115,7 +115,7 @@ public class APLImpl implements APL {
         fragmentAndSend(message, seqNum);
     }
 
-    public void fragmentAndSend(byte[] message, long seqNum){
+    public void fragmentAndSend(byte[] message, long seqNum) {
         // Fragment the message
         String msgId = nodePort.toString() + seqNum;
 
@@ -123,11 +123,11 @@ public class APLImpl implements APL {
         for (int i = 0; i < fragmentCount; i++) {
             int startIndex = i * Config.MAX_FRAGMENT_SIZE;
             int endIndex = Math.min(startIndex + Config.MAX_FRAGMENT_SIZE, message.length);
-            
+
             byte[] fragment = Arrays.copyOfRange(message, startIndex, endIndex);
-            
+
             FragmentedMessage fragmentMsg = new FragmentedMessage(fragment, i, fragmentCount, message.length, msgId);
-                
+
             try {
                 sendUdpPacket(SerializationUtils.serializeObject(fragmentMsg));
             } catch (IOException e) {
@@ -183,7 +183,7 @@ public class APLImpl implements APL {
         sendWithTimeout(messageBytes, timeout);
     }
 
-    public void sendWithTimeout(byte[] message, int timeout){
+    public void sendWithTimeout(byte[] message, int timeout) {
         SecretKey secretKey = getOrGenerateSecretKey();
         long seqNum = nextSeqNum.getAndIncrement();
 
@@ -374,7 +374,7 @@ public class APLImpl implements APL {
 
             String msgId = "ack_" + nodePort.toString() + seqNum;
 
-            FragmentedMessage msg = new FragmentedMessage(byteMsg, 0, 1,byteMsg.length,msgId);
+            FragmentedMessage msg = new FragmentedMessage(byteMsg, 0, 1, byteMsg.length, msgId);
 
             sendUdpPacket(SerializationUtils.serializeObject(msg));
         } catch (Exception e) {
@@ -395,60 +395,61 @@ public class APLImpl implements APL {
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
             Set<Long> timedOutSeqNums = new HashSet<>();
-            
-            //Check timeouts
+
+            // Check timeouts
             for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
                 Long seqNum = entry.getKey();
                 Message message = entry.getValue();
-                
+
                 if (message.getCounter() >= message.getTimeout()) {
                     Logger.LOG("Message timed out: " + seqNum);
                     timedOutSeqNums.add(seqNum);
                 }
             }
-            
-            //handle timeouts
+
+            // handle timeouts
             if (!timedOutSeqNums.isEmpty()) {
                 for (Long seqNum : timedOutSeqNums) {
                     pendingMessages.remove(seqNum);
                 }
-                
+
                 Logger.LOG("Decreasing every message's seqnum");
-                
+
                 Long lowestTimedOutSeqNum = Collections.min(timedOutSeqNums);
                 List<Message> messagesToUpdate = new ArrayList<>();
-                
+
                 for (Message msg : pendingMessages.values()) {
                     if (msg.getSeqNum() > lowestTimedOutSeqNum) {
                         messagesToUpdate.add(msg);
                     }
                 }
-                
+
                 messagesToUpdate.sort((m1, m2) -> Long.compare(m2.getSeqNum(), m1.getSeqNum()));
-                
+
                 // Update sequence numbers
                 for (Message msg : messagesToUpdate) {
                     pendingMessages.remove(msg.getSeqNum());
                     msg.setSeqNum(msg.getSeqNum() - timedOutSeqNums.size());
                     pendingMessages.put(msg.getSeqNum(), msg);
-                    //TODO: reset the timeout of the message?
+                    // TODO: reset the timeout of the message?
                 }
-                
+
                 nextSeqNum.addAndGet(-timedOutSeqNums.size());
                 Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
-                
+
                 return;
             }
-            
+
             for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
                 Long seqNum = entry.getKey();
                 Message message = entry.getValue();
-                
+
                 if (message.getCounter() >= message.getCooldown()) {
                     Logger.LOG("Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
-                        //TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar refactor para ir tudo como um fragment
+                        // TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar
+                        // refactor para ir tudo como um fragment
                         fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {
                         Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
@@ -519,7 +520,8 @@ public class APLImpl implements APL {
 
             Logger.LOG("Sending key: " + secretKey);
 
-            FragmentedMessage frag = new FragmentedMessage(keyMessage.serialize(), 0, 1, keyMessage.serialize().length, nodePort.toString() + seqNum);
+            FragmentedMessage frag = new FragmentedMessage(keyMessage.serialize(), 0, 1, keyMessage.serialize().length,
+                    nodePort.toString() + seqNum);
 
             sendUdpPacket(SerializationUtils.serializeObject(frag));
 

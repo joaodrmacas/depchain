@@ -146,8 +146,6 @@ public abstract class AplManager {
         }
     }
 
-    
-
     // Start the message dispatcher thread
     public void startListening() {
         isRunning.set(true);
@@ -171,19 +169,22 @@ public abstract class AplManager {
 
                     Logger.LOG("Received packet from sender ID: " + senderId);
 
-                    //receive fragment
+                    // TODO: esta para aqui esparguetada
+                    // receive fragment
                     byte[] actualData = Arrays.copyOf(packet.getData(), packet.getLength());
                     FragmentedMessage fragmentedMessage = SerializationUtils.deserializeObject(actualData);
 
-                    //how many fragments are there
+                    // how many fragments are there
                     int totalFragments = fragmentedMessage.getTotalFragments();
-                    
+
                     if (!fragmentBuffers.containsKey(senderId)) {
                         fragmentBuffers.put(senderId, new ConcurrentHashMap<>());
                     }
-                    
-                    fragmentBuffers.get(senderId).putIfAbsent(fragmentedMessage.getMessageId(), new ArrayWithCounter<FragmentedMessage>(totalFragments));
-                    ArrayWithCounter<FragmentedMessage> fragmentsArray = fragmentBuffers.get(senderId).get(fragmentedMessage.getMessageId());
+
+                    fragmentBuffers.get(senderId).putIfAbsent(fragmentedMessage.getMessageId(),
+                            new ArrayWithCounter<FragmentedMessage>(totalFragments));
+                    ArrayWithCounter<FragmentedMessage> fragmentsArray = fragmentBuffers.get(senderId)
+                            .get(fragmentedMessage.getMessageId());
                     fragmentsArray.put(fragmentedMessage, fragmentedMessage.getFragmentIndex());
                     Object[] objectArray = fragmentsArray.getIfFullAndReset();
                     if (objectArray == null) {
