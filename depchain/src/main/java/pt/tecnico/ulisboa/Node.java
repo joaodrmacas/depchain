@@ -28,7 +28,7 @@ import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.AppendReq;
-import pt.tecnico.ulisboa.protocol.ClientResp;
+import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
@@ -150,7 +150,7 @@ public class Node<T extends RequiresEquals> {
         LocalDateTime timestamp = LocalDateTime.now();
 
         // Send answer to clients
-        clientManager.send(value.getSenderId(), new ClientResp(success, timestamp));
+        clientManager.send(value.getSenderId(), new AppendResp(success, timestamp));
     }
 
     public void setup(String address, int portRegister, int port) {
