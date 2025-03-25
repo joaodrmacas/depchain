@@ -5,16 +5,13 @@ import java.io.IOException;
 
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.protocol.AppendReq;
+import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 
 public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;
-
-    private int fragmentIndex;
-    private int totalFragments;
-    private int originalMessageSize;
 
     public DataMessage(byte[] content, long seqNum, byte[] hmac) {
         super(content, seqNum, hmac);
@@ -68,12 +65,13 @@ public class DataMessage extends AuthenticatedMessage {
         } else if (content instanceof AppendReq<?>) {
             AppendReq<?> appendReq = (AppendReq<?>) content;
             str += "AppendReq{" + appendReq + "}";
-
+        } else if (content instanceof AppendResp) {
+            AppendResp appendResp = (AppendResp) content;
+            str += "AppendResp{" + appendResp + "}";
         } else if (content instanceof RegisterReq) {
             RegisterReq registerReq = (RegisterReq) content;
             str += "RegisterReq{" + registerReq + "}";
         }
-        
         else {
             str += "UNKNOWN";
         }

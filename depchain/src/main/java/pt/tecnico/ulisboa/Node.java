@@ -27,8 +27,8 @@ import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.network.ServerAplManager;
+import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.AppendResp;
-import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.ObservedResource;
@@ -49,7 +49,7 @@ public class Node<T extends RequiresEquals> {
     private Set<T> decidedValuesSet = ConcurrentHashMap.newKeySet();
 
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
-    private ArrayList<T> blockchain;
+    private ArrayList<T> blockchain = new ArrayList<>();
 
     // should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
@@ -67,7 +67,7 @@ public class Node<T extends RequiresEquals> {
         int serverPort = GeneralUtils.id2ServerPort.get(nodeId);
 
         try {
-            Node<BlockchainMessage> node = new Node<BlockchainMessage>(nodeId);
+            Node<AppendReq<String>> node = new Node<>(nodeId);
 
             if (args.length >= 2) {
                 node.setKeysDirectory(args[1]);
@@ -144,6 +144,7 @@ public class Node<T extends RequiresEquals> {
             // Add to blockchain
             blockchain.add(value);
             Logger.LOG("Decided value: " + value);
+            Logger.DEBUG("Current blockchain: " + blockchain);
         }
 
         LocalDateTime timestamp = LocalDateTime.now();

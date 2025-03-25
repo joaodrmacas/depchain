@@ -6,8 +6,8 @@ public class AcceptMessage<T extends RequiresEquals> extends ConsensusMessage<T>
     private static final long serialVersionUID = 1L;
     private T value;
     
-    public AcceptMessage(T value, int epochNumber) {
-        super(MessageType.ACCEPT, epochNumber);
+    public AcceptMessage(T value, int epochNumber, int consensusIndex) {
+        super(MessageType.ACCEPT, epochNumber, consensusIndex);
 
         this.value = value;
     }

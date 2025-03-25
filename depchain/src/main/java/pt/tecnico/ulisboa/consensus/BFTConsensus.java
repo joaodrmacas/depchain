@@ -24,6 +24,7 @@ public class BFTConsensus<T extends RequiresEquals> {
 
     public void start() {
         AtomicInteger epochNumber = new AtomicInteger(0);
+        int consensusIndex = 0;
         AtomicBoolean readPhaseDone = new AtomicBoolean(false);
         
         while (true) {
@@ -34,11 +35,13 @@ public class BFTConsensus<T extends RequiresEquals> {
             // Create a list to keep track of all submitted futures
             List<Future<?>> waitingTasks = new ArrayList<>();
 
+            clearTasksQueue();
+
             // Wait to be awaken either by new consensus from another member
             for (int i = 0; i < Config.NUM_MEMBERS; i++) {
                 if (i == member.getId()) continue;
 
-                final int _i = i;
+                final int _i = i, _consensusIndex = consensusIndex;
                 Future<?> task = this.service.submit(() -> {
                     while (true) {
                         ConsensusMessage<T> msg = null;
@@ -59,6 +62,21 @@ public class BFTConsensus<T extends RequiresEquals> {
                         }
                         
                         if (msg != null) {
+                            // Abort if received messaged from the future
+                            if (isFromTheFuture(msg, epochNumber.get(), _consensusIndex)) {
+                                Logger.DEBUG("Message from the future: "
+                                    + "msg(e=" + msg.getEpochNumber() + ", c=" + msg.getConsensusIndex() + ")"
+                                    + " | act(e=" + epochNumber.get() + ", c=" + _consensusIndex + ")");
+                                return null;
+
+                            } else if (isFromThePast(msg, epochNumber.get(), _consensusIndex)) {
+                                Logger.DEBUG("Message from the past: "
+                                    + "msg(e=" + msg.getEpochNumber() + ", c=" + msg.getConsensusIndex() + ")"
+                                    + " | act(e=" + epochNumber.get() + ", c=" + _consensusIndex + ")");
+                                member.removeFirstConsensusMessage(_i);
+                                continue;
+                            }
+
                             Logger.DEBUG("Consensus work detected");
                             firstAwaken.set(_i);
                             return null;
@@ -101,7 +119,9 @@ public class BFTConsensus<T extends RequiresEquals> {
             try {
                 Logger.DEBUG("Waiting for work");
                 // Wait for any of the tasks to complete
-                this.service.take();
+                while (firstAwaken.get() == -1) {
+                    this.service.take();
+                }
                 
                 // Ensure all tasks are cancelled after one completes
                 for (Future<?> task : waitingTasks) {
@@ -118,14 +138,33 @@ public class BFTConsensus<T extends RequiresEquals> {
                 valueToBeProposed = member.peekReceivedTx();
             }
 
-            EpochConsensus<T> consensus = new EpochConsensus<>(member, epochNumber, valueToBeProposed, readPhaseDone);
+            EpochConsensus<T> consensus = new EpochConsensus<>(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
 
-            Logger.DEBUG("Starting consensus for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
+            Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
             T value = consensus.start();
 
             member.pushDecidedTx(value);
 
-            Logger.LOG("Consensus for epoch " + epochNumber.get() + " decided on value " + value);
+            Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on value " + value);
+        
+            consensusIndex++;
+        }
+    }
+
+    public boolean isFromTheFuture(ConsensusMessage<T> msg, int epochNumber, int consensusIndex) {
+        return consensusIndex < msg.getConsensusIndex()
+                || ( consensusIndex == msg.getConsensusIndex()) && epochNumber < msg.getEpochNumber();
+    }
+
+    public boolean isFromThePast(ConsensusMessage<T> msg, int epochNumber, int consensusIndex) {
+        return consensusIndex > msg.getConsensusIndex()
+                || ( consensusIndex == msg.getConsensusIndex()) && epochNumber > msg.getEpochNumber();
+    }
+
+    private void clearTasksQueue() {
+        Future<Void> future;
+        while ((future = this.service.poll()) != null) {
+            future.cancel(true); // Cancels any incomplete tasks
         }
     }
 }

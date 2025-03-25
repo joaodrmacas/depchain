@@ -8,10 +8,12 @@ public abstract class ConsensusMessage<T extends RequiresEquals> implements Seri
     private static final long serialVersionUID = 1L;
     private MessageType type;
     protected int epochNumber;
+    protected int consensusIndex;
 
-    public ConsensusMessage(MessageType type, int epochNumber) {
+    public ConsensusMessage(MessageType type, int epochNumber, int consensusIndex) {
         this.type = type;
         this.epochNumber = epochNumber;
+        this.consensusIndex = consensusIndex;
     }
 
     public static enum MessageType {
@@ -32,7 +34,11 @@ public abstract class ConsensusMessage<T extends RequiresEquals> implements Seri
         return epochNumber;
     }
 
+    public int getConsensusIndex() {
+        return consensusIndex;
+    }
+
     public String toString() {
-        return "ConsensusMessage(" + type + ", " + epochNumber + ")";
+        return "ConsensusMessage(" + type + ", " + epochNumber +  ", " + consensusIndex + ")";
     }
 }

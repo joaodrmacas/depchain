@@ -7,8 +7,8 @@ public class StateMessage<T extends RequiresEquals> extends ConsensusMessage<T> 
     private static final long serialVersionUID = 1L;
     private ConsensusState<T> state;
 
-    public StateMessage(ConsensusState<T> state, int epochNumber) {
-        super(MessageType.STATE, epochNumber);
+    public StateMessage(ConsensusState<T> state, int epochNumber, int consensusIndex) {
+        super(MessageType.STATE, epochNumber, consensusIndex);
 
         this.state = state;
     }

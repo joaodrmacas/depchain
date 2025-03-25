@@ -1,5 +1,7 @@
 package pt.tecnico.ulisboa.protocol;
 
+import pt.tecnico.ulisboa.utils.Logger;
+
 public class AppendReq<T> extends BlockchainMessage {
 
     private static final long serialVersionUID = 1L;
@@ -31,15 +33,19 @@ public class AppendReq<T> extends BlockchainMessage {
     public boolean equals(Object obj) {
         if (obj instanceof AppendReq) {
             AppendReq<?> other = (AppendReq<?>) obj;
-            return getType() == other.getType() && id.equals(other.id) &&
-                    content.equals(other.content) && getCount() == other.getCount()
-                    && signature.equals(other.signature);
+
+            return super.equals(obj) && id.equals(other.id) &&
+                    content.equals(other.content) && signature.equals(other.signature);
         }
         return false;
     }
 
     @Override
     public String toString() {
+        return toStringShort();
+    }
+
+    public String toStringShort() {
         String str = "("  + content.toString() + ", "
                             + id + ", " 
                             + getCount() + ")";
@@ -47,8 +53,23 @@ public class AppendReq<T> extends BlockchainMessage {
         return str;
     }
 
-    public String toStringShort() {
-        return "R" + id.toString();
+    public String toStringExtended() {
+        String str = "("  + content.toString() + ", "
+                            + id + ", " 
+                            + getCount() + ", "
+                            + signature + ")";
+
+        return str;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 17;
+        result = 31 * result + super.hashCode();
+        result = 31 * result + id.hashCode();
+        result = 31 * result + content.hashCode();
+        result = 31 * result + signature.hashCode();
+        return result;
     }
 
 }

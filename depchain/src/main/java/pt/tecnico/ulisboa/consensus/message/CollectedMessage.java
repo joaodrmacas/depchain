@@ -7,8 +7,8 @@ public class CollectedMessage<T extends RequiresEquals> extends ConsensusMessage
     private static final long serialVersionUID = 1L;
     CollectedStates<T> states;
 
-    public CollectedMessage(CollectedStates<T> states, int epochNumber) {
-        super(MessageType.COLLECTED, epochNumber);
+    public CollectedMessage(CollectedStates<T> states, int epochNumber, int consensusIndex) {
+        super(MessageType.COLLECTED, epochNumber, consensusIndex);
 
         this.states = states;
     }

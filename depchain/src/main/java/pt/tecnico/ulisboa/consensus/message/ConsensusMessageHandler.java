@@ -35,13 +35,6 @@ public class ConsensusMessageHandler<T extends RequiresEquals> implements Messag
         }
     }
 
-    public void reset() {
-        for (ObservedResource<Queue<ConsensusMessage<T>>> resource : receivedMessages.values()) {
-            resource.getResource().clear();
-            resource.notifyChange();
-        }
-    }
-
     public Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> getReceivedMessages() {
         return receivedMessages;
     }

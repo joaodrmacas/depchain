@@ -35,4 +35,20 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
         return -1; //TODO: isto está insanely disgusting mas tenho cpd para fazer - fix this 
     }
     
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof BlockchainMessage) {
+            BlockchainMessage other = (BlockchainMessage) obj;
+            return type.equals(other.type) && count.equals(other.count);
+        }
+        return false;
+    }
+    
+    @Override
+    public int hashCode() {
+        int result = 17;
+        result = 31 * result + type.hashCode();
+        result = 31 * result + count.hashCode();
+        return result;
+    }
 }

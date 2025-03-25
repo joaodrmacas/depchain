@@ -6,8 +6,8 @@ public class WriteMessage<T extends RequiresEquals> extends ConsensusMessage<T> 
     private static final long serialVersionUID = 1L;
     private T value;
 
-    public WriteMessage(T value, int epochNumber) {
-        super(MessageType.WRITE, epochNumber);
+    public WriteMessage(T value, int epochNumber, int consensusIndex) {
+        super(MessageType.WRITE, epochNumber, consensusIndex);
 
         this.value = value;
     }
