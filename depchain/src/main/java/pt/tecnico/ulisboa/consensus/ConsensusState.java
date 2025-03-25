@@ -7,9 +7,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.CryptoUtils;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class ConsensusState<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;

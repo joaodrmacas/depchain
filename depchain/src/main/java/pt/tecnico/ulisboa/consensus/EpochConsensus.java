@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.Node;
+import pt.tecnico.ulisboa.Server;
 import pt.tecnico.ulisboa.consensus.message.AcceptMessage;
 import pt.tecnico.ulisboa.consensus.message.CollectedMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
@@ -19,11 +19,11 @@ import pt.tecnico.ulisboa.consensus.message.NewEpochMessage;
 import pt.tecnico.ulisboa.consensus.message.ReadMessage;
 import pt.tecnico.ulisboa.consensus.message.StateMessage;
 import pt.tecnico.ulisboa.consensus.message.WriteMessage;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class EpochConsensus<T extends RequiresEquals> {
-    private Node<T> member;
+    private Server<T> member;
     private AtomicInteger epochNumber;
     private int consensusIndex;
     private AtomicBoolean readPhaseDone;
@@ -54,7 +54,7 @@ public class EpochConsensus<T extends RequiresEquals> {
         }
     }
 
-    public EpochConsensus(Node<T> member, AtomicInteger epochNumber, int consensusIndex, T valueToBeProposed, AtomicBoolean readPhaseDone) {
+    public EpochConsensus(Server<T> member, AtomicInteger epochNumber, int consensusIndex, T valueToBeProposed, AtomicBoolean readPhaseDone) {
         this.member = member;
         this.epochNumber = epochNumber;
         this.consensusIndex = consensusIndex;

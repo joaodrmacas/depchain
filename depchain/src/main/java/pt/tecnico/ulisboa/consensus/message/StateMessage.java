@@ -1,7 +1,7 @@
 package pt.tecnico.ulisboa.consensus.message;
 
 import pt.tecnico.ulisboa.consensus.ConsensusState;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class StateMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
     private static final long serialVersionUID = 1L;

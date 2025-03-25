@@ -7,8 +7,8 @@ import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.AppendResp;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
-import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class DataMessage extends AuthenticatedMessage {
     public static final byte TYPE_INDICATOR = Message.DATA_MESSAGE_TYPE;

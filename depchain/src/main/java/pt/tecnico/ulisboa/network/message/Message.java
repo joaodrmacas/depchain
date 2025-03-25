@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.Serializable;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public abstract class Message implements Serializable {
     private static final long serialVersionUID = 1L;

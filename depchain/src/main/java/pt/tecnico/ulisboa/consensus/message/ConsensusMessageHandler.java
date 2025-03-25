@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Queue;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
-import pt.tecnico.ulisboa.utils.ObservedResource;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.ObservedResource;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 import pt.tecnico.ulisboa.network.MessageHandler;
 
 public class ConsensusMessageHandler<T extends RequiresEquals> implements MessageHandler {

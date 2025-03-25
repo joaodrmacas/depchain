@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
-import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ClientMessageHandler implements MessageHandler {
     private long requestSeqNum;

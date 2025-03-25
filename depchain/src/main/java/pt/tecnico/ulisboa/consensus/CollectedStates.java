@@ -5,8 +5,8 @@ import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
 
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class CollectedStates<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;

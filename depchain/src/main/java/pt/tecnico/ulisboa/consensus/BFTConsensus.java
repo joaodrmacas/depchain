@@ -8,16 +8,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.Node;
+import pt.tecnico.ulisboa.Server;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class BFTConsensus<T extends RequiresEquals> {
-    private Node<T> member;
+    private Server<T> member;
     private ExecutorCompletionService<Void> service;
 
-    public BFTConsensus(Node<T> member) {
+    public BFTConsensus(Server<T> member) {
         this.member = member;
         this.service = new ExecutorCompletionService<>(member.getExecutor());
     }

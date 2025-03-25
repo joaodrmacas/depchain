@@ -2,7 +2,7 @@ package pt.tecnico.ulisboa.protocol;
 
 import java.io.Serializable;
 
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public abstract class BlockchainMessage implements RequiresEquals, Serializable {
 

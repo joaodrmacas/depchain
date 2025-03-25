@@ -9,12 +9,12 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.NodeMessageHandler;
+import pt.tecnico.ulisboa.ServerMessageHandler;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
-import pt.tecnico.ulisboa.utils.Logger;
-import pt.tecnico.ulisboa.utils.ObservedResource;
-import pt.tecnico.ulisboa.utils.RequiresEquals;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.utils.types.ObservedResource;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 public class ClientAplManager<T extends RequiresEquals> extends AplManager {
  
     private ObservedResource<Queue<T>> txQueue;
@@ -35,7 +35,7 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
         try {
             // KeyMessage message = (KeyMessage) Message.deserialize(packet.getData());
 
-            NodeMessageHandler<T> handler = new NodeMessageHandler<>(txQueue, clientKus);
+            ServerMessageHandler<T> handler = new ServerMessageHandler<>(txQueue, clientKus);
 
             FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
 

@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class EventCounter<T extends RequiresEquals> {
     private Map<T, Integer> counter = new HashMap<>();

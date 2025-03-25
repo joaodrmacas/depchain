@@ -32,8 +32,8 @@ import pt.tecnico.ulisboa.network.message.FragmentedMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
 import pt.tecnico.ulisboa.network.message.Message;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
-import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class APLImpl implements APL {
     private MessageHandler messageHandler;

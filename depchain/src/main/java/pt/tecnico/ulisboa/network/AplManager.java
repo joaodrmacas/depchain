@@ -15,9 +15,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
-import pt.tecnico.ulisboa.utils.ArrayWithCounter;
-import pt.tecnico.ulisboa.utils.Logger;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.ArrayWithCounter;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public abstract class AplManager {
     private final DatagramSocket socket;

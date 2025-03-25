@@ -2,7 +2,7 @@ package pt.tecnico.ulisboa.consensus;
 
 import java.io.Serializable;
 
-import pt.tecnico.ulisboa.utils.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class WriteTuple<T extends RequiresEquals> implements Serializable {
     private static final long serialVersionUID = 1L;

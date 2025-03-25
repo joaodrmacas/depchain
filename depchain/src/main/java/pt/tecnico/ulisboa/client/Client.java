@@ -23,7 +23,7 @@ import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
-import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class Client {
     private KeyPair keyPair = CryptoUtils.generateKeyPair(Config.CLIENT_KEYPAIR_SIZE);

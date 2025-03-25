@@ -5,7 +5,7 @@ import java.net.DatagramPacket;
 import java.net.SocketException;
 import java.security.PrivateKey;
 
-import pt.tecnico.ulisboa.utils.Logger;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 
 public class ServerAplManager extends AplManager {
