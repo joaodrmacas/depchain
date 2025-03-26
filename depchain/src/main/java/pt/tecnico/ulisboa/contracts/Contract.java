@@ -28,7 +28,6 @@ public abstract class Contract {
         // Generate contract address
         this.contractAddress = ContractUtils.generateContractAddress(owner);
         this.world = world;
-        world.createAccount(contractAddress, 0, Wei.fromEth(0));
         
         // Create contract account
         world.createAccount(contractAddress, 0, Wei.fromEth(0));
