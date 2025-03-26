@@ -4,6 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 
 import org.hyperledger.besu.datatypes.Address;
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.crypto.Hash;
+
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -27,6 +30,11 @@ public class ContractUtils {
                 System.currentTimeMillis()
             ).substring(0, 42)
         );
+    }
+
+    public static String getFunctionSelector(String signature){
+        Bytes hash = Hash.keccak256(Bytes.of(signature.getBytes()));
+        return hash.slice(0, 4).toHexString(); // First 4 bytes
     }
 
     public static int extractIntegerFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {

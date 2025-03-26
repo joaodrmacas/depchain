@@ -14,7 +14,7 @@ import org.apache.tuweni.bytes.Bytes;
 import pt.tecnico.ulisboa.utils.ContractUtils;
 
 public abstract class Contract {
-    protected String BYTECODE;
+    // private Bytes BYTECODE;
     
     protected static Map<String, String> METHOD_SIGNATURES;
 
@@ -41,10 +41,15 @@ public abstract class Contract {
 
         this.executor = EVMExecutor.evm();
         executor.tracer(tracer);
-        executor.code(Bytes.fromHexString(BYTECODE));
         executor.sender(owner); //TODO: assuming there's only one admin account
         executor.receiver(contractAddress);
 
+    }
+
+    public void setByteCode(String bytecode) {
+        Bytes b = Bytes.fromHexString(bytecode);
+        // this.BYTECODE = b;
+        executor.code(b);
     }
 
 }
