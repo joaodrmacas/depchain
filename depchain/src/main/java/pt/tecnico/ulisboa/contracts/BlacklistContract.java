@@ -26,15 +26,18 @@ public class BlacklistContract extends Contract {
     }
     
     public void addToBlacklist(Address addressToBlacklist) {
+        if (addressToBlacklist == null) {
+            throw new IllegalArgumentException("Address cannot be null");
+        }
+        
         try {            
             String encodedAddress = ContractUtils.padAddressTo256Bit(addressToBlacklist);
             Bytes callData = Bytes.fromHexString(METHOD_SIGNATURES.get("addToBlacklist") + encodedAddress);
             executor.callData(callData);
             executor.execute();
-            //TODO: catch error? 
             Logger.LOG("Address " + addressToBlacklist + " added to blacklist");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to add" + addressToBlacklist + "address to blacklist", e);
+            throw new RuntimeException("Failed to add " + addressToBlacklist + " address to blacklist", e);
         }
     }
 

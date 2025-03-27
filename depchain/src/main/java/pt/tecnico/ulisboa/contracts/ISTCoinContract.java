@@ -19,6 +19,8 @@ public class ISTCoinContract extends Contract {
 
     public ISTCoinContract(SimpleWorld world, Address owner, Address blackList) {
         super(world,owner,BYTECODE, DEPLOYCODE);
+        Logger.LOG("Initializing ISTCoin with blacklist: " + blackList);
+
         //TODO: fill these
         METHOD_SIGNATURES = Map.of(
             "transfer", ContractUtils.getFunctionSelector("transfer(address,uint256)"),
@@ -60,39 +62,51 @@ public class ISTCoinContract extends Contract {
     }
 
     //TODO: Isto não é necessário ir a consensus. Vale a pena ter?
-    // public BigInteger balanceOf(Address account) {
-    //     String encodedAccount = ContractUtils.padAddressTo256Bit(account.toHexString());
+    public BigInteger balanceOf(Address account) {
+        String encodedAccount = ContractUtils.padAddressTo256Bit(account);
         
-    //     executor.callData(Bytes.fromHexString(METHOD_SIGNATURES.get("balanceOf") + encodedAccount));
-    //     executor.execute();
+        executor.callData(Bytes.fromHexString(METHOD_SIGNATURES.get("balanceOf") + encodedAccount));
+        executor.execute();
         
-    //     return ContractUtils.extractIntegerFromReturnData(output);
-    // }
+        //TODO: change this
+        int res = ContractUtils.extractIntegerFromReturnData(output);
+        Logger.LOG("Balance of " + account + " is " + res);
+        return BigInteger.valueOf(res);
+    }
 
 
     @Override
     public void deploy(Object... args) {
-
-        if (args.length != 1 && !(args[0] instanceof Address)){
+        // Validate arguments
+        if (args.length != 1 || !(args[0] instanceof Address)){
             Logger.LOG("Invalid arguments to deploy");
-            throw new RuntimeException("Invalid arguments to deploy ISTCoin");
+            throw new RuntimeException("Invalid arguments to deploy ISTCoin. Requires exactly one Address argument.");
         }
 
         Address blackList = (Address) args[0];
-
-        String deployWithArgs = DEPLOYCODE + ContractUtils.padAddressTo256Bit(blackList);
-
+        
         try {
+            // First, encode the blacklist address
+            String encodedBlacklistAddress = ContractUtils.padAddressTo256Bit(blackList);
+            
+            // Prepare deployment code with blacklist address
+            String deployWithArgs = DEPLOYCODE + encodedBlacklistAddress;
+            
+            // Deploy contract
             executor.code(Bytes.fromHexString(deployWithArgs));
             executor.callData(Bytes.EMPTY);
             executor.execute();
 
-            //Update the code for the runtime version
+            ContractUtils.extractStringFromReturnData(output);
+
+            // Update to runtime bytecode
             executor.code(Bytes.fromHexString(BYTECODE));
+
+            Logger.LOG("ISTCoin contract deployed successfully with blacklist address: " + blackList);
         } catch (Exception e) {
-            Logger.LOG("Failed to deploy contract");
+            Logger.LOG("Failed to deploy ISTCoin contract: " + e.getMessage());
+            throw new RuntimeException("Deployment failed", e);
         }
     }
-
 
 }

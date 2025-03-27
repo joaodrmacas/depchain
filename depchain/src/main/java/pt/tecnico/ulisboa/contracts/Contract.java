@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Map;
 
-import pt.tecnico.ulisboa.utils.types.Logger;
+
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.EvmSpecVersion;
 import org.hyperledger.besu.evm.fluent.EVMExecutor;
@@ -25,11 +25,13 @@ public abstract class Contract {
     protected final ByteArrayOutputStream output;
     protected final StandardJsonTracer tracer;
     protected final SimpleWorld world;
+    protected final Address owner;
 
     public Contract(SimpleWorld world, Address owner, String byteCode, String deployCode) {        
         // Generate contract address
         this.contractAddress = ContractUtils.generateContractAddress(owner);
         this.world = world;
+        this.owner = owner;
         
         // Create contract account
         world.createAccount(contractAddress, 0, Wei.fromEth(0));
@@ -41,7 +43,7 @@ public abstract class Contract {
         this.tracer = new StandardJsonTracer(new PrintStream(output), true, true, true, true);
 
         executor.tracer(tracer);
-        executor.sender(owner); //TODO: assuming there's only one admin account
+        executor.sender(owner);
         executor.receiver(contractAddress);
     }
 

@@ -2,6 +2,7 @@ package pt.tecnico.ulisboa.utils;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.apache.tuweni.bytes.Bytes;
@@ -74,6 +75,22 @@ public class ContractUtils {
         return Integer.decode("0x"+returnData);
     }
 
+    public static BigInteger extractBigIntegerFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+        String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
+        JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
+    
+        String memory = jsonObject.get("memory").getAsString();
+    
+        JsonArray stack = jsonObject.get("stack").getAsJsonArray();
+        int offset = Integer.decode(stack.get(stack.size() - 1).getAsString());
+        int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
+    
+        String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
+        
+        // Convert to BigInteger to handle large hex values
+        return new BigInteger(returnData, 16);
+    }
+
     public static boolean extractBooleanFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
@@ -94,12 +111,34 @@ public class ContractUtils {
         return !returnData.equals("0") && !returnData.isEmpty();
     }
 
+    public static void checkForExecutionErrors(ByteArrayOutputStream output) {
+        try {
+            // Create a copy of the output stream to avoid consuming it
+            //TODO: acho que nao precisa de ser copiado
+            ByteArrayOutputStream outputCopy = new ByteArrayOutputStream();
+            outputCopy.write(output.toByteArray());
+            
+            String[] lines = outputCopy.toString().split("\\r?\\n");
+            if (lines.length > 0) {
+                JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
+                if (jsonObject.has("error")) {
+                    String errorMessage = jsonObject.get("error").getAsString();
+                    throw new RuntimeException("Execution error: " + errorMessage);
+                }
+            }
+        } catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException)e;
+            }
+            Logger.LOG("Error checking execution output: " + e.getMessage());
+        }
+    }
+
     public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
     
         String memory = jsonObject.get("memory").getAsString().substring(2); // Remove '0x'
-    
         JsonArray stack = jsonObject.get("stack").getAsJsonArray();
         int offset = Integer.decode(stack.get(stack.size() - 1).getAsString());
         int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
