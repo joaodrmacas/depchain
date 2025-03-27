@@ -1,19 +1,14 @@
 package pt.tecnico.ulisboa.protocol;
 
-import java.time.LocalDateTime;
-
 public abstract class ClientReq extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
 
     protected Integer id;
     protected String signature;
-    protected LocalDateTime timestamp;
 
-    public ClientReq(Integer id, String signature, long count) {
+    public ClientReq(Integer id, long count) {
         super(BlockchainMessageType.CLIENT_REQ, count);
         this.id = id;
-        this.signature = signature;
-        this.timestamp = LocalDateTime.now();
     }
 
     public abstract ClientReqType getReqType();
@@ -26,8 +21,8 @@ public abstract class ClientReq extends BlockchainMessage {
         return signature;
     }
 
-    public LocalDateTime getTimestamp() {
-        return timestamp;
+    public void setSignature(String signature) {
+        this.signature = signature;
     }
 
     // Enum for request types
@@ -35,7 +30,6 @@ public abstract class ClientReq extends BlockchainMessage {
         TRANSFER,
         TRANSFER_FROM,
         BLACKLIST,
-        APPROVE,
-        APPEND_REQ // TODO: this one should be deleted
+        APPROVE
     }
 }

@@ -18,9 +18,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
-import pt.tecnico.ulisboa.protocol.AppendReq;
+import pt.tecnico.ulisboa.protocol.ApproveReq;
+import pt.tecnico.ulisboa.protocol.BlacklistReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
+import pt.tecnico.ulisboa.protocol.TransferFromReq;
+import pt.tecnico.ulisboa.protocol.TransferReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -67,19 +71,39 @@ public class Client {
 
     private void start() {
         Logger.LOG("Starting client " + clientId);
-
         Scanner scanner = new Scanner(System.in);
-        while (true) {
-            System.out.println("Enter a message to send to the server: ");
-            String message = scanner.nextLine();
 
-            if (message == null || message.isEmpty()) {
+        while (true) {
+            // Display available commands
+            System.out.println("\n===== Blockchain Client Menu =====");
+            System.out.println("Available Commands:");
+            System.out.println("1. TRANSFER <from> <to> <amount>");
+            System.out.println("   Example: TRANSFER alice bob 100.50");
+            System.out.println("2. TRANSFER_FROM <spender> <from> <to> <amount>");
+            System.out.println("   Example: TRANSFER_FROM charlie alice bob 50.25");
+            System.out.println("3. BLACKLIST <address> <true/false>");
+            System.out.println("   Example: BLACKLIST bob true");
+            System.out.println("4. APPROVE <owner> <spender> <amount>");
+            System.out.println("   Example: APPROVE alice charlie 200.00");
+            System.out.println("5. EXIT - Terminate the client");
+            System.out.println("====================================");
+            System.out.print("Enter a command: ");
+
+            String input = scanner.nextLine().trim();
+
+            if (input == null || input.isEmpty()) {
                 continue;
             }
 
+            // Check for exit command
+            if (input.equalsIgnoreCase("EXIT")) {
+                Logger.LOG("Client shutting down");
+                break;
+            }
+
             try {
-                Logger.LOG("Sending message: " + message);
-                sendAppendRequest(message);
+                Logger.LOG("Sending input: " + input);
+                sendRequest(input);
 
                 // Wait for response
                 Logger.LOG("Waiting for server responses...");
@@ -92,16 +116,15 @@ public class Client {
                         Logger.LOG("Accepted response: " + response);
                     }
                 }
-
             } catch (Exception e) {
-                Logger.ERROR("Failed to send message: " + e.getMessage(), e);
-                break;
+                Logger.ERROR("Failed to send message.", e);
             }
         }
+
         scanner.close();
     }
 
-    private void sendAppendRequest(String message) {
+    private void sendRequest(String input) {
         if (count == 0) { // First message. Send public key to servers
             sendPublicKeyToServers();
         }
@@ -109,20 +132,82 @@ public class Client {
         responseLatch = new CountDownLatch(1);
         currentRequestResponses.clear();
         acceptedResponse.set(null);
-
         messageHandler.updateForNewRequest(count, responseLatch);
-        String signature = signMessage(message);
-        Logger.LOG("Message to sign: " + clientId + message + count + " Signature: " + signature);
-        AppendReq<String> msg = new AppendReq<String>(clientId, message, count, signature);
 
-        // TODO: change this to send periodically for each. Do it later. CHANGED TO ONLY
-        // SEND TO LEADER
-        // for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-        // aplManager.sendWithTimeout(serverId, msg, Config.CLIENT_TIMEOUT_MS);
-        // }
-        aplManager.sendWithTimeout(0, msg, Config.CLIENT_TIMEOUT_MS);
+        String[] parts = input.trim().split("\\s+");
+        ClientReq req = null;
+        String signature = null;
 
-        count++;
+        try {
+            switch (parts[0].toUpperCase()) {
+                case "TRANSFER":
+                    // Format: TRANSFER <from> <to> <amount>
+                    if (parts.length != 4) {
+                        throw new IllegalArgumentException("Invalid TRANSFER format");
+                    }
+                    req = new TransferReq(
+                            clientId,
+                            count,
+                            parts[1],
+                            parts[2],
+                            Double.parseDouble(parts[3]));
+                    break;
+
+                case "TRANSFER_FROM":
+                    // Format: TRANSFER_FROM <spender> <from> <to> <amount>
+                    if (parts.length != 5) {
+                        throw new IllegalArgumentException("Invalid TRANSFER_FROM format");
+                    }
+                    req = new TransferFromReq(
+                            clientId,
+                            count,
+                            parts[1],
+                            parts[2],
+                            parts[3],
+                            Double.parseDouble(parts[4]));
+                    break;
+
+                case "BLACKLIST":
+                    // Format: BLACKLIST <address> <true/false>
+                    if (parts.length != 3) {
+                        throw new IllegalArgumentException("Invalid BLACKLIST format");
+                    }
+                    req = new BlacklistReq(
+                            clientId,
+                            count,
+                            parts[1],
+                            Boolean.parseBoolean(parts[2]));
+                    break;
+
+                case "APPROVE":
+                    // Format: APPROVE <owner> <spender> <amount>
+                    if (parts.length != 4) {
+                        throw new IllegalArgumentException("Invalid APPROVE format");
+                    }
+                    req = new ApproveReq(
+                            clientId,
+                            count,
+                            parts[1],
+                            parts[2],
+                            Double.parseDouble(parts[3]));
+                    break;
+
+                default:
+                    System.out.println("Invalid command: " + parts[0]);
+                    return;
+            }
+
+            // Sign the request
+            signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
+            req.setSignature(signature);
+
+            // Send to leader (server with ID 0)
+            aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
+            count++;
+
+        } catch (Exception e) {
+            Logger.LOG("Error processing request: " + e.getMessage());
+        }
     }
 
     public boolean waitForResponse() {
@@ -162,12 +247,6 @@ public class Client {
                 count), Config.CLIENT_TIMEOUT_MS);
 
         count++;
-    }
-
-    private String signMessage(String message) {
-        String dataToSign = clientId.toString() + message.toString() + count.toString();
-
-        return CryptoUtils.signData(dataToSign, keyPair.getPrivate());
     }
 
     private void setup(String addr, int port) {

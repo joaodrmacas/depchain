@@ -8,7 +8,7 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
 
     private static final long serialVersionUID = 1L;
     private BlockchainMessageType type;
-    private Long count;
+    protected Long count;
 
 
     public BlockchainMessage(BlockchainMessageType type, long count) {
@@ -17,8 +17,6 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
     }
 
     public static enum BlockchainMessageType {
-        APPEND_REQ,  // TODO: this is to be deleted
-        APPEND_RESP, // TODO: this is to be deleted
         CLIENT_REQ,
         CLIENT_RESP,
         REGISTER_REQ,
