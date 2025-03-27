@@ -11,14 +11,14 @@ mkdir -p "${ROOTDIR}/logs"
 bash ${ROOTDIR}/scripts/kill.sh
 
 # Initialize servers
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
-    -Dexec.args="0 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_00.log" 2>&1 &
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
-    -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_01.log" 2>&1 &
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
-    -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_02.log" 2>&1 &
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Node" \
-    -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/node_03.log" 2>&1 &
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
+    -Dexec.args="0 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_00.log" 2>&1 &
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
+    -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_01.log" 2>&1 &
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
+    -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_02.log" 2>&1 &
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
+    -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_03.log" 2>&1 &
 
 # Run client
 echo "a" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
