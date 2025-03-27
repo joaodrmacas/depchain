@@ -4,7 +4,7 @@ public class Config {
     public final static int BUFFER_SIZE = 4096;
     public final static int LEADER_ID = 0;
     public final static int ALLOWED_FAILURES = 1;
-    public final static int RETRANSMISSION_TIME = 200;
+    public final static int RETRANSMISSION_TIME = 300;
     public final static int MAX_COOLDOWN = 5000000;
     public final static int NUM_MEMBERS = 3 * ALLOWED_FAILURES + 1;
     public final static int QUORUM = 2 * ALLOWED_FAILURES + 1;

@@ -44,14 +44,17 @@ public class ClientMessageHandler implements MessageHandler {
             }
 
             currentRequestResponses.put(response, currentRequestResponses.getOrDefault(response, 0) + 1);
-
-            // check if we have enough responses
-            if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {
-                Logger.LOG("Received enough responses for request with sequence number " + seqnum);
-
-                acceptedResponse.set(response);
-                responseLatch.countDown();
-            }
+            responseLatch.countDown();
+            acceptedResponse.set(response);
+            
+            //TODO: FIXME
+            // // check if we have enough responses
+            // if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {
+            //     Logger.LOG("Received enough responses for request with sequence number " + seqnum);
+                
+            //     acceptedResponse.set(response);
+            //     responseLatch.countDown();
+            // }
 
         } catch (IOException | ClassNotFoundException e) {
             Logger.LOG("Failed to deserialize response: " + e.getMessage());
