@@ -5,8 +5,8 @@ public class BlacklistReq extends ClientReq {
     private String addressToBlacklist;
     private boolean blacklist; // true to blacklist, false to remove from blacklist
 
-    public BlacklistReq(Integer id, String signature, long count, String addressToBlacklist, boolean blacklist) {
-        super(id, signature, count);
+    public BlacklistReq(Integer id, long count, String addressToBlacklist, boolean blacklist) {
+        super(id, count);
         this.addressToBlacklist = addressToBlacklist;
         this.blacklist = blacklist;
     }
@@ -16,12 +16,17 @@ public class BlacklistReq extends ClientReq {
         return ClientReqType.BLACKLIST;
     }
 
-    public String getAddressToBlacklist() { return addressToBlacklist; }
-    public boolean isBlacklist() { return blacklist; }
+    public String getAddressToBlacklist() {
+        return addressToBlacklist;
+    }
+
+    public boolean isBlacklist() {
+        return blacklist;
+    }
 
     @Override
     public String toString() {
-        return String.format("BlacklistReq(id=%d, address=%s, blacklist=%b)", 
-            id, addressToBlacklist, blacklist);
+        return String.format("BlacklistReq(id=%d, address=%s, blacklist=%b, count=%d)",
+                id, addressToBlacklist, blacklist, count);
     }
 }

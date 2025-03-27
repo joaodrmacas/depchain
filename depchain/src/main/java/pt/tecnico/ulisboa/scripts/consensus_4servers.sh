@@ -21,5 +21,5 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
     -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_03.log" 2>&1 &
 
 # Run client
-echo "a" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
+echo "TRANSFER a b 12" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="-1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/client_01.log" 2>&1 &

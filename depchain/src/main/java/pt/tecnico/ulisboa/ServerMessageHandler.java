@@ -5,8 +5,8 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
 import pt.tecnico.ulisboa.network.MessageHandler;
-import pt.tecnico.ulisboa.protocol.AppendReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage.BlockchainMessageType;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
@@ -34,9 +34,8 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
                     int senderId = keyReq.getSenderId();
                     handleRegisterRequest(senderId, keyReq);
                     break;
-                case APPEND_REQ:
-                    AppendReq<?> appReq = (AppendReq<?>) blockchainMessage;
-                    handleAppendRequest(appReq);
+                case CLIENT_REQ:
+                    handleClientRequest((ClientReq) blockchainMessage);
                     break;
                 default:
                     Logger.LOG("Unknown message type: " + type);
@@ -57,14 +56,13 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
     }
 
     @SuppressWarnings("unchecked")
-    public void handleAppendRequest(AppendReq<?> message) {
-        String dataToValidate = message.getId().toString() + message.getMessage().toString() + message.getCount().toString();
+    public void handleClientRequest(ClientReq message) {
         PublicKey clientKU = clientKus.get(message.getId());
         if (clientKU == null) {
             Logger.LOG("Client key not found for id: " + message.getId());
             return;
         }
-        if (!CryptoUtils.verifySignature(dataToValidate, message.getSignature(), clientKU)) {
+        if (!CryptoUtils.verifySignature(message.toString(), message.getSignature(), clientKU)) {
             Logger.LOG("Invalid signature for message: " + message);
             return;
         }

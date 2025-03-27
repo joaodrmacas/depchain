@@ -27,8 +27,8 @@ import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
 import pt.tecnico.ulisboa.network.APLImpl;
 import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.network.ServerAplManager;
-import pt.tecnico.ulisboa.protocol.AppendReq;
-import pt.tecnico.ulisboa.protocol.AppendResp;
+import pt.tecnico.ulisboa.protocol.ClientReq;
+import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
@@ -67,7 +67,7 @@ public class Server<T extends RequiresEquals> {
         int serverPort = GeneralUtils.id2ServerPort.get(nodeId);
 
         try {
-            Server<AppendReq<String>> node = new Server<>(nodeId);
+            Server<ClientReq> node = new Server<>(nodeId);
 
             if (args.length >= 2) {
                 node.setKeysDirectory(args[1]);
@@ -112,8 +112,7 @@ public class Server<T extends RequiresEquals> {
                     T value = decidedValues.getResource().poll();
                     handleDecidedValue(value);
                 }
-            } 
-            catch (Exception e) {
+            } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
                 // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
             }
@@ -138,6 +137,7 @@ public class Server<T extends RequiresEquals> {
     }
 
     private void handleDecidedValue(T value) {
+        // cast the valuse to ClientReq
         boolean success = false;
         if (value != null) {
             success = true;
@@ -150,7 +150,8 @@ public class Server<T extends RequiresEquals> {
         LocalDateTime timestamp = LocalDateTime.now();
 
         // Send answer to clients
-        clientManager.send(value.getSenderId(), new AppendResp(success, timestamp));
+        ClientReq decided = (ClientReq) value;
+        clientManager.send(value.getSenderId(), new ClientResp(success, timestamp, decided.getCount()));
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -428,7 +429,8 @@ public class Server<T extends RequiresEquals> {
         String str = "***** BEGIN Consensus messages: \n";
 
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
-            if (i == nodeId) continue;
+            if (i == nodeId)
+                continue;
 
             str += "\nDestination: " + i + "\n";
             for (ConsensusMessage<T> msg : consensusMessages.get(i).getResource()) {

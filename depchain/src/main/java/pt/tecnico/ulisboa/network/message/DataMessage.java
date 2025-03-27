@@ -4,8 +4,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
-import pt.tecnico.ulisboa.protocol.AppendReq;
-import pt.tecnico.ulisboa.protocol.AppendResp;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -62,15 +61,12 @@ public class DataMessage extends AuthenticatedMessage {
         if (content instanceof ConsensusMessage<?>) {
             ConsensusMessage<?> consensusMessage = (ConsensusMessage<?>) content;
             str += "Consensus{" + consensusMessage + "}";
-        } else if (content instanceof AppendReq<?>) {
-            AppendReq<?> appendReq = (AppendReq<?>) content;
-            str += "AppendReq{" + appendReq + "}";
-        } else if (content instanceof AppendResp) {
-            AppendResp appendResp = (AppendResp) content;
-            str += "AppendResp{" + appendResp + "}";
         } else if (content instanceof RegisterReq) {
             RegisterReq registerReq = (RegisterReq) content;
             str += "RegisterReq{" + registerReq + "}";
+        } else if (content instanceof ClientReq) {
+            ClientReq clientReq = (ClientReq) content;
+            str += "ClientReq{" + clientReq + "}";
         }
         else {
             str += "UNKNOWN";
