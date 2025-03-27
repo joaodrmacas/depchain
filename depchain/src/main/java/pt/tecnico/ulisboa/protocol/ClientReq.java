@@ -16,10 +16,8 @@ public abstract class ClientReq extends BlockchainMessage {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Abstract method to define request type
     public abstract ClientReqType getReqType();
 
-    // Getters
     public Integer getId() {
         return id;
     }
@@ -37,6 +35,7 @@ public abstract class ClientReq extends BlockchainMessage {
         TRANSFER,
         TRANSFER_FROM,
         BLACKLIST,
-        APPEND_REQ
+        APPROVE,
+        APPEND_REQ // TODO: this one should be deleted
     }
 }

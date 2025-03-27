@@ -1,5 +1,33 @@
 package pt.tecnico.ulisboa.protocol;
 
-public class ApproveReq {
-    //TODO: @duda é para dar allowance a um gajo aka poder usar o transferFrom
+// Approve request to grant spending allowance
+public class ApproveReq extends ClientReq {
+    // TODO: These should all be addresses
+    private String owner;     // this guy approves the spending
+    private String spender;   // this guy is allowed to spend
+    
+    private double amount;    // amount to allow
+
+    public ApproveReq(Integer id, String signature, long count, 
+                      String owner, String spender, double amount) {
+        super(id, signature, count);
+        this.owner = owner;
+        this.spender = spender;
+        this.amount = amount;
+    }
+
+    @Override
+    public ClientReqType getReqType() {
+        return ClientReqType.APPROVE;
+    }
+
+    public String getOwner() { return owner; }
+    public String getSpender() { return spender; }
+    public double getAmount() { return amount; }
+
+    @Override
+    public String toString() {
+        return String.format("ApproveReq(id=%d, owner=%s, spender=%s, amount=%.2f)", 
+            id, owner, spender, amount);
+    }
 }
