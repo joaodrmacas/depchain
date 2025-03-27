@@ -7,11 +7,20 @@ public class ClientResp extends BlockchainMessage {
     
     private boolean success;
     private LocalDateTime timestamp;
+    private String message;
 
     public ClientResp(boolean success, LocalDateTime timestamp) {
         super(BlockchainMessageType.CLIENT_RESP, 1); //TDIsgusting
         this.success = success;
         this.timestamp = timestamp;
+        this.message = "No message provided";
+    }
+
+    public ClientResp(boolean success, LocalDateTime timestamp, String message) {
+        super(BlockchainMessageType.CLIENT_RESP, 1); //TDIsgusting
+        this.success = success;
+        this.timestamp = timestamp;
+        this.message = message;
     }
 
     public ClientResp(boolean success, LocalDateTime timestamp, long seqNum) {
@@ -26,6 +35,10 @@ public class ClientResp extends BlockchainMessage {
 
     public LocalDateTime getTimestamp() {
         return timestamp;
+    }
+
+    public String getMessage() {
+        return message;
     }
 
 }

@@ -22,4 +22,7 @@ public class Config {
     public final static int DEFAULT_SERVER_CLIENT_SOCKETS_PORT = 9090;
     public final static int DEFAULT_SERVER_PORT = 8080;
 
+
+    public static final int BLOCK_SIZE = 5; // TODO: change this value?
+    public static final int ADMIN_ID = -1;
 }

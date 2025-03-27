@@ -1,14 +1,16 @@
 package pt.tecnico.ulisboa.protocol;
 
+import java.math.BigInteger;
+
 // Transfer request
 public class TransferReq extends ClientReq {
     // TODO: These should all be addresses
     private String from; // transfer from this guy
     private String to; // transfer to this guy
 
-    private double amount; // amount to transfer
+    private BigInteger amount; // amount to transfer
 
-    public TransferReq(Integer id, long count, String from, String to, double amount) {
+    public TransferReq(Integer id, long count, String from, String to, BigInteger amount) {
         super(id, count);
         this.from = from;
         this.to = to;
@@ -28,7 +30,7 @@ public class TransferReq extends ClientReq {
         return to;
     }
 
-    public double getAmount() {
+    public BigInteger getAmount() {
         return amount;
     }
 

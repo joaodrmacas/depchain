@@ -1,15 +1,17 @@
 package pt.tecnico.ulisboa.protocol;
 
+import java.math.BigInteger;
+
 // Approve request to grant spending allowance
 public class ApproveReq extends ClientReq {
     // TODO: These should all be addresses
     private String owner; // this guy approves the spending
     private String spender; // this guy is allowed to spend
 
-    private double amount; // amount to allow
+    private BigInteger amount; // amount to allow
 
     public ApproveReq(Integer id, long count,
-            String owner, String spender, double amount) {
+            String owner, String spender, BigInteger amount) {
         super(id, count);
         this.owner = owner;
         this.spender = spender;
@@ -29,7 +31,7 @@ public class ApproveReq extends ClientReq {
         return spender;
     }
 
-    public double getAmount() {
+    public BigInteger getAmount() {
         return amount;
     }
 
