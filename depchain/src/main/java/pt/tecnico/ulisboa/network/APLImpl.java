@@ -41,7 +41,6 @@ public class APLImpl implements APL {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     private final ConcurrentHashMap<Long, Message> pendingMessages = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, Boolean> receivedMessages = new ConcurrentHashMap<>();
 
     private AtomicLong nextSeqNum = new AtomicLong(1);
     private AtomicLong lastReceivedSeqNum = new AtomicLong(0);
@@ -268,11 +267,6 @@ public class APLImpl implements APL {
         } catch (Exception e) {
             Logger.LOG("Failed to send acknowledgment: " + e.getMessage());
         }
-
-        // Check for duplicates
-        if (isDuplicate(keyMessage.getSeqNum())) {
-            return;
-        }
     }
 
     private void handleACK(AckMessage ackMessage) {
@@ -327,12 +321,6 @@ public class APLImpl implements APL {
             Logger.ERROR("Failed to send acknowledgment: " + e.getMessage(), e);
         }
 
-        // Check for duplicates
-        if (isDuplicate(seqNum)) {
-            Logger.LOG("Received duplicate message: " + seqNum);
-            return;
-        }
-
         try {
 
             // Deliver to application
@@ -353,9 +341,6 @@ public class APLImpl implements APL {
         }
     }
 
-    private boolean isDuplicate(long seqNum) {
-        return receivedMessages.putIfAbsent(seqNum, Boolean.TRUE) != null;
-    }
 
     private void sendAuthenticatedAcknowledgment(long dataSeqNum) throws Exception {
         try {
