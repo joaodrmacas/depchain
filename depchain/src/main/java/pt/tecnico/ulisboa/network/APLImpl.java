@@ -257,12 +257,15 @@ public class APLImpl implements APL {
             return;
         }
 
+        Logger.LOG("Current key: " + this.secretKey);
+
         this.secretKey = secretKey;
 
         Logger.LOG("Received key: " + secretKey);
 
         // Send authenticated acknowledgment
         try {
+            Logger.LOG(destPort + ")" + "SENDING ACKNOWLEDGMENT FOR KEY");
             sendAuthenticatedAcknowledgment(keyMessage.getSeqNum());
         } catch (Exception e) {
             Logger.LOG("Failed to send acknowledgment: " + e.getMessage());
@@ -280,8 +283,12 @@ public class APLImpl implements APL {
             return;
         }
 
+        for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
+            Logger.LOG("Pending message: " + entry.getKey());
+        }
+
         // Remove the message from the pending list
-        if (!pendingMessages.containsKey(seqNum)) {
+        if (!pendingMessages.containsKey(dataSeqNum)) {
             Logger.LOG("Received ACK for unsent message: " + dataSeqNum);
             return;
         }
@@ -344,6 +351,7 @@ public class APLImpl implements APL {
 
     private void sendAuthenticatedAcknowledgment(long dataSeqNum) throws Exception {
         try {
+            Logger.LOG(destPort + ") " + "SENDING ACK: " + dataSeqNum);
             SecretKey secretKey = getSecretKey();
             long seqNum = nextSeqNum.getAndIncrement();
             // create the content from the dataSeqNum
@@ -353,7 +361,7 @@ public class APLImpl implements APL {
 
             AckMessage ackMessage = new AckMessage(content, seqNum, hmac);
 
-            Logger.LOG("Sending ACK for message: " + seqNum);
+            Logger.LOG(destPort + ") " + "Sending ACK of seqNum: " + seqNum + " for message " + dataSeqNum);
 
             byte[] byteMsg = ackMessage.serialize();
 
@@ -430,7 +438,7 @@ public class APLImpl implements APL {
                 Message message = entry.getValue();
 
                 if (message.getCounter() >= message.getCooldown()) {
-                    Logger.LOG("Retransmitting message with seqNum: " + seqNum +
+                    Logger.LOG(destPort + ") " + "Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
                         // TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar

@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -23,6 +24,7 @@ import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class AuthenticatedPerfectLinkTests {
 
@@ -301,7 +303,7 @@ public class AuthenticatedPerfectLinkTests {
         }
     }
 
-    // FIXME: This test is crashing the JVM
+    // // FIXME: This test is crashing the JVM
     // @Test
     // public void testHmacVerification() { // NOTE: For this test, we are tampering with the message directly after its
     //                                      // Hmac is computed because it is hard to spoof the ip and port of the sender.
@@ -386,4 +388,123 @@ public class AuthenticatedPerfectLinkTests {
             fail("Test failed with exception: " + e.getMessage());
         }
     }
+
+
+    // @Test
+    // public void testFourMessageExchangeLoop() {
+    //     final int SERVER1_ID = 1;
+    //     final int SERVER2_ID = 2;
+    //     final int SERVER3_ID = 3;
+    //     final int SERVER4_ID = 4;
+
+    //     final int SERVER1_PORT = 8081;
+    //     final int SERVER2_PORT = 8082;
+    //     final int SERVER3_PORT = 8083;
+    //     final int SERVER4_PORT = 8084;
+
+    //     final KeyPair server1Keys = CryptoUtils.generateKeyPair(2048);
+    //     final KeyPair server2Keys = CryptoUtils.generateKeyPair(2048);
+    //     final KeyPair server3Keys = CryptoUtils.generateKeyPair(2048);
+    //     final KeyPair server4Keys = CryptoUtils.generateKeyPair(2048);
+
+    //     // Message to be sent
+    //     final String messageTemplate = "Message from Server %d to Server %d";
+    //     final int MESSAGE_COUNT = 1;
+
+    //     // Synchronization mechanisms
+    //     final CountDownLatch messageLatch = new CountDownLatch(4 * 3 * MESSAGE_COUNT);
+    //     final List<String> receivedMessages = Collections.synchronizedList(new ArrayList<>());
+
+    //     // Managers for each server
+    //     final ServerAplManager[] servers = new ServerAplManager[4];
+    //     final MessageHandler[] handlers = new MessageHandler[12];
+
+    //     try {
+    //         // Create message handlers for each server
+    //         for (int i = 0; i < 4; i++) {
+    //             final int currentServerId = i + 1;
+    //             final KeyPair currentKeys = i == 0 ? server1Keys : 
+    //                                         i == 1 ? server2Keys : 
+    //                                         i == 2 ? server3Keys : server4Keys;
+    //             final int currentPort = i == 0 ? SERVER1_PORT : 
+    //                                     i == 1 ? SERVER2_PORT : 
+    //                                     i == 2 ? SERVER3_PORT : SERVER4_PORT;
+    
+    //             for (int j=0; j<3;j++){
+    //                 Logger.LOG("res: " + (i*3+(j)));
+    //                 handlers[i*3+(j)] = (id, msgBytes) -> {
+    //                     try {
+    //                         String message = SerializationUtils.deserializeObject(msgBytes);
+    //                         synchronized (receivedMessages) {
+    //                             receivedMessages.add(message);
+    //                         }
+    //                         messageLatch.countDown();
+    //                     } catch (ClassNotFoundException | IOException e) {
+    //                         fail("Failed to deserialize message: " + e.getMessage());
+    //                     }
+    //                 };
+    //             }
+    
+    //             // Create server managers
+    //             servers[i] = new ServerAplManager(ADDR, currentPort, currentKeys.getPrivate());
+    //         }
+    
+    //         // Set up APLs between all servers
+    //         servers[0].createAPL(SERVER2_ID, ADDR, SERVER2_PORT, server2Keys.getPublic(), handlers[0]);
+    //         servers[0].createAPL(SERVER3_ID, ADDR, SERVER3_PORT, server3Keys.getPublic(), handlers[1]);
+    //         servers[0].createAPL(SERVER4_ID, ADDR, SERVER4_PORT, server4Keys.getPublic(), handlers[2]);
+    
+    //         servers[1].createAPL(SERVER1_ID, ADDR, SERVER1_PORT, server1Keys.getPublic(), handlers[3]);
+    //         servers[1].createAPL(SERVER3_ID, ADDR, SERVER3_PORT, server3Keys.getPublic(), handlers[4]);
+    //         servers[1].createAPL(SERVER4_ID, ADDR, SERVER4_PORT, server4Keys.getPublic(), handlers[5]);
+    
+    //         // servers[2].createAPL(SERVER1_ID, ADDR, SERVER1_PORT, server1Keys.getPublic(), handlers[6]);
+    //         // servers[2].createAPL(SERVER2_ID, ADDR, SERVER2_PORT, server2Keys.getPublic(), handlers[7]);
+    //         // servers[2].createAPL(SERVER4_ID, ADDR, SERVER4_PORT, server4Keys.getPublic(), handlers[8]);
+    
+    //         // servers[3].createAPL(SERVER1_ID, ADDR, SERVER1_PORT, server1Keys.getPublic(), handlers[9]);
+    //         // servers[3].createAPL(SERVER2_ID, ADDR, SERVER2_PORT, server2Keys.getPublic(), handlers[10]);
+    //         // servers[3].createAPL(SERVER3_ID, ADDR, SERVER3_PORT, server3Keys.getPublic(), handlers[11]);
+    
+    //         // Start listening for all servers
+    //         for (ServerAplManager server : servers) {
+    //             server.startListening();
+    //         }
+    
+    //         // Send messages from each server to every other server
+    //         for (int sender = 1; sender <= 4; sender++) {
+    //             if (sender == 3 || sender == 4) continue;
+    //             for (int receiver = 1; receiver <= 4; receiver++) {
+    //                 if (receiver == 3 || receiver == 4) continue;
+    //                 if (sender != receiver) {
+    //                     ServerAplManager senderManager = servers[sender - 1];
+    //                     for (int i = 0; i < MESSAGE_COUNT; i++) {
+    //                         String message = String.format(messageTemplate, sender, receiver);
+    //                         senderManager.send(receiver, message);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    
+    //         // Wait for all messages to be received
+    //         boolean allReceived = messageLatch.await(20000, TimeUnit.MILLISECONDS);
+    //         assertTrue("Not all messages were received within timeout", allReceived);
+    
+    //         // Verify message counts
+    //         assertEquals("Total messages received should match", 4 * 3 * MESSAGE_COUNT, receivedMessages.size());
+    
+    //         // Optionally, print received messages for verification
+    //         System.out.println("Received " + receivedMessages.size() + " messages");
+    
+    //     } catch (Exception e) {
+    //         fail("Test failed with exception: " + e.getMessage());
+    //     } finally {
+    //         // Cleanup - close all server managers
+    //         for (ServerAplManager server : servers) {
+    //             if (server != null) {
+    //                 server.close();
+    //             }
+    //         }
+    //     }
+    // }
 }

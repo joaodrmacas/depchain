@@ -109,10 +109,8 @@ public class ContractTests {
         // Approve userB to spend on behalf of userA
         mergedContract.approve(userA, userB, approvalAmount);
 
-        assertEquals("User A should have the initial amount of coins", 
-            BigInteger.valueOf(1000), mergedContract.balanceOf(userA));
-        assertEquals("User B should have the approved amount of coins", 
-            BigInteger.valueOf(500), mergedContract.allowance(userA, userB));
+        assertEquals("User A should have the initial amount of coins", BigInteger.valueOf(1000), mergedContract.balanceOf(userA));
+        assertEquals("User B should have the approved amount of coins", BigInteger.valueOf(500), mergedContract.allowance(userA, userB));
 
         // Attempt transferFrom using the approved amount
         mergedContract.transferFrom(userB, userA, userB, transferAmount);
