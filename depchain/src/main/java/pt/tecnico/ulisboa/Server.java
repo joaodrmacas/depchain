@@ -112,8 +112,10 @@ public class Server<T extends RequiresEquals> {
                     // consensus thread already changes the decided queue
                     decidedValues.waitForChange(-1);
                     T value = decidedValues.getResource().poll();
-                    ClientResp response = blockchainManager.handleDecidedValue(value);
-                    clientManager.send(value.getSenderId(), response);
+                    if (value != null) {
+                        ClientResp response = blockchainManager.handleDecidedValue(value);
+                        clientManager.send(value.getSenderId(), response);
+                    }
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -137,24 +139,6 @@ public class Server<T extends RequiresEquals> {
         consensusThread.start();
         valueHandlerThread.start();
 
-    }
-
-    private void handleDecidedValue(T value) {
-        // cast the valuse to ClientReq
-        boolean success = false;
-        if (value != null) {
-            success = true;
-            // Add to blockchain
-            blockchain.add(value);
-            Logger.LOG("Decided value: " + value);
-            Logger.DEBUG("Current blockchain: " + blockchain);
-        }
-
-        LocalDateTime timestamp = LocalDateTime.now();
-
-        // Send answer to clients
-        ClientReq decided = (ClientReq) value;
-        clientManager.send(value.getSenderId(), new ClientResp(success, timestamp, decided.getCount()));
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -200,7 +184,8 @@ public class Server<T extends RequiresEquals> {
             serversManager.startListening();
 
             // Initialize register APL
-            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys,userAccounts);
+            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys,
+                    userAccounts);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");

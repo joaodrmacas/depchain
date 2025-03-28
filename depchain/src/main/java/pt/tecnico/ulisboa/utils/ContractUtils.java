@@ -3,6 +3,7 @@ package pt.tecnico.ulisboa.utils;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -46,14 +47,6 @@ public class ContractUtils {
     public static String convertIntegerToHex256Bit(int number) {
         BigInteger bigInt = BigInteger.valueOf(number);
         return String.format("%064x", bigInt);
-    }
-
-    public static Address generateContractAddress(Address deployerAddress) {
-        return Address.fromHexString(
-                org.web3j.crypto.Hash.sha3String(
-                        deployerAddress.toHexString() +
-                                System.currentTimeMillis())
-                        .substring(0, 42));
     }
 
     public static Address generateAddressFromId(int clientId) {
@@ -182,5 +175,24 @@ public class ContractUtils {
         returnData = returnData.replaceFirst("^0+", "");
 
         return returnData;
+    }
+
+    public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+        String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
+        JsonObject jsonObject = JsonParser.parseString(lines[lines.length-1]).getAsJsonObject();
+
+        String memory = jsonObject.get("memory").getAsString();
+
+        JsonArray stack = jsonObject.get("stack").getAsJsonArray();
+        int offset = Integer.decode(stack.get(stack.size()-1).getAsString());
+        int size = Integer.decode(stack.get(stack.size()-2).getAsString());
+
+        String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
+
+        int stringOffset = Integer.decode("0x"+returnData.substring(0, 32 * 2));
+        int stringLength = Integer.decode("0x"+returnData.substring(stringOffset * 2, stringOffset * 2 + 32 * 2));
+        String hexString = returnData.substring(stringOffset * 2 + 32 * 2, stringOffset * 2 + 32 * 2 + stringLength * 2);
+
+        return new String(hexStringToByteArray(hexString), StandardCharsets.UTF_8);
     }
 }
