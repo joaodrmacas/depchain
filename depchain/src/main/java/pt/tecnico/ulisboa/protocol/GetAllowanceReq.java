@@ -16,11 +16,11 @@ public class GetAllowanceReq extends ClientReq {
         return ClientReqType.GET_ALLOWANCE;
     }
 
-    public int getallower() {
+    public int getAllower() {
         return allower;
     }
 
-    public int getallowee() {
+    public int getAllowee() {
         return allowee;
     }
 

@@ -1,5 +1,6 @@
 package pt.tecnico.ulisboa;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Map;
@@ -94,7 +95,7 @@ public class BlockchainManager<T> {
     private ClientResp handleCheckBalance(CheckBalanceReq req) {
         try {
             Address client = clientAddresses.get(req.getAccount());
-            long balance = mergedContract.balanceOf(client);
+            BigInteger balance = mergedContract.balanceOf(client);
 
             return new ClientResp(true, LocalDateTime.now(),
                     "Balance of client " + req.getAccount() + " is " + balance + ".");
@@ -109,7 +110,7 @@ public class BlockchainManager<T> {
             Address allower = clientAddresses.get(req.getAllower());
             Address allowee = clientAddresses.get(req.getAllowee());
 
-            long allowance = mergedContract.allowance(allower, allowee);
+            BigInteger allowance = mergedContract.allowance(allower, allowee);
 
             return new ClientResp(true, LocalDateTime.now(),
                     "Allowance from " + req.getAllower() + " to " + req.getAllowee() + " is " + allowance + ".");
