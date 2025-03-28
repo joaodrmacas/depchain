@@ -13,14 +13,18 @@ import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;    
+import pt.tecnico.ulisboa.utils.types.RequiresEquals;
+import pt.tecnico.ulisboa.utils.ContractUtils;
+import java.util.Random;
 
 public class ServerMessageHandler<T extends RequiresEquals> implements MessageHandler {
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
-    
-    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus) {
+    private ConcurrentHashMap<Integer, Account> clientAccounts;
+
+    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Account> clientAccounts) {
         this.clientKus = clientKus;
+        this.clientAccounts = clientAccounts;
         this.txQueue = txQueue;
     }
 
@@ -53,6 +57,11 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
             return;
         }
         clientKus.put(senderId, ku);
+        
+        //TODO: change this? genesis block? what defines admin account balance?
+        Random random = new Random();
+        int randomNumber = random.nextInt(100);
+        clientAccounts.put(senderId, new Account(ContractUtils.generateAddressFromId(senderId), randomNumber));
     }
 
     @SuppressWarnings("unchecked")

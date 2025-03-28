@@ -15,16 +15,21 @@ import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
+import pt.tecnico.ulisboa.Account;
+
 public class ClientAplManager<T extends RequiresEquals> extends AplManager {
- 
+
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
+    private ConcurrentHashMap<Integer, Account> accounts;
 
     public ClientAplManager(String address, Integer port, PrivateKey privateKey, ObservedResource<Queue<T>> txQueue,
-            ConcurrentHashMap<Integer, PublicKey> clientKus) throws SocketException, IOException {
+            ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Account> accounts)
+            throws SocketException, IOException {
         super(address, port, privateKey);
         this.txQueue = txQueue;
         this.clientKus = clientKus;
+        this.accounts = accounts;
         Logger.LOG("ClientAplManager: " + address + ":" + port);
     }
 
@@ -35,11 +40,13 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
         try {
             // KeyMessage message = (KeyMessage) Message.deserialize(packet.getData());
 
-            ServerMessageHandler<T> handler = new ServerMessageHandler<>(txQueue, clientKus);
+            ServerMessageHandler<T> handler = new ServerMessageHandler<>(txQueue, clientKus, accounts);
 
             FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
 
-            int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT; //TODO: meti isto para amanha dar para testar com varios clientes sem tar hardcode. Amanha é wild ahahahah
+            int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT; // TODO: meti isto para amanha dar para testar
+                                                                        // com varios clientes sem tar hardcode. Amanha
+                                                                        // é wild
             APLImpl apl = createAPL(destId, packet.getAddress().getHostAddress(), packet.getPort(), handler);
             apl.processReceivedPacket(destId, frag.getFragmentData());
 

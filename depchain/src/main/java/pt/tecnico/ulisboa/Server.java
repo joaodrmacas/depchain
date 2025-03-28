@@ -34,14 +34,17 @@ import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
+import pt.tecnico.ulisboa.Account;
+
 public class Server<T extends RequiresEquals> {
     private int nodeId;
     private PrivateKey privateKey;
     private ConcurrentHashMap<Integer, PublicKey> publicKeys;
     private ClientAplManager<T> clientManager;
-    private ServerAplManager serversManager; // disgusting name
+    private ServerAplManager serversManager;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Integer, Account> userAccounts = new ConcurrentHashMap<>();
 
     private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
@@ -49,9 +52,8 @@ public class Server<T extends RequiresEquals> {
     private Set<T> decidedValuesSet = ConcurrentHashMap.newKeySet();
 
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
-    private ArrayList<T> blockchain = new ArrayList<>();
-
-    // should be closed: exec.shutdown();
+    private BlockchainManager<T> blockchainManager = new BlockchainManager<>();
+    // TODO: should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
 
     public static void main(String[] args) {
@@ -110,7 +112,10 @@ public class Server<T extends RequiresEquals> {
                     // consensus thread already changes the decided queue
                     decidedValues.waitForChange(-1);
                     T value = decidedValues.getResource().poll();
-                    handleDecidedValue(value);
+                    if (value != null) {
+                        ClientResp response = blockchainManager.handleDecidedValue(value);
+                        clientManager.send(value.getSenderId(), response);
+                    }
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -134,24 +139,6 @@ public class Server<T extends RequiresEquals> {
         consensusThread.start();
         valueHandlerThread.start();
 
-    }
-
-    private void handleDecidedValue(T value) {
-        // cast the valuse to ClientReq
-        boolean success = false;
-        if (value != null) {
-            success = true;
-            // Add to blockchain
-            blockchain.add(value);
-            Logger.LOG("Decided value: " + value);
-            Logger.DEBUG("Current blockchain: " + blockchain);
-        }
-
-        LocalDateTime timestamp = LocalDateTime.now();
-
-        // Send answer to clients
-        ClientReq decided = (ClientReq) value;
-        clientManager.send(value.getSenderId(), new ClientResp(success, timestamp, decided.getCount()));
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -197,7 +184,8 @@ public class Server<T extends RequiresEquals> {
             serversManager.startListening();
 
             // Initialize register APL
-            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys);
+            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys,
+                    userAccounts);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");

@@ -1,17 +1,17 @@
 package pt.tecnico.ulisboa.protocol;
 
+import java.math.BigInteger;
+
 // Transfer From request (e.g., for approved spending)
 public class TransferFromReq extends ClientReq {
-    // TODO: These should all be addresses
-    private String spender; // who sends the request
-    private String from; // transfer from this guy
-    private String to; // transfer to this guy
+    private int sender; // who sends the request
+    private int from; // transfer from this guy
+    private int to; // transfer to this guy
+    private BigInteger amount; // amount to transfer
 
-    private double amount; // amount to transfer
-
-    public TransferFromReq(Integer id, long count, String spender, String from, String to, double amount) {
+    public TransferFromReq(Integer id, int count, int spender, int from, int to, BigInteger amount) {
         super(id, count);
-        this.spender = spender;
+        this.sender = spender;
         this.from = from;
         this.to = to;
         this.amount = amount;
@@ -22,24 +22,25 @@ public class TransferFromReq extends ClientReq {
         return ClientReqType.TRANSFER_FROM;
     }
 
-    public String getSpender() {
-        return spender;
+    public int getSender() {
+        return sender;
     }
 
-    public String getFrom() {
+    public int getFrom() {
         return from;
     }
 
-    public String getTo() {
+    public int getTo() {
         return to;
     }
 
-    public double getAmount() {
+    public BigInteger getAmount() {
         return amount;
     }
 
     @Override
     public String toString() {
-        return String.format("TransferFromReq(id=%d, spender=%s, from=%s, to=%s, amount=%.2f, count=%d)",
-                id, spender, from, to, amount, count);}
+        return String.format("TransferFromReq(id=%d, spender=%d, from=%d, to=%d, amount=%.2f, count=%d)",
+                id, sender, from, to, amount, count);
+    }
 }

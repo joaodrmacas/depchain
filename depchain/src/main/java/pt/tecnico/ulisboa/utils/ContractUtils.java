@@ -2,19 +2,22 @@ package pt.tecnico.ulisboa.utils;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
-import pt.tecnico.ulisboa.utils.types.Logger;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
-import org.hyperledger.besu.datatypes.Address;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.crypto.Hash;
-
+import org.hyperledger.besu.datatypes.Address;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import pt.tecnico.ulisboa.utils.types.Logger;
+
 public class ContractUtils {
-    
 
     public static String padBigIntegerTo256Bit(BigInteger value) {
         return String.format("%064x", value);
@@ -46,17 +49,39 @@ public class ContractUtils {
         return String.format("%064x", bigInt);
     }
 
-    
-    public static Address generateContractAddress(Address deployerAddress) {
-        return Address.fromHexString(
-            org.web3j.crypto.Hash.sha3String(
-                deployerAddress.toHexString() + 
-                System.currentTimeMillis()
-            ).substring(0, 42)
-        );
+    public static Address generateAddressFromId(int clientId) {
+        try {
+            // Convert int to byte array (4 bytes)
+            byte[] idBytes = ByteBuffer.allocate(4).putInt(clientId).array();
+
+            // Compute Keccak-256 hash
+            MessageDigest digest = MessageDigest.getInstance("KECCAK-256");
+            byte[] hash = digest.digest(idBytes);
+
+            // Extract last 20 bytes (Ethereum address)
+            byte[] addressBytes = new byte[20];
+            System.arraycopy(hash, hash.length - 20, addressBytes, 0, 20);
+
+            // Create Besu Address object using its constructor
+            return Address.fromHexString("0x" + bytesToHex(addressBytes));
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Keccak-256 algorithm not available", e);
+        }
     }
 
-    public static String getFunctionSelector(String signature){
+    // Utility method to convert byte array to hex string
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder(2 * bytes.length);
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1)
+                hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    public static String getFunctionSelector(String signature) {
         Bytes hash = Hash.keccak256(Bytes.of(signature.getBytes()));
         return hash.slice(0, 4).toHexString(); // First 4 bytes
     }
@@ -72,21 +97,21 @@ public class ContractUtils {
         int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
 
         String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
-        return Integer.decode("0x"+returnData);
+        return Integer.decode("0x" + returnData);
     }
 
     public static BigInteger extractBigIntegerFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
-    
+
         String memory = jsonObject.get("memory").getAsString();
-    
+
         JsonArray stack = jsonObject.get("stack").getAsJsonArray();
         int offset = Integer.decode(stack.get(stack.size() - 1).getAsString());
         int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
-    
+
         String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
-        
+
         // Convert to BigInteger to handle large hex values
         return new BigInteger(returnData, 16);
     }
@@ -94,19 +119,19 @@ public class ContractUtils {
     public static boolean extractBooleanFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
-    
+
         String memory = jsonObject.get("memory").getAsString().substring(2); // Remove '0x'
-    
+
         JsonArray stack = jsonObject.get("stack").getAsJsonArray();
         int offset = Integer.decode(stack.get(stack.size() - 1).getAsString());
         int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
-    
+
         // Extract the relevant portion of memory
         String returnData = memory.substring(offset * 2, offset * 2 + size * 2);
-        
+
         // Remove leading zeros
         returnData = returnData.replaceFirst("^0+", "");
-        
+
         // Convert to boolean (any non-zero value is true)
         return !returnData.equals("0") && !returnData.isEmpty();
     }
@@ -114,10 +139,10 @@ public class ContractUtils {
     public static void checkForExecutionErrors(ByteArrayOutputStream output) {
         try {
             // Create a copy of the output stream to avoid consuming it
-            //TODO: acho que nao precisa de ser copiado
+            // TODO: acho que nao precisa de ser copiado
             ByteArrayOutputStream outputCopy = new ByteArrayOutputStream();
             outputCopy.write(output.toByteArray());
-            
+
             String[] lines = outputCopy.toString().split("\\r?\\n");
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
@@ -128,27 +153,46 @@ public class ContractUtils {
             }
         } catch (Exception e) {
             if (e instanceof RuntimeException) {
-                throw (RuntimeException)e;
+                throw (RuntimeException) e;
             }
             Logger.LOG("Error checking execution output: " + e.getMessage());
         }
     }
 
-    public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+    public static String extractHexStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
-    
+
         String memory = jsonObject.get("memory").getAsString().substring(2); // Remove '0x'
         JsonArray stack = jsonObject.get("stack").getAsJsonArray();
         int offset = Integer.decode(stack.get(stack.size() - 1).getAsString());
         int size = Integer.decode(stack.get(stack.size() - 2).getAsString());
-    
+
         // Extract the relevant portion of memory
         String returnData = memory.substring(offset * 2, offset * 2 + size * 2);
-        
+
         // Remove leading zeros
         returnData = returnData.replaceFirst("^0+", "");
-        
+
         return returnData;
+    }
+
+    public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+        String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
+        JsonObject jsonObject = JsonParser.parseString(lines[lines.length-1]).getAsJsonObject();
+
+        String memory = jsonObject.get("memory").getAsString();
+
+        JsonArray stack = jsonObject.get("stack").getAsJsonArray();
+        int offset = Integer.decode(stack.get(stack.size()-1).getAsString());
+        int size = Integer.decode(stack.get(stack.size()-2).getAsString());
+
+        String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
+
+        int stringOffset = Integer.decode("0x"+returnData.substring(0, 32 * 2));
+        int stringLength = Integer.decode("0x"+returnData.substring(stringOffset * 2, stringOffset * 2 + 32 * 2));
+        String hexString = returnData.substring(stringOffset * 2 + 32 * 2, stringOffset * 2 + 32 * 2 + stringLength * 2);
+
+        return new String(hexStringToByteArray(hexString), StandardCharsets.UTF_8);
     }
 }

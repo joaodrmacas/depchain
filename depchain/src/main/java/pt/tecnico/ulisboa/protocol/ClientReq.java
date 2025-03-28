@@ -30,6 +30,9 @@ public abstract class ClientReq extends BlockchainMessage {
         TRANSFER,
         TRANSFER_FROM,
         BLACKLIST,
-        APPROVE
+        APPROVE,
+        IS_BLACKLISTED,
+        CHECK_BALANCE,
+        GET_ALLOWANCE
     }
 }

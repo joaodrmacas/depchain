@@ -2,6 +2,12 @@ package pt.tecnico.ulisboa.utils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.io.FileReader;
+import java.io.IOException;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 
 import pt.tecnico.ulisboa.Config;
 
@@ -16,7 +22,6 @@ public class GeneralUtils {
             id2ClientPort.put(i, Config.DEFAULT_SERVER_CLIENT_SOCKETS_PORT + i);
             id2ServerPort.put(i, Config.DEFAULT_SERVER_PORT + i);
         }
-
-    }
+    }    
 
 }
