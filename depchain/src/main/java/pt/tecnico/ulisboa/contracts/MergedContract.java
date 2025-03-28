@@ -99,8 +99,6 @@ public class MergedContract extends Contract {
 
             ContractUtils.checkForExecutionErrors(output);
 
-            ContractUtils.extractStringFromReturnData(output);
-
         } catch (Exception e) {
             Logger.LOG("Error transferring tokens: " + e.getMessage());
             throw new RuntimeException("Failed to transfer tokens", e);
@@ -119,8 +117,6 @@ public class MergedContract extends Contract {
             executor.execute();
 
             ContractUtils.checkForExecutionErrors(output);
-
-            ContractUtils.extractStringFromReturnData(output);
 
         } catch (Exception e) {
             Logger.LOG("Error transferring tokens: " + e.getMessage());

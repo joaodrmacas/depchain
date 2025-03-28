@@ -1,11 +1,11 @@
 package pt.tecnico.ulisboa.contracts;
 
+import java.math.BigInteger;
 import java.util.Map;
 
+import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
-import org.apache.tuweni.bytes.Bytes;
-import java.math.BigInteger;
 
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -96,8 +96,6 @@ public class ISTCoinContract extends Contract {
             executor.code(Bytes.fromHexString(deployWithArgs));
             executor.callData(Bytes.EMPTY);
             executor.execute();
-
-            ContractUtils.extractStringFromReturnData(output);
 
             // Update to runtime bytecode
             executor.code(Bytes.fromHexString(BYTECODE));

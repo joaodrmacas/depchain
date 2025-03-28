@@ -159,7 +159,7 @@ public class ContractUtils {
         }
     }
 
-    public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+    public static String extractHexStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
         String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
         JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
 
