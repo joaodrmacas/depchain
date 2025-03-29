@@ -17,7 +17,7 @@ public class MergedContract extends Contract {
 
     public MergedContract(SimpleWorld world) {
         super(world);
-        
+
         // Method signatures for contract interactions
         METHOD_SIGNATURES = Map.of(
                 "addToBlacklist", ContractUtils.getFunctionSelector("addToBlacklist(address)"),
@@ -142,12 +142,14 @@ public class MergedContract extends Contract {
     }
 
     public BigInteger allowance(Address allower, Address allowee) {
+        // TODO: there should only be one argument (the allower)
         try {
             String encodedAllower = ContractUtils.padAddressTo256Bit(allower);
             String encodedAllowee = ContractUtils.padAddressTo256Bit(allowee);
 
             executor.sender(allower);
-            executor.callData(Bytes.fromHexString(METHOD_SIGNATURES.get("allowance") + encodedAllower + encodedAllowee));
+            executor.callData(
+                    Bytes.fromHexString(METHOD_SIGNATURES.get("allowance") + encodedAllower + encodedAllowee));
             executor.execute();
 
             ContractUtils.checkForExecutionErrors(output);

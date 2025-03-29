@@ -3,6 +3,7 @@ package pt.tecnico.ulisboa.client;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PublicKey;
@@ -16,8 +17,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import jnr.ffi.annotations.In;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
+import pt.tecnico.ulisboa.protocol.IsBlacklistedReq;
+import pt.tecnico.ulisboa.protocol.CheckBalanceReq;
+import pt.tecnico.ulisboa.protocol.GetAllowanceReq;
 import pt.tecnico.ulisboa.protocol.ApproveReq;
 import pt.tecnico.ulisboa.protocol.BlacklistReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
@@ -140,31 +145,53 @@ public class Client {
 
         try {
             switch (parts[0].toUpperCase()) {
+                case "CHECK_BALANCE":
+                    // Format: CHECK_BALANCE
+                    if (parts.length != 1) {
+                        throw new IllegalArgumentException("Invalid CHECK_BALANCE format");
+                    }
+                    req = new CheckBalanceReq(clientId, count);
+                    break;
+
+                case "IS_BLACKLISTED":
+                    // Format: IS_BLACKLISTED <address>
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("Invalid IS_BLACKLISTED format");
+                    }
+                    req = new IsBlacklistedReq(clientId, count, Integer.parseInt(parts[1]));
+                    break;
+
+                case "GET_ALLOWANCE":
+                    // Format: GET_ALLOWANCE <allower>
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("Invalid GET_ALLOWANCE format");
+                    }
+                    req = new GetAllowanceReq(clientId, count, Integer.parseInt(parts[1]));
+                    break;
+
                 case "TRANSFER":
-                    // Format: TRANSFER <from> <to> <amount>
-                    if (parts.length != 4) {
+                    // Format: TRANSFER <to> <amount>
+                    if (parts.length != 3) {
                         throw new IllegalArgumentException("Invalid TRANSFER format");
                     }
                     req = new TransferReq(
                             clientId,
                             count,
-                            parts[1],
-                            parts[2],
-                            Double.parseDouble(parts[3]));
+                            Integer.parseInt(parts[1]),
+                            new BigInteger(parts[2]));
                     break;
 
                 case "TRANSFER_FROM":
-                    // Format: TRANSFER_FROM <spender> <from> <to> <amount>
-                    if (parts.length != 5) {
+                    // Format: TRANSFER_FROM <from> <to> <amount>
+                    if (parts.length != 4) {
                         throw new IllegalArgumentException("Invalid TRANSFER_FROM format");
                     }
                     req = new TransferFromReq(
                             clientId,
                             count,
-                            parts[1],
-                            parts[2],
-                            parts[3],
-                            Double.parseDouble(parts[4]));
+                            Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2]),
+                            new BigInteger(parts[3]));
                     break;
 
                 case "BLACKLIST":
@@ -175,21 +202,20 @@ public class Client {
                     req = new BlacklistReq(
                             clientId,
                             count,
-                            parts[1],
+                            Integer.parseInt(parts[1]),
                             Boolean.parseBoolean(parts[2]));
                     break;
 
                 case "APPROVE":
-                    // Format: APPROVE <owner> <spender> <amount>
-                    if (parts.length != 4) {
+                    // Format: APPROVE <allowee> <amount>
+                    if (parts.length != 3) {
                         throw new IllegalArgumentException("Invalid APPROVE format");
                     }
                     req = new ApproveReq(
                             clientId,
                             count,
-                            parts[1],
-                            parts[2],
-                            Double.parseDouble(parts[3]));
+                            Integer.parseInt(parts[1]),
+                            new BigInteger(parts[2]));
                     break;
 
                 default:

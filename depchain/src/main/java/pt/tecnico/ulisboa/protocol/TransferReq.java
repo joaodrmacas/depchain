@@ -4,13 +4,12 @@ import java.math.BigInteger;
 
 // Transfer request
 public class TransferReq extends ClientReq {
-    private int from; // transfer from this guy
     private int to; // transfer to this guy
+ 
     private BigInteger amount; // amount to transfer
 
-    public TransferReq(Integer id, int count, int from, int to, BigInteger amount) {
-        super(id, count);
-        this.from = from;
+    public TransferReq(int senderId, Long count, int to, BigInteger amount) {
+        super(senderId, count);
         this.to = to;
         this.amount = amount;
     }
@@ -18,10 +17,6 @@ public class TransferReq extends ClientReq {
     @Override
     public ClientReqType getReqType() {
         return ClientReqType.TRANSFER;
-    }
-
-    public int getFrom() {
-        return from;
     }
 
     public int getTo() {
@@ -34,7 +29,7 @@ public class TransferReq extends ClientReq {
 
     @Override
     public String toString() {
-        return String.format("TransferReq(id=%d, from=%d, to=%d, amount=%.2f, count=%d)",
-                id, from, to, amount, count);
+        return String.format("TransferReq(senderId(from)=%d, to=%d, amount=%.2f, count=%d)",
+                senderId, to, amount, count);
     }
 }

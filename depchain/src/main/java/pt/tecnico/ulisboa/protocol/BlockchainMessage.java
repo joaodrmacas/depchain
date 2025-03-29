@@ -11,7 +11,7 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
     protected Long count;
 
 
-    public BlockchainMessage(BlockchainMessageType type, long count) {
+    public BlockchainMessage(BlockchainMessageType type, Long count) {
         this.type = type;
         this.count = count;
     }

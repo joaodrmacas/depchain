@@ -3,18 +3,19 @@ package pt.tecnico.ulisboa.protocol;
 public abstract class ClientReq extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
 
-    protected Integer id;
+    protected int senderId;
     protected String signature;
 
-    public ClientReq(Integer id, long count) {
+    public ClientReq(int senderId, Long count) {
         super(BlockchainMessageType.CLIENT_REQ, count);
-        this.id = id;
+        this.senderId = senderId;
     }
 
     public abstract ClientReqType getReqType();
 
-    public Integer getId() {
-        return id;
+    @Override
+    public int getSenderId() {
+        return senderId;
     }
 
     public String getSignature() {

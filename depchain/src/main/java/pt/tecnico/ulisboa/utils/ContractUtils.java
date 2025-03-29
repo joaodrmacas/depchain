@@ -17,7 +17,6 @@ import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
-import org.web3j.utils.Numeric;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -27,6 +26,7 @@ import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.server.Block;
+import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.contracts.Contract;
 
 
@@ -202,7 +202,7 @@ public class ContractUtils {
         }
 
         JsonArray txArray = new JsonArray();
-        for (ClientReq tx : block.getTransactions()) {
+        for (Transaction tx : block.getTransactions()) {
             txArray.add(tx.toString());
         }
         rootObj.add("transactions", txArray);

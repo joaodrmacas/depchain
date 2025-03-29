@@ -66,9 +66,9 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
 
     @SuppressWarnings("unchecked")
     public void handleClientRequest(ClientReq message) {
-        PublicKey clientKU = clientKus.get(message.getId());
+        PublicKey clientKU = clientKus.get(message.getSenderId());
         if (clientKU == null) {
-            Logger.LOG("Client key not found for id: " + message.getId());
+            Logger.LOG("Client key not found for id: " + message.getSenderId());
             return;
         }
         if (!CryptoUtils.verifySignature(message.toString(), message.getSignature(), clientKU)) {

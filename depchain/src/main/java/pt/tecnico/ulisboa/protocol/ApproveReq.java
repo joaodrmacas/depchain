@@ -4,13 +4,11 @@ import java.math.BigInteger;
 
 // Approve request to grant spending allowance
 public class ApproveReq extends ClientReq {
-    private int allower; // this guy approves the spending
-    private int allowee; // this guy is allowed to spend
+    private int allowee; // this guy is allowed to spend by the sender of the request
     private BigInteger amount; // amount to allow
 
-    public ApproveReq(Integer id, int count, int allower, int allowee, BigInteger amount) {
-        super(id, count);
-        this.allower = allower;
+    public ApproveReq(int senderId, Long count, int allowee, BigInteger amount) {
+        super(senderId, count);
         this.allowee = allowee;
         this.amount = amount;
     }
@@ -18,10 +16,6 @@ public class ApproveReq extends ClientReq {
     @Override
     public ClientReqType getReqType() {
         return ClientReqType.APPROVE;
-    }
-
-    public int getAllower() {
-        return allower;
     }
 
     public int getAllowee() {
@@ -34,7 +28,7 @@ public class ApproveReq extends ClientReq {
 
     @Override
     public String toString() {
-        return String.format("ApproveReq(id=%d, allower=%d, allowee=%d, amount=%.2f, count=%d)",
-                id, allower, allowee, amount, count);
+        return String.format("ApproveReq(senderId(allower)=%d, allowee=%d, amount=%.2f, count=%d)",
+                senderId, allowee, amount, count);
     }
 }
