@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.server;
 
 import java.security.PublicKey;
 import java.util.Queue;

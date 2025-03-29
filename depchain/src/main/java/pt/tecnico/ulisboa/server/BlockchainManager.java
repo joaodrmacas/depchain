@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.server;
 
 import java.math.BigInteger;
 import java.time.LocalDateTime;
@@ -7,6 +7,9 @@ import java.util.Map;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
+
+import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.contracts.Contract;
 
 import pt.tecnico.ulisboa.contracts.MergedContract;
 import pt.tecnico.ulisboa.protocol.ApproveReq;
@@ -22,19 +25,21 @@ import pt.tecnico.ulisboa.protocol.TransferReq;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class BlockchainManager<T> {
-    private Address admin;
+    private Account adminAccount;
     private SimpleWorld world;
     private MergedContract mergedContract;
     private ArrayList<Block> blockchain;
+    private Block currentBlock;
 
-    // map of client ids to their respecetive addresses
-    private Map<Integer, Address> clientAddresses;
+    // map of client ids to their respective addresses
+    private Map<Address, Contract> contracts;
+    private Map<Integer, Account> clientAccounts;
 
     public BlockchainManager() {
         this.world = new SimpleWorld();
-        this.clientAddresses = Config.CLIENT_ID_2_ADDR;
-        this.admin = clientAddresses.get(Config.ADMIN_ID);
-        this.mergedContract = new MergedContract(world);
+        this.clientAccounts = Config.CLIENT_ID_2_ADDR; // TODO: change this to read genesis block
+        this.adminAccount = clientAccounts.get(Config.ADMIN_ID);
+        this.mergedContract = new MergedContract(world); // TODO: change this to read genesis block
     }
 
     public ClientResp handleDecidedValue(final T value) {
@@ -70,17 +75,18 @@ public class BlockchainManager<T> {
                     System.out.println("Invalid request type");
                     return new ClientResp(false, null, "Invalid request type.");
             }
+            addTransactionToBlock(new Transaction(decided));
         } catch (Exception e) {
             Logger.LOG("Failed to handle decided value: " + e.getMessage());
             return new ClientResp(false, null, "Failed to handle decided value: " + e.getMessage());
         }
     }
 
-    // these methods will not change the blockchain state
+    // ######### These methods will not change the blockchain state #########
     private ClientResp handleIsBlackListed(IsBlacklistedReq req) {
         try {
-            Address sender = clientAddresses.get(req.getSender());
-            Address toCheck = clientAddresses.get(req.getToCheck());
+            Address sender = clientAccounts.get(req.getSender()).getAddress();
+            Address toCheck = clientAccounts.get(req.getToCheck()).getAddress();
 
             boolean isBlacklisted = mergedContract.isBlacklisted(sender, toCheck);
 
@@ -94,7 +100,7 @@ public class BlockchainManager<T> {
 
     private ClientResp handleCheckBalance(CheckBalanceReq req) {
         try {
-            Address client = clientAddresses.get(req.getAccount());
+            Address client = clientAccounts.get(req.getAccount()).getAddress();
             BigInteger balance = mergedContract.balanceOf(client);
 
             return new ClientResp(true, LocalDateTime.now(),
@@ -107,8 +113,8 @@ public class BlockchainManager<T> {
 
     private ClientResp handleGetAllowance(GetAllowanceReq req) {
         try {
-            Address allower = clientAddresses.get(req.getAllower());
-            Address allowee = clientAddresses.get(req.getAllowee());
+            Address allower = clientAccounts.get(req.getAllower()).getAddress();
+            Address allowee = clientAccounts.get(req.getAllowee()).getAddress();
 
             BigInteger allowance = mergedContract.allowance(allower, allowee);
 
@@ -120,11 +126,11 @@ public class BlockchainManager<T> {
         }
     }
 
-    // these methods will change the blockchain state
+    // ########## These methods will change the blockchain state ##########
     private ClientResp handleTransfer(TransferReq req) {
         try {
-            Address from = clientAddresses.get(req.getFrom());
-            Address to = clientAddresses.get(req.getTo());
+            Address from = clientAccounts.get(req.getFrom()).getAddress();
+            Address to = clientAccounts.get(req.getTo()).getAddress();
 
             mergedContract.transfer(from, to, req.getAmount());
 
@@ -138,9 +144,9 @@ public class BlockchainManager<T> {
 
     private ClientResp handleTransferFrom(TransferFromReq req) {
         try {
-            Address sender = clientAddresses.get(req.getSender());
-            Address from = clientAddresses.get(req.getFrom());
-            Address to = clientAddresses.get(req.getTo());
+            Address sender = clientAccounts.get(req.getSender()).getAddress();
+            Address from = clientAccounts.get(req.getFrom()).getAddress();
+            Address to = clientAccounts.get(req.getTo()).getAddress();
 
             mergedContract.transferFrom(sender, from, to, req.getAmount());
 
@@ -154,8 +160,8 @@ public class BlockchainManager<T> {
 
     private ClientResp handleBlacklist(BlacklistReq req) {
         try {
-            Address sender = clientAddresses.get(req.getSender());
-            Address toBlacklist = clientAddresses.get(req.getToBlacklist());
+            Address sender = clientAccounts.get(req.getSender()).getAddress();
+            Address toBlacklist = clientAccounts.get(req.getToBlacklist()).getAddress();
 
             if (req.isToBlacklist()) {
                 mergedContract.addToBlacklist(sender, toBlacklist);
@@ -176,8 +182,8 @@ public class BlockchainManager<T> {
 
     private ClientResp handleApprove(ApproveReq req) {
         try {
-            Address allower = clientAddresses.get(req.getAllower());
-            Address allowee = clientAddresses.get(req.getAllowee());
+            Address allower = clientAccounts.get(req.getAllower()).getAddress();
+            Address allowee = clientAccounts.get(req.getAllowee()).getAddress();
 
             mergedContract.approve(allower, allowee, req.getAmount());
 
@@ -190,14 +196,13 @@ public class BlockchainManager<T> {
         }
     }
 
-    private void addTransaction(ClientReq req) {
-        Block lastBlock = blockchain.get(blockchain.size() - 1);
-        if (lastBlock.isFull()) {
-            String lastBlockHash = lastBlock.finalizeBlock(world);
-            lastBlock = new Block(lastBlockHash);
-            blockchain.add(lastBlock);
+    private void addTransactionToBlock(Transaction req) {
+        currentBlock.appendTransaction(req);
+        if (currentBlock.isFull()) {
+            currentBlock.finalizeBlock(world);
+            blockchain.add(currentBlock);
+            String prev_hash = currentBlock.getBlockHash();
+            currentBlock = new Block(prev_hash);
         }
-        lastBlock.appendTransaction(req);
     }
-
 }

@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.server;
 
 import org.hyperledger.besu.datatypes.Address;
 

@@ -25,7 +25,7 @@ public class IsBlacklistedReq extends ClientReq {
 
     @Override
     public String toString() {
-        return String.format("IsBlacklistedReq(sender=%d, id=%d, toCheck=%d, count=%d)",
-                sender, id, toCheck, count);
+        return String.format("IsBlacklistedReq(id=%d, sender=%d, toCheck=%d, count=%d)",
+                id, sender, toCheck, count);
     }
 }

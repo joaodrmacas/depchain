@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.Server;
 import pt.tecnico.ulisboa.consensus.message.AcceptMessage;
 import pt.tecnico.ulisboa.consensus.message.CollectedMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
@@ -19,6 +18,7 @@ import pt.tecnico.ulisboa.consensus.message.NewEpochMessage;
 import pt.tecnico.ulisboa.consensus.message.ReadMessage;
 import pt.tecnico.ulisboa.consensus.message.StateMessage;
 import pt.tecnico.ulisboa.consensus.message.WriteMessage;
+import pt.tecnico.ulisboa.server.Server;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 

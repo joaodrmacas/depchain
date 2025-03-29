@@ -16,6 +16,9 @@ import pt.tecnico.ulisboa.Config;
 
 public abstract class Contract {
 
+    private String RUNTIME_CODE;
+    private String DEPLOY_CODE;
+
     protected static Map<String, String> METHOD_SIGNATURES;
 
     protected final Address contractAddress;
@@ -51,6 +54,14 @@ public abstract class Contract {
 
     public Address getAddress() {
         return contractAddress;
+    }
+
+    public String getRuntimeCode() {
+        return RUNTIME_CODE;
+    }
+
+    public String getDeployCode() {
+        return DEPLOY_CODE;
     }
 
     public abstract void deploy(Object... args);

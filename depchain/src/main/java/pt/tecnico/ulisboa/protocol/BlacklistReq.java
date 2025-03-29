@@ -31,8 +31,8 @@ public class BlacklistReq extends ClientReq {
 
     @Override
     public String toString() {
-        return String.format("BlacklistReq(sender=%d, id=%d, address=%d, blacklist=%b, count=%d)",
-                sender, id, toBlacklist, blacklist, count);
+        return String.format("BlacklistReq(id=%d, sender=%d, address=%d, blacklist=%b, count=%d)",
+                id, sender, toBlacklist, blacklist, count);
     }
 
 }

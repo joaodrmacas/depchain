@@ -3,19 +3,32 @@ package pt.tecnico.ulisboa.utils;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Set;
+import java.util.Map;
+import java.util.List;
+
+import org.web3j.crypto.Hash;
+import org.web3j.utils.Numeric;
 
 import org.apache.tuweni.bytes.Bytes;
-import org.apache.tuweni.crypto.Hash;
+import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.fluent.SimpleWorld;
+import org.web3j.utils.Numeric;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.protocol.ClientReq;
+import pt.tecnico.ulisboa.server.Account;
+import pt.tecnico.ulisboa.server.Block;
+import pt.tecnico.ulisboa.contracts.Contract;
+
 
 public class ContractUtils {
 
@@ -177,22 +190,122 @@ public class ContractUtils {
         return returnData;
     }
 
-    public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
-        String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
-        JsonObject jsonObject = JsonParser.parseString(lines[lines.length-1]).getAsJsonObject();
+    public static void worldToJson(SimpleWorld world, Block block, Map<Address, Account> clientAccounts, Map<Address, Contract> contracts) {
+        
+        JsonObject rootObj = new JsonObject();
+        
+        rootObj.addProperty("block_hash", block.getBlockHash());
+        if (block.getPrevHash() != null) {
+            rootObj.addProperty("previous_block_hash", block.getPrevHash());
+        } else {
+            rootObj.add("previous_block_hash", null);
+        }
 
-        String memory = jsonObject.get("memory").getAsString();
+        JsonArray txArray = new JsonArray();
+        for (ClientReq tx : block.getTransactions()) {
+            txArray.add(tx.toString());
+        }
+        rootObj.add("transactions", txArray);
 
-        JsonArray stack = jsonObject.get("stack").getAsJsonArray();
-        int offset = Integer.decode(stack.get(stack.size()-1).getAsString());
-        int size = Integer.decode(stack.get(stack.size()-2).getAsString());
+        JsonObject stateObj = new JsonObject();
+        for (Map.Entry<Address, Account> entry : clientAccounts.entrySet()) {
+            Address addr = entry.getKey();
+            Account account = entry.getValue();
+            JsonObject accountObj = new JsonObject();
+            accountObj.addProperty("balance", account.getBalance());
+            stateObj.add(addr.toHexString(), accountObj);
+        }
 
-        String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
+        for (Map.Entry<Address, Contract> entry : contracts.entrySet()) {
+            Address addr = entry.getKey();
+            Contract contract = entry.getValue();
+            MutableAccount contractAccount = (MutableAccount) world.get(addr);
+            JsonObject contractObj = new JsonObject();
+            contractObj.addProperty("balance", contractAccount.getBalance().getValue()); //TODO: hardcoded value
+            contractObj.addProperty("deploy_code", contract.getDeployCode());  
+            contractObj.addProperty("runtime_code", contract.getRuntimeCode());
+            
+            //Get dump
+            JsonObject dump = dumpContractStorage(world, addr, clientAccounts.keySet().stream().toList());
+            contractObj.addProperty("storage", dump.toString());
+            stateObj.add(addr.toHexString(), contractObj);
+        }
 
-        int stringOffset = Integer.decode("0x"+returnData.substring(0, 32 * 2));
-        int stringLength = Integer.decode("0x"+returnData.substring(stringOffset * 2, stringOffset * 2 + 32 * 2));
-        String hexString = returnData.substring(stringOffset * 2 + 32 * 2, stringOffset * 2 + 32 * 2 + stringLength * 2);
 
-        return new String(hexStringToByteArray(hexString), StandardCharsets.UTF_8);
+
+
     }
+
+    //TODO: confirmar isto
+    public static JsonObject dumpContractStorage(SimpleWorld world, Address contractAddress, List<Address> clientAddresses) {
+        // Get the contract account
+        MutableAccount contractAccount = (MutableAccount) world.get(contractAddress);
+        
+        JsonObject result = new JsonObject();
+        result.addProperty("contract", contractAddress.toHexString());
+        
+        // Regular slots
+        JsonObject regularSlots = new JsonObject();
+        for (int i = 0; i < 100; i++) {
+            UInt256 slot = UInt256.valueOf(i);
+            UInt256 value = contractAccount.getStorageValue(slot);
+            
+            if (!value.isZero()) {
+                regularSlots.addProperty(String.valueOf(i), value.toHexString());
+            }
+        }
+        result.add("regularSlots", regularSlots);
+        
+        // Mapping slots
+        JsonObject mappingSlots = new JsonObject();
+        String mappingSlot = "1"; // Base slot of the mapping
+        
+        for (Address addr : clientAddresses) {
+            // Calculate mapping slot: keccak256(key + mappingSlot)
+            String paddedAddr = padHexStringTo256Bit(addr.toHexString());
+            String paddedSlot = padHexStringTo256Bit(mappingSlot);
+            String computedSlot = Numeric.toHexStringNoPrefix(
+                Hash.sha3(Numeric.hexStringToByteArray(paddedAddr + paddedSlot))
+            );
+            
+            UInt256 mappingKeySlot = UInt256.fromHexString(computedSlot);
+            UInt256 value = contractAccount.getStorageValue(mappingKeySlot);
+            
+            if (!value.isZero()) {
+                JsonObject mappingEntry = new JsonObject();
+                mappingEntry.addProperty("slot", computedSlot);
+                mappingEntry.addProperty("value", value.toHexString());
+                mappingSlots.add(addr.toHexString(), mappingEntry);
+            }
+        }
+        result.add("mappingSlots", mappingSlots);
+        
+        // Add contract metadata
+        JsonObject metadata = new JsonObject();
+        metadata.addProperty("codeHash", contractAccount.getCodeHash().toHexString());
+        metadata.addProperty("balance", contractAccount.getBalance().toHexString());
+        metadata.addProperty("nonce", contractAccount.getNonce());
+        result.add("metadata", metadata);
+        
+        return result;
+    }
+
+    // public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
+    //     String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
+    //     JsonObject jsonObject = JsonParser.parseString(lines[lines.length-1]).getAsJsonObject();
+
+    //     String memory = jsonObject.get("memory").getAsString();
+
+    //     JsonArray stack = jsonObject.get("stack").getAsJsonArray();
+    //     int offset = Integer.decode(stack.get(stack.size()-1).getAsString());
+    //     int size = Integer.decode(stack.get(stack.size()-2).getAsString());
+
+    //     String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
+
+    //     int stringOffset = Integer.decode("0x"+returnData.substring(0, 32 * 2));
+    //     int stringLength = Integer.decode("0x"+returnData.substring(stringOffset * 2, stringOffset * 2 + 32 * 2));
+    //     String hexString = returnData.substring(stringOffset * 2 + 32 * 2, stringOffset * 2 + 32 * 2 + stringLength * 2);
+
+    //     return new String(hexStringToByteArray(hexString), StandardCharsets.UTF_8);
+    // }
 }

@@ -40,7 +40,7 @@ public class TransferFromReq extends ClientReq {
 
     @Override
     public String toString() {
-        return String.format("TransferFromReq(id=%d, spender=%d, from=%d, to=%d, amount=%.2f, count=%d)",
+        return String.format("TransferFromReq(id=%d, sender=%d, from=%d, to=%d, amount=%.2f, count=%d)",
                 id, sender, from, to, amount, count);
     }
 }

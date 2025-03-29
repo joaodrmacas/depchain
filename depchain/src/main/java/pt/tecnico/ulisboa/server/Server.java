@@ -1,4 +1,4 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.server;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
@@ -29,12 +30,11 @@ import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientResp;
+import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
-
-import pt.tecnico.ulisboa.Account;
 
 public class Server<T extends RequiresEquals> {
     private int nodeId;

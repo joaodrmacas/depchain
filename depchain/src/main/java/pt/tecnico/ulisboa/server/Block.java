@@ -1,22 +1,22 @@
-package pt.tecnico.ulisboa;
+package pt.tecnico.ulisboa.server;
 
 import java.util.List;
 import java.util.ArrayList;
 
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
-import pt.tecnico.ulisboa.protocol.ClientReq;
 
+import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
-
-
 
 public class Block {
 
     private final String prevHash;
     private String blockHash;
-    private List<ClientReq> transactions = new ArrayList<>();
+    private List<Transaction> transactions = new ArrayList<>();
     private int transactionCount = 0;
-    private State state;
+    private SimpleWorld state;
+    private int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
 
     public Block(String prevHash) {
         this.prevHash = prevHash;
@@ -29,18 +29,25 @@ public class Block {
     public Block(String blockHash, SimpleWorld state) {
         this.prevHash = null;
         this.blockHash = blockHash;
-        this.state = new State(state);
+        this.state = state;
     }
 
     public String finalizeBlock(SimpleWorld state) {
-        //TODO: verificar se faz bem a hash disto
-        this.blockHash = CryptoUtils.hashSHA256(transactions.toString().getBytes());
-        this.state = new State(state);
+        // TODO: massas ve se achas que isto ta bem
+        StringBuilder blockData = new StringBuilder();
+        blockData.append(prevHash != null ? prevHash : ""); // Include previous block hash
+        for (Transaction tx : transactions) {
+            blockData.append(tx.toString()); // Include all transactions
+        }
+        blockData.append(state != null ? state.toString() : ""); // Include state if available
+
+        this.blockHash = CryptoUtils.hashSHA256(blockData.toString().getBytes());
+        this.state = state;
         return blockHash;
     }
 
-    public void appendTransaction(ClientReq transaction) {
-        if (transactionCount >= Config.MAX_TX_PER_BLOCK){
+    public void appendTransaction(Transaction transaction) {
+        if (transactionCount >= maxTxPerBlock) {
             throw new IllegalStateException("Block is full");
         }
         transactionCount++;
@@ -48,7 +55,7 @@ public class Block {
     }
 
     public boolean isFull() {
-        return transactionCount >= Config.MAX_TX_PER_BLOCK;
+        return transactionCount >= maxTxPerBlock;
     }
 
     public int getTransactionCount() {
@@ -63,11 +70,11 @@ public class Block {
         return blockHash;
     }
 
-    public List<ClientReq> getTransactions() {
+    public List<Transaction> getTransactions() {
         return transactions;
     }
 
-    public State getState() {
+    public SimpleWorld getState() {
         return state;
     }
 

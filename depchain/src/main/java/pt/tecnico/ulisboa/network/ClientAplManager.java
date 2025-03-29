@@ -9,13 +9,13 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.ServerMessageHandler;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
+import pt.tecnico.ulisboa.server.Account;
+import pt.tecnico.ulisboa.server.ServerMessageHandler;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
-import pt.tecnico.ulisboa.Account;
 
 public class ClientAplManager<T extends RequiresEquals> extends AplManager {
 
