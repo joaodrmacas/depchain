@@ -2,7 +2,6 @@ package pt.tecnico.ulisboa;
 
 import java.util.HashMap;
 
-import org.apache.tuweni.crypto.Hash;
 import org.hyperledger.besu.datatypes.Address;
 
 public class Config {

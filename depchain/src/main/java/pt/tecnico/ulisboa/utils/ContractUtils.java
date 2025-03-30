@@ -3,16 +3,16 @@ package pt.tecnico.ulisboa.utils;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Set;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.List;
 
 import org.web3j.crypto.Hash;
 import org.web3j.utils.Numeric;
 
-import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.account.MutableAccount;
@@ -23,7 +23,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.server.Block;
 import pt.tecnico.ulisboa.server.Transaction;
@@ -95,8 +94,8 @@ public class ContractUtils {
     }
 
     public static String getFunctionSelector(String signature) {
-        Bytes hash = Hash.keccak256(Bytes.of(signature.getBytes()));
-        return hash.slice(0, 4).toHexString(); // First 4 bytes
+        byte[] hash = Hash.sha3(signature.getBytes(StandardCharsets.UTF_8));
+        return Numeric.toHexString(Arrays.copyOfRange(hash, 0, 4)); // First 4 bytes
     }
 
     public static int extractIntegerFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
