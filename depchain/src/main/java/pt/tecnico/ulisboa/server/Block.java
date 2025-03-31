@@ -11,39 +11,45 @@ import pt.tecnico.ulisboa.utils.CryptoUtils;
 
 public class Block {
 
+    private final int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
+
+    private final Integer blockId;
     private final String prevHash;
     private String blockHash;
     private List<Transaction> transactions = new ArrayList<>();
     private int transactionCount = 0;
-    private SimpleWorld state;
-    private int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
+    
+    //constructor to load a already existing block
+    public Block(String prevHash, Integer blockId, String blockHash, List<Transaction> transactions) {
+        this.blockId = blockId;
+        this.prevHash = prevHash;
+        this.blockHash = blockHash;
+        this.transactions = transactions;
+    }
 
-    public Block(String prevHash) {
+    //constructor for a new block
+    public Block(String prevHash, Integer blockId) {
+        this.blockId = blockId;
         this.prevHash = prevHash;
         this.blockHash = null;
         this.transactions = null;
-        this.state = null;
     }
-
+    
     // constructor for genesis block
-    public Block(String blockHash, SimpleWorld state) {
+    public Block() {
+        this.blockId = 0;
         this.prevHash = null;
-        this.blockHash = blockHash;
-        this.state = state;
+        this.blockHash = CryptoUtils.hashSHA256("".getBytes());
     }
 
-    public String finalizeBlock(SimpleWorld state) {
-        // TODO: massas ve se achas que isto ta bem
-        StringBuilder blockData = new StringBuilder();
-        blockData.append(prevHash != null ? prevHash : ""); // Include previous block hash
-        for (Transaction tx : transactions) {
-            blockData.append(tx.toString()); // Include all transactions
-        }
-        blockData.append(state != null ? state.toString() : ""); // Include state if available
 
+    public void finalizeBlock() {
+        StringBuilder blockData = new StringBuilder();
+        blockData.append(prevHash != null ? prevHash : "");
+        for (Transaction tx : transactions) {
+            blockData.append(tx.toString()); 
+        }
         this.blockHash = CryptoUtils.hashSHA256(blockData.toString().getBytes());
-        this.state = state;
-        return blockHash;
     }
 
     public void appendTransaction(Transaction transaction) {
@@ -66,16 +72,16 @@ public class Block {
         return prevHash;
     }
 
-    public String getBlockHash() {
+    public String getHash() {
         return blockHash;
+    }
+
+    public Integer getId() {
+        return blockId;
     }
 
     public List<Transaction> getTransactions() {
         return transactions;
-    }
-
-    public SimpleWorld getState() {
-        return state;
     }
 
 }

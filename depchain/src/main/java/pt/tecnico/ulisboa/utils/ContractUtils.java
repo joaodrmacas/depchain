@@ -18,6 +18,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.fluent.SimpleAccount;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
 import org.web3j.crypto.Hash;
 import org.web3j.utils.Numeric;
@@ -25,6 +26,7 @@ import org.web3j.utils.Numeric;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonElement;
 
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.server.Block;
@@ -199,125 +201,4 @@ public class ContractUtils {
         }
         return account;
     }
-
-    //TODO: deixei isto para quando tivermos as 
-    public static void worldToJson(SimpleWorld world, Block block, Map<Address, Account> clientAccounts, Map<Address, Contract> contracts) {
-        
-        JsonObject rootObj = new JsonObject();
-        
-        rootObj.addProperty("block_hash", block.getBlockHash());
-        if (block.getPrevHash() != null) {
-            rootObj.addProperty("previous_block_hash", block.getPrevHash());
-        } else {
-            rootObj.add("previous_block_hash", null);
-        }
-
-        JsonArray txArray = new JsonArray();
-        for (Transaction tx : block.getTransactions()) {
-            txArray.add(tx.toJson());
-        }
-        rootObj.add("transactions", txArray);
-
-        JsonObject stateObj = new JsonObject();
-
-        // Iterate through all accounts in the world
-        Collection<SimpleAccount> simpleAccount = (Collection<SimpleAccount>) world.getTouchedAccounts();
-        for (SimpleAccount account : simpleAccount) {
-            JsonObject accountJson = new JsonObject();
-            
-            // Add balance
-            accountJson.addProperty("balance", account.getBalance().toString());
-            
-            // If it's a contract account, add code and storage
-            if (account.getCode() != Bytes.EMPTY) {
-                accountJson.addProperty("code", "0x" + account.getCode().toHexString());
-                
-                // Add storage
-                JsonObject storageJson = new JsonObject();
-                
-                Map<UInt256, UInt256> storage = account.getUpdatedStorage();
-
-                for (Map.Entry<UInt256, UInt256> entry : storage.entrySet()) {
-                    UInt256 slot = entry.getKey();
-                    UInt256 value = entry.getValue();
-                    
-                    if (!value.isZero()) {
-                        storageJson.addProperty(slot.toHexString(), value.toHexString());
-                    }
-                }
-                processStorageMappings(mutableAccount, storageJson, addresses);
-                
-                accountJson.add("storage", storageJson);
-            }
-            
-            stateJson.add(address.toHexString(), accountJson);
-        }
-
-    }
-
-    //TODO: confirmar isto
-    public static JsonObject dumpContractStorage(SimpleWorld world, Address contractAddress, List<Address> clientAddresses) {
-        // Get the contract account
-        MutableAccount contractAccount = (MutableAccount) world.get(contractAddress);
-        
-        JsonObject result = new JsonObject();
-        result.addProperty("contract", contractAddress.toHexString());
-        
-        // Regular slots
-        JsonObject regularSlots = new JsonObject();
-        for (int i = 0; i < 100; i++) {
-            UInt256 slot = UInt256.valueOf(i);
-            UInt256 value = contractAccount.getStorageValue(slot);
-            
-            if (!value.isZero()) {
-                regularSlots.addProperty(String.valueOf(i), value.toHexString());
-            }
-        }
-        result.add("regularSlots", regularSlots);
-        
-        // Mapping slots
-        JsonObject mappingSlots = new JsonObject();
-        String mappingSlot = "1"; // Base slot of the mapping
-        
-        for (Address addr : clientAddresses) {
-            // Calculate mapping slot: keccak256(key + mappingSlot)
-            String paddedAddr = padHexStringTo256Bit(addr.toHexString());
-            String paddedSlot = padHexStringTo256Bit(mappingSlot);
-            String computedSlot = Numeric.toHexStringNoPrefix(
-                Hash.sha3(Numeric.hexStringToByteArray(paddedAddr + paddedSlot))
-            );
-            
-            UInt256 mappingKeySlot = UInt256.fromHexString(computedSlot);
-            UInt256 value = contractAccount.getStorageValue(mappingKeySlot);
-            
-            if (!value.isZero()) {
-                JsonObject mappingEntry = new JsonObject();
-                mappingEntry.addProperty("slot", computedSlot);
-                mappingEntry.addProperty("value", value.toHexString());
-                mappingSlots.add(addr.toHexString(), mappingEntry);
-            }
-        }
-        result.add("mappingSlots", mappingSlots);
-        
-        return result;
-    }
-
-    // public static String extractStringFromReturnData(ByteArrayOutputStream byteArrayOutputStream) {
-    //     String[] lines = byteArrayOutputStream.toString().split("\\r?\\n");
-    //     JsonObject jsonObject = JsonParser.parseString(lines[lines.length-1]).getAsJsonObject();
-
-    //     String memory = jsonObject.get("memory").getAsString();
-
-    //     JsonArray stack = jsonObject.get("stack").getAsJsonArray();
-    //     int offset = Integer.decode(stack.get(stack.size()-1).getAsString());
-    //     int size = Integer.decode(stack.get(stack.size()-2).getAsString());
-
-    //     String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
-
-    //     int stringOffset = Integer.decode("0x"+returnData.substring(0, 32 * 2));
-    //     int stringLength = Integer.decode("0x"+returnData.substring(stringOffset * 2, stringOffset * 2 + 32 * 2));
-    //     String hexString = returnData.substring(stringOffset * 2 + 32 * 2, stringOffset * 2 + 32 * 2 + stringLength * 2);
-
-    //     return new String(hexStringToByteArray(hexString), StandardCharsets.UTF_8);
-    // }
 }

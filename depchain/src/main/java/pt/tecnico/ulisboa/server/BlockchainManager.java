@@ -27,6 +27,7 @@ import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
 import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.protocol.ContractCallReq;
+import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
@@ -35,23 +36,33 @@ public class BlockchainManager<T> {
 
     private ArrayList<Block> blockchain;
     private Block currentBlock;
+    BlockchainPersistenceManager persistenceManager;
 
     // map of client ids to their respective addresses
-    private Map<Address, Address> contracts = new HashMap<>();
     private Map<Integer, Address> clientAddresses;
-
     private final EVMExecutor executor;
     private final ByteArrayOutputStream output;
 
     public BlockchainManager() {
-        this.world = new SimpleWorld();
-
-        // TODO: change this to read genesis block
-        this.clientAddresses = Config.CLIENT_ID_2_ADDR;
+        this.persistenceManager = new BlockchainPersistenceManager();
+        //TODO: talvez tirar tanto codigo daqui? e meter um init blockchain or soemthign
+        try {
+            //TODO: talvez mudar para isto depois
+            //this.world = persistenceManager.loadBlockchain(blockchain);
+            
+            this.world = persistenceManager.loadGenesisBlock(blockchain);
+            Block lastBlock = blockchain.get(blockchain.size() - 1);
+            this.currentBlock = new Block(lastBlock.getHash(), lastBlock.getId() + 1);
+            this.clientAddresses = Config.CLIENT_ID_2_ADDR;
+        } catch (Exception e) {
+            Logger.LOG("Failed to load blockchain: " + e.getMessage());
+            this.world = new SimpleWorld();
+            this.blockchain = new ArrayList<>();
+            this.currentBlock = new Block();
+        } 
 
         this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
         this.output = new ByteArrayOutputStream();
-
         executor.tracer(new StandardJsonTracer(new PrintStream(output), true, true, true, true));
         executor.worldUpdater(world.updater());
         executor.commitWorldState();
@@ -147,39 +158,15 @@ public class BlockchainManager<T> {
         }
     }
 
-    public void addContract(Address addr, String deployCode, String byteCode) {
-        this.world.createAccount(addr, 0, Wei.fromEth(0));
-
-        try {
-            executor.code(Bytes.fromHexString(deployCode));
-            executor.callData(Bytes.EMPTY);
-            executor.execute();
-
-            ContractUtils.checkForExecutionErrors(this.output);
-
-            // Update to runtime bytecode (@carrao mudei isto para o code ficar na conta do
-            // contrato, nao sei se isto vai dar merda)
-            // TODO: testar pode dar merda
-            SimpleAccount account = (SimpleAccount) world.getAccount(addr);
-            account.setCode(Bytes.fromHexString(byteCode));
-
-            Logger.LOG("Merged contract deployed successfully");
-        } catch (Exception e) {
-            Logger.LOG("Failed to deploy Merged contract: " + e.getMessage());
-            throw new RuntimeException("Deployment failed", e);
-        }
-
-        contracts.put(addr, addr);
-    }
-
     private void addTransactionToBlock(Transaction req) {
         currentBlock.appendTransaction(req);
         if (currentBlock.isFull()) {
-            currentBlock.finalizeBlock(world);
+            currentBlock.finalizeBlock();
             blockchain.add(currentBlock);
-            String prev_hash = currentBlock.getBlockHash();
+            String prev_hash = currentBlock.getHash();
             currentBlock = new Block(prev_hash);
         }
     }
+
 
 }

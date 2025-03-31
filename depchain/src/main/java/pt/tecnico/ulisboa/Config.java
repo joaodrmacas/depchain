@@ -29,6 +29,7 @@ public class Config {
     public final static int DEFAULT_SERVER_PORT = 8080;
 
     public final static String GENESIS_BLOCK_PATH = "genesis_block.json";
+    public final static String BLOCK_DIRPATH = "blocks";
     public static final int BLOCK_SIZE = 5; // TODO: change this value?
     public static final int ADMIN_ID = -1;
     public static final String MERGED_CONTRACT_ADDRESS = "0x123123123123";
