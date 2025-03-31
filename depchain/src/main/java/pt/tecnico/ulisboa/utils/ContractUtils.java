@@ -17,13 +17,13 @@ import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
+import org.hyperledger.besu.evm.account.Account;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.server.Block;
 import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.contracts.Contract;
@@ -189,6 +189,15 @@ public class ContractUtils {
         return returnData;
     }
 
+    public static Account getAccountFromAddress(SimpleWorld world, Address address) {
+        Account account = world.get(address);
+        if (account == null) {
+            throw new RuntimeException("Account not found for address: " + address.toHexString());
+        }
+        return account;
+    }
+
+    //TODO: deixei isto para quando tivermos as 
     public static void worldToJson(SimpleWorld world, Block block, Map<Address, Account> clientAccounts, Map<Address, Contract> contracts) {
         
         JsonObject rootObj = new JsonObject();

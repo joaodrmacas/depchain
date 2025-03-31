@@ -1,6 +1,6 @@
 package pt.tecnico.ulisboa.protocol;
 
-public abstract class ClientReq extends BlockchainMessage {
+public abstract class extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
 
     protected int senderId;
@@ -34,7 +34,6 @@ public abstract class ClientReq extends BlockchainMessage {
         APPROVE,
         IS_BLACKLISTED,
         CHECK_BALANCE,
-        GET_ALLOWANCE,
-        BUY_IST
+        GET_ALLOWANCE
     }
 }

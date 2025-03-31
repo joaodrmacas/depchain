@@ -10,14 +10,14 @@ public class ClientResp extends BlockchainMessage {
     private String message;
 
     public ClientResp(boolean success, LocalDateTime timestamp) {
-        super(BlockchainMessageType.CLIENT_RESP, 1); // TODO: TDIsgusting
+        super(BlockchainMessageType.CLIENT_RESP, Long.valueOf(1)); // TODO: TDIsgusting
         this.success = success;
         this.timestamp = timestamp;
         this.message = "No message provided";
     }
 
     public ClientResp(boolean success, LocalDateTime timestamp, String message) {
-        super(BlockchainMessageType.CLIENT_RESP, 1); // TODO: TDIsgusting
+        super(BlockchainMessageType.CLIENT_RESP, Long.valueOf(1)); // TODO: TDIsgusting
         this.success = success;
         this.timestamp = timestamp;
         this.message = message;

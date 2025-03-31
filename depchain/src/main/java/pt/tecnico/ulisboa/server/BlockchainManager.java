@@ -7,6 +7,11 @@ import java.util.Map;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
+import org.hyperledger.besu.evm.worldstate.WorldUpdater;
+import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.core.MutableWorldState;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.contracts.Contract;
@@ -14,6 +19,7 @@ import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.contracts.MergedContract;
 import pt.tecnico.ulisboa.protocol.ApproveReq;
 import pt.tecnico.ulisboa.protocol.BlacklistReq;
+import pt.tecnico.ulisboa.protocol.BuyISTReq;
 import pt.tecnico.ulisboa.protocol.CheckBalanceReq;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
@@ -22,6 +28,7 @@ import pt.tecnico.ulisboa.protocol.GetAllowanceReq;
 import pt.tecnico.ulisboa.protocol.IsBlacklistedReq;
 import pt.tecnico.ulisboa.protocol.TransferFromReq;
 import pt.tecnico.ulisboa.protocol.TransferReq;
+import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class BlockchainManager<T> {
@@ -37,15 +44,50 @@ public class BlockchainManager<T> {
 
     public BlockchainManager() {
         this.world = new SimpleWorld();
-        
+
         // TODO: change this to read genesis block
         this.clientAddresses = Config.CLIENT_ID_2_ADDR;
 
         this.adminAddress = clientAddresses.get(Config.ADMIN_ID);
-        
+
         // TODO: change this to read genesis block
         Address contractAddr = Address.fromHexString(Config.MERGED_CONTRACT_ADDRESS);
         this.mergedContract = new MergedContract(contractAddr, this.world);
+    }
+
+    // Trasnfer depcoin from one account to another
+    // TODO: handler that will call this
+    public boolean transferDepCoin(Address sender, Address receiver, BigInteger amount) {
+        // Get the current world state
+        MutableWorldState worldState = (MutableWorldState) world;
+
+        // Create a transaction context
+        WorldUpdater worldUpdater = worldState.updater();
+
+        // Get accounts from the updater
+        MutableAccount senderAccount = worldUpdater.getOrCreate(sender);
+        MutableAccount receiverAccount = worldUpdater.getOrCreate(receiver);
+
+        // Check balance
+        Wei weiAmount = Wei.of(amount);
+        if (senderAccount.getBalance().lessThan(weiAmount)) {
+            Logger.LOG("Sender does not have enough balance");
+            return false;
+        }
+
+        try {
+            // Perform the transfer
+            senderAccount.decrementBalance(weiAmount);
+            receiverAccount.incrementBalance(weiAmount);
+
+            // Commit changes to the world state
+            worldUpdater.commit();
+            return true;
+        } catch (Exception e) {
+            // In case of any error, don't commit the changes
+            Logger.LOG("Transaction failed: " + e.getMessage());
+            return false;
+        }
     }
 
     public ClientResp handleDecidedValue(final T value) {
@@ -58,7 +100,7 @@ public class BlockchainManager<T> {
                 // these change the blockchain state
                 case TRANSFER:
                     TransferReq transferReq = (TransferReq) decided;
-                    resp = handleTransfer(transferReq);
+                    resp = handleTransferISTCoin(transferReq);
                     break;
                 case TRANSFER_FROM:
                     TransferFromReq transferFromReq = (TransferFromReq) decided;
@@ -100,7 +142,31 @@ public class BlockchainManager<T> {
         }
     }
 
-    // ######### These methods will not change the blockchain state #########
+    // fucntion to swap depcoin for istcoin
+    private ClientResp handleBuyIST(BuyISTReq req) {
+        try {
+            Address sender = clientAddresses.get(req.getSenderId());
+
+            // check if sender has enough depcoin
+            Wei depCoinAmount = Wei.of(req.getAmount());
+            MutableAccount senderAccount = (MutableAccount) ContractUtils.getAccountFromAddress(world, sender);
+            if (senderAccount.getBalance().lessThan(depCoinAmount)) {
+                return new ClientResp(false, null,
+                        "Client " + req.getSenderId() + " does not have enough DepCoin to buy " + req.getAmount()
+                                + " IST. Amount required: " + depCoinAmount);
+            }
+
+            mergedContract.buy(sender, req.getAmount());
+            return new ClientResp(true, LocalDateTime.now(),
+                    "Client " + req.getSenderId() + " successfully bought " + req.getAmount() + " IST for "
+                            + usedDepCoin + " DepCoin.");
+
+        } catch (Exception e) {
+            return new ClientResp(false, null, "Failed to process swap request from " + req.getSenderId() + " to "
+                    + req.getReceiverId() + ". Reason: " + e.getMessage());
+        }
+    }
+
     private ClientResp handleIsBlackListed(IsBlacklistedReq req) {
         try {
             Address sender = clientAddresses.get(req.getSenderId());
@@ -145,8 +211,7 @@ public class BlockchainManager<T> {
         }
     }
 
-    // ########## These methods will change the blockchain state ##########
-    private ClientResp handleTransfer(TransferReq req) {
+    private ClientResp handleTransferISTCoin(TransferReq req) {
         try {
             Address from = clientAddresses.get(req.getSenderId());
             Address to = clientAddresses.get(req.getTo());
