@@ -8,9 +8,10 @@ import java.security.PublicKey;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.hyperledger.besu.datatypes.Address;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
-import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.server.ServerMessageHandler;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -21,15 +22,15 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
 
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
-    private ConcurrentHashMap<Integer, Account> accounts;
+    private ConcurrentHashMap<Integer, Address> addresses;
 
     public ClientAplManager(String address, Integer port, PrivateKey privateKey, ObservedResource<Queue<T>> txQueue,
-            ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Account> accounts)
+            ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Address> addresses)
             throws SocketException, IOException {
         super(address, port, privateKey);
         this.txQueue = txQueue;
         this.clientKus = clientKus;
-        this.accounts = accounts;
+        this.addresses = addresses;
         Logger.LOG("ClientAplManager: " + address + ":" + port);
     }
 
@@ -40,7 +41,7 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
         try {
             // KeyMessage message = (KeyMessage) Message.deserialize(packet.getData());
 
-            ServerMessageHandler<T> handler = new ServerMessageHandler<>(txQueue, clientKus, accounts);
+            ServerMessageHandler<T> handler = new ServerMessageHandler<>(txQueue, clientKus, addresses);
 
             FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
 

@@ -6,27 +6,30 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Map;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Collection;
 
-import org.web3j.crypto.Hash;
-import org.web3j.utils.Numeric;
-
+import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
-import org.hyperledger.besu.evm.account.MutableAccount;
-import org.hyperledger.besu.evm.fluent.SimpleWorld;
 import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.fluent.SimpleAccount;
+import org.hyperledger.besu.evm.fluent.SimpleWorld;
+import org.web3j.crypto.Hash;
+import org.web3j.utils.Numeric;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.server.Block;
 import pt.tecnico.ulisboa.server.Transaction;
-import pt.tecnico.ulisboa.contracts.Contract;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 
 public class ContractUtils {
@@ -211,36 +214,44 @@ public class ContractUtils {
 
         JsonArray txArray = new JsonArray();
         for (Transaction tx : block.getTransactions()) {
-            txArray.add(tx.toString());
+            txArray.add(tx.toJson());
         }
         rootObj.add("transactions", txArray);
 
         JsonObject stateObj = new JsonObject();
-        for (Map.Entry<Address, Account> entry : clientAccounts.entrySet()) {
-            Address addr = entry.getKey();
-            Account account = entry.getValue();
-            JsonObject accountObj = new JsonObject();
-            accountObj.addProperty("balance", account.getBalance());
-            stateObj.add(addr.toHexString(), accountObj);
-        }
 
-        for (Map.Entry<Address, Contract> entry : contracts.entrySet()) {
-            Address addr = entry.getKey();
-            Contract contract = entry.getValue();
-            MutableAccount contractAccount = (MutableAccount) world.get(addr);
-            JsonObject contractObj = new JsonObject();
-            contractObj.addProperty("balance", contractAccount.getBalance().getValue()); //TODO: hardcoded value
-            contractObj.addProperty("deploy_code", contract.getDeployCode());  
-            contractObj.addProperty("runtime_code", contract.getRuntimeCode());
+        // Iterate through all accounts in the world
+        Collection<SimpleAccount> simpleAccount = (Collection<SimpleAccount>) world.getTouchedAccounts();
+        for (SimpleAccount account : simpleAccount) {
+            JsonObject accountJson = new JsonObject();
             
-            //Get dump
-            JsonObject dump = dumpContractStorage(world, addr, clientAccounts.keySet().stream().toList());
-            contractObj.addProperty("storage", dump.toString());
-            stateObj.add(addr.toHexString(), contractObj);
+            // Add balance
+            accountJson.addProperty("balance", account.getBalance().toString());
+            
+            // If it's a contract account, add code and storage
+            if (account.getCode() != Bytes.EMPTY) {
+                accountJson.addProperty("code", "0x" + account.getCode().toHexString());
+                
+                // Add storage
+                JsonObject storageJson = new JsonObject();
+                
+                Map<UInt256, UInt256> storage = account.getUpdatedStorage();
+
+                for (Map.Entry<UInt256, UInt256> entry : storage.entrySet()) {
+                    UInt256 slot = entry.getKey();
+                    UInt256 value = entry.getValue();
+                    
+                    if (!value.isZero()) {
+                        storageJson.addProperty(slot.toHexString(), value.toHexString());
+                    }
+                }
+                processStorageMappings(mutableAccount, storageJson, addresses);
+                
+                accountJson.add("storage", storageJson);
+            }
+            
+            stateJson.add(address.toHexString(), accountJson);
         }
-
-
-
 
     }
 
@@ -287,13 +298,6 @@ public class ContractUtils {
             }
         }
         result.add("mappingSlots", mappingSlots);
-        
-        // Add contract metadata
-        JsonObject metadata = new JsonObject();
-        metadata.addProperty("codeHash", contractAccount.getCodeHash().toHexString());
-        metadata.addProperty("balance", contractAccount.getBalance().toHexString());
-        metadata.addProperty("nonce", contractAccount.getNonce());
-        result.add("metadata", metadata);
         
         return result;
     }

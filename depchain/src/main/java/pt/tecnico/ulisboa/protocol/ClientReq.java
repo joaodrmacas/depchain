@@ -28,13 +28,6 @@ public abstract class ClientReq extends BlockchainMessage {
 
     // Enum for request types
     public enum ClientReqType {
-        TRANSFER,
-        TRANSFER_FROM,
-        BLACKLIST,
-        APPROVE,
-        IS_BLACKLISTED,
-        CHECK_BALANCE,
-        GET_ALLOWANCE,
-        BUY_IST
+        CONTRACT_CALL
     }
 }

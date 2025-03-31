@@ -135,7 +135,13 @@ public class BFTConsensus<T extends RequiresEquals> {
 
             // Try one last time to peek a value (new tx from clients)
             if (valueToBeProposed == null) {
-                valueToBeProposed = member.peekReceivedTx();
+                try {
+                    valueToBeProposed = member.peekReceivedTxOrWait(0);
+                } catch (InterruptedException e) {
+                    Logger.LOG("Interrupted while peeking received tx");
+                } catch (Exception e) {
+                    Logger.ERROR("Error while peeking received tx", e);
+                }
             }
 
             EpochConsensus<T> consensus = new EpochConsensus<>(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);

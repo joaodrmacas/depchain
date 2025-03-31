@@ -1,5 +1,6 @@
 package pt.tecnico.ulisboa;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 
 import org.hyperledger.besu.datatypes.Address;
@@ -31,6 +32,7 @@ public class Config {
     public static final int BLOCK_SIZE = 5; // TODO: change this value?
     public static final int ADMIN_ID = -1;
     public static final String MERGED_CONTRACT_ADDRESS = "0x123123123123";
+    public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
     public static final HashMap<Integer, Address> CLIENT_ID_2_ADDR = new HashMap<Integer, Address>() {
         {
             put(-1, Address.fromHexString("0x000000000000000000000000000000000000000b"));

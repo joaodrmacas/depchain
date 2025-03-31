@@ -8,8 +8,6 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -21,6 +19,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.hyperledger.besu.datatypes.Address;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
@@ -30,7 +30,6 @@ import pt.tecnico.ulisboa.network.ClientAplManager;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientResp;
-import pt.tecnico.ulisboa.server.Account;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
@@ -44,7 +43,7 @@ public class Server<T extends RequiresEquals> {
     private ServerAplManager serversManager;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<Integer, Account> userAccounts = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Integer, Address> userAddresses = new ConcurrentHashMap<>();
 
     private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
@@ -53,6 +52,7 @@ public class Server<T extends RequiresEquals> {
 
     private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
     private BlockchainManager<T> blockchainManager = new BlockchainManager<>();
+
     // TODO: should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
 
@@ -109,13 +109,13 @@ public class Server<T extends RequiresEquals> {
         Thread valueHandlerThread = new Thread(() -> {
             try {
                 while (true) {
-                    // consensus thread already changes the decided queue
-                    decidedValues.waitForChange(-1);
                     T value = decidedValues.getResource().poll();
                     if (value != null) {
                         ClientResp response = blockchainManager.handleDecidedValue(value);
                         clientManager.send(value.getSenderId(), response);
                     }
+                    // consensus thread already changes the decided queue
+                    decidedValues.waitForChange(-1);
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -138,7 +138,6 @@ public class Server<T extends RequiresEquals> {
 
         consensusThread.start();
         valueHandlerThread.start();
-
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -185,7 +184,7 @@ public class Server<T extends RequiresEquals> {
 
             // Initialize register APL
             clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys,
-                    userAccounts);
+                    userAddresses);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");
@@ -277,16 +276,6 @@ public class Server<T extends RequiresEquals> {
         return content.toString();
     }
 
-    public void pushReceivedTx(T value) {
-        if (decidedValuesSet.contains(value)) {
-            Logger.LOG("Received a transaction that was already decided: " + value);
-            return;
-        }
-
-        transactions.getResource().add(value);
-        transactions.notifyChange();
-    }
-
     public T peekReceivedTxOrWait(Integer timeout) throws InterruptedException {
         while (true) {
             T value = transactions.getResource().peek();
@@ -304,32 +293,6 @@ public class Server<T extends RequiresEquals> {
                 return null;
             }
         }
-    }
-
-    public T peekReceivedTx() {
-        T value;
-
-        while (true) {
-            // print ola
-            Logger.LOG("Peeking received tx");
-            value = transactions.getResource().peek();
-            Logger.LOG("Peeked value: " + value);
-            // TODO: Check if this is the correct way to handle this @carrao
-            // adicionei o if value == null. acho que ta mal tho
-            if (value == null) {
-                Logger.LOG("No value to peek");
-                return null;
-            }
-            if (decidedValuesSet.contains(value)) {
-                Logger.LOG("Peeked value was already decided: " + value);
-                transactions.getResource().poll();
-                Logger.LOG("alo tas ocupada");
-                continue;
-            }
-            break;
-        }
-        Logger.LOG("Returning value: " + value);
-        return transactions.getResource().peek();
     }
 
     public void pushDecidedTx(T value) {

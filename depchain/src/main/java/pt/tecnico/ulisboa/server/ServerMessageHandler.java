@@ -2,29 +2,31 @@ package pt.tecnico.ulisboa.server;
 
 import java.security.PublicKey;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
-import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage.BlockchainMessageType;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
+import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
-import pt.tecnico.ulisboa.utils.ContractUtils;
-import java.util.Random;
 
 public class ServerMessageHandler<T extends RequiresEquals> implements MessageHandler {
     private ObservedResource<Queue<T>> txQueue;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
-    private ConcurrentHashMap<Integer, Account> clientAccounts;
+    private ConcurrentHashMap<Integer, Address> clientAddresses;
 
-    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Account> clientAccounts) {
+    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Address> clientAddresses) {
         this.clientKus = clientKus;
-        this.clientAccounts = clientAccounts;
+        this.clientAddresses = clientAddresses;
         this.txQueue = txQueue;
     }
 
@@ -58,10 +60,10 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
         }
         clientKus.put(senderId, ku);
         
-        //TODO: change this? genesis block? what defines admin account balance?
+        //TODO: change this? genesis block? what defines admin address balance?
         Random random = new Random();
         int randomNumber = random.nextInt(100);
-        clientAccounts.put(senderId, new Account(ContractUtils.generateAddressFromId(senderId), randomNumber));
+        clientAddresses.put(senderId, ContractUtils.generateAddressFromId(senderId));
     }
 
     @SuppressWarnings("unchecked")

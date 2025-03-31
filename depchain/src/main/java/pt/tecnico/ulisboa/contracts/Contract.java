@@ -12,9 +12,7 @@ import org.hyperledger.besu.evm.fluent.EVMExecutor;
 import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
-import pt.tecnico.ulisboa.Config;
-
-public abstract class Contract {
+public class Contract {
 
     private String RUNTIME_CODE;
     private String DEPLOY_CODE;
@@ -41,7 +39,6 @@ public abstract class Contract {
         this.tracer = new StandardJsonTracer(new PrintStream(output), true, true, true, true);
 
         executor.tracer(tracer);
-        executor.sender(Config.CLIENT_ID_2_ADDR.get(Config.ADMIN_ID));
         executor.receiver(address);
         executor.worldUpdater(world.updater());
         executor.commitWorldState();
@@ -63,7 +60,5 @@ public abstract class Contract {
     public String getDeployCode() {
         return DEPLOY_CODE;
     }
-
-    public abstract void deploy(Object... args);
 
 }
