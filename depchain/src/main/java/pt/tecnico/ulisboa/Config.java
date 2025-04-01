@@ -35,25 +35,25 @@ public class Config {
     public static final int BLOCK_SIZE = 5; // TODO: change this value?
     public static final int ADMIN_ID = -1;
     public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
-    public static final HashMap<Integer, Address> CLIENT_ID_2_ADDR = new HashMap<Integer, Address>() {
+    public static final HashMap<Integer, String> CLIENT_ID_2_ADDR = new HashMap<Integer, String>() {
         {
-            put(-1, Address.fromHexString("0x000000000000000000000000000000000000000b"));
-            put(0, Address.fromHexString("0x0000000000000000000000000000000000000001"));
-            put(1, Address.fromHexString("0x0000000000000000000000000000000000000002"));
-            put(2, Address.fromHexString("0x0000000000000000000000000000000000000003"));
-            put(3, Address.fromHexString("0x0000000000000000000000000000000000000004"));
-            put(4, Address.fromHexString("0x0000000000000000000000000000000000000005"));
-            put(5, Address.fromHexString("0x0000000000000000000000000000000000000006"));
-            put(6, Address.fromHexString("0x0000000000000000000000000000000000000007"));
-            put(7, Address.fromHexString("0x0000000000000000000000000000000000000008"));
-            put(8, Address.fromHexString("0x0000000000000000000000000000000000000009"));
-            put(9, Address.fromHexString("0x000000000000000000000000000000000000000a"));
+            put(-1, "0x000000000000000000000000000000000000000b");
+            put(0, "0x0000000000000000000000000000000000000001");
+            put(1, "0x0000000000000000000000000000000000000002");
+            put(2, "0x0000000000000000000000000000000000000003");
+            put(3, "0x0000000000000000000000000000000000000004");
+            put(4, "0x0000000000000000000000000000000000000005");
+            put(5, "0x0000000000000000000000000000000000000006");
+            put(6, "0x0000000000000000000000000000000000000007");
+            put(7, "0x0000000000000000000000000000000000000008");
+            put(8, "0x0000000000000000000000000000000000000009");
+            put(9, "0x000000000000000000000000000000000000000a");
         }
     };
 
-    public static final HashMap<String, Address> CONTRACT_NAME_2_ADDR = new HashMap<String, Address>() {
+    public static final HashMap<String, String> CONTRACT_NAME_2_ADDR = new HashMap<String, String>() {
         {
-            put("MergedContract", Address.fromHexString("0x123123123123"));
+            put("MergedContract", "0x123123123123");
         }
     };
 

@@ -13,11 +13,11 @@ import pt.tecnico.ulisboa.utils.ContractUtils;
 public class ContractCallReq extends ClientReq {
     private static final long serialVersionUID = 1L;
     private final BigInteger value;
-    private final Address contractAddr;
+    private final String contractAddr;
     private final String methodSelector;
     private final String[] args;
 
-    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector, BigInteger value,
+    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector, BigInteger value,
             Object... args) {
         super(senderId, count);
 
@@ -28,11 +28,11 @@ public class ContractCallReq extends ClientReq {
 
     }
 
-    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector) {
+    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector) {
         this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, new Object[] {});
     }
 
-    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector, Object... args) {
+    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector, Object... args) {
         this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, args);
     }
 
@@ -60,7 +60,8 @@ public class ContractCallReq extends ClientReq {
     }
 
     public Address getContractAddr() {
-        return contractAddr;
+        // returning the address in the expected format
+        return Address.fromHexString(contractAddr);
     }
 
     public BigInteger getValue() {

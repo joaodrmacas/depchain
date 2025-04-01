@@ -162,7 +162,7 @@ public class Client {
             }
 
             int toId = Integer.parseInt(parts[1]);
-            Address toAddress = Config.CLIENT_ID_2_ADDR.get(toId);
+            String toAddress = Config.CLIENT_ID_2_ADDR.get(toId);
             if (toAddress == null) {
                 throw new IllegalArgumentException("Unknown client ID: " + toId);
             }
@@ -224,7 +224,7 @@ public class Client {
             throws IllegalArgumentException {
         try {
             // Verify contract exists
-            Address contractAddress = Config.CONTRACT_NAME_2_ADDR.get(contractName);
+            String contractAddress = Config.CONTRACT_NAME_2_ADDR.get(contractName);
             if (contractAddress == null) {
                 throw new IllegalArgumentException("Unknown contract: " + contractName);
             }
@@ -305,7 +305,7 @@ public class Client {
     private Address parseAddress(String clientIdStr) throws IllegalArgumentException {
         try {
             int clientId = Integer.parseInt(clientIdStr);
-            Address address = Config.CLIENT_ID_2_ADDR.get(clientId);
+            Address address = Address.fromHexString(Config.CLIENT_ID_2_ADDR.get(clientId));
             if (address == null) {
                 throw new IllegalArgumentException("Unknown client ID: " + clientId);
             }

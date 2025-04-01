@@ -7,12 +7,12 @@ import org.hyperledger.besu.datatypes.Address;
 public class TransferDepCoinReq extends ClientReq {
     private static final long serialVersionUID = 1L;
 
-    private Address receiver;
+    private String receiverAddr;
     private BigInteger amount;
 
-    public TransferDepCoinReq(int senderId, Long count, Address receiver, BigInteger amount) {
+    public TransferDepCoinReq(int senderId, Long count, String receiver, BigInteger amount) {
         super(senderId, count);
-        this.receiver = receiver;
+        this.receiverAddr = receiver;
         this.amount = amount;
     }
 
@@ -22,7 +22,7 @@ public class TransferDepCoinReq extends ClientReq {
     }
 
     public Address getReceiver() {
-        return receiver;
+        return Address.fromHexString(receiverAddr);
     }
 
     public BigInteger getAmount() {
@@ -32,7 +32,7 @@ public class TransferDepCoinReq extends ClientReq {
     @Override
     public String toString() {
         return "TransferDepCoinReq{" +
-                "receiver='" + receiver + '\'' +
+                "receiver='" + receiverAddr + '\'' +
                 ", amount=" + amount +
                 ", senderId=" + senderId +
                 ", count=" + count +
