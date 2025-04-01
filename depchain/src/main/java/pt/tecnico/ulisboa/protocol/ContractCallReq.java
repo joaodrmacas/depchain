@@ -4,6 +4,7 @@ package pt.tecnico.ulisboa.protocol;
 
 import java.math.BigInteger;
 
+import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.utils.ContractUtils;
@@ -13,38 +14,68 @@ public class ContractCallReq extends ClientReq {
     private static final long serialVersionUID = 1L;
     private final BigInteger value;
     private final Address contractAddr;
-    private final String methodSelector; // hex string of the method selector
-    private String[] args; // arguments to the method hex string encoded
+    private final String methodSelector;
+    private final String[] args;
 
-    public ContractCallReq(int senderId, Long count, BigInteger value, Address contractAddr, String methodSelector,
-            String... args) {
+    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector, BigInteger value,
+            Object... args) {
         super(senderId, count);
 
-        this.value = value;
         this.contractAddr = contractAddr;
+        this.value = value;
         this.methodSelector = methodSelector;
-        this.args = args;
+        this.args = parseArgs(args);
+
+    }
+
+    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector) {
+        this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, new Object[] {});
+    }
+
+    public ContractCallReq(int senderId, Long count, Address contractAddr, String methodSelector, Object... args) {
+        this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, args);
+    }
+
+    /**
+     * Converts the arguments to a hex string representation.
+     * 
+     * @param args The arguments to be converted.
+     * @return An array of hex strings representing the arguments.
+     * @throws IllegalArgumentException if an unsupported argument type is
+     *                                  encountered.
+     */
+    private String[] parseArgs(Object... args) {
+        // TODO: check if this is correct
+        String[] hexArgs = new String[args.length];
+        for (int i = 0; i < args.length; i++) {
+            if (args[i] instanceof BigInteger) {
+                hexArgs[i] = ((BigInteger) args[i]).toString(16);
+            } else if (args[i] instanceof Address) {
+                hexArgs[i] = ((Address) args[i]).toHexString();
+            } else {
+                throw new IllegalArgumentException("Unsupported argument type: " + args[i].getClass().getName());
+            }
+        }
+        return hexArgs;
     }
 
     public Address getContractAddr() {
         return contractAddr;
     }
 
-    public String getMethodSelector() {
-        return methodSelector;
-    }
-
-    public String getArgs() {
-        // return the hextring of all arguments comvined into one and padded to 256 bits each
-        StringBuilder argsString = new StringBuilder();
-        for (String arg : args) {
-            argsString.append(ContractUtils.padHexStringTo256Bit(arg));
-        }
-        return argsString.toString();
-    }
-
     public BigInteger getValue() {
         return value;
+    }
+
+    public Bytes getCallData() {
+        // TODO: check if the method selector needs to be padded. (It prob does)
+        StringBuilder callData = new StringBuilder(ContractUtils.padHexStringTo256Bit(methodSelector));
+        for (String arg : args) {
+            // Convert the argument to a 256-bit hex string and append it to the callData
+            String paddedArg = ContractUtils.padHexStringTo256Bit(arg);
+            callData.append(paddedArg);
+        }
+        return Bytes.fromHexString(callData.toString());
     }
 
     @Override
@@ -54,23 +85,13 @@ public class ContractCallReq extends ClientReq {
 
     @Override
     public String toString() {
-        StringBuilder argsString = new StringBuilder();
-        for (Object arg : args) {
-            if (arg instanceof byte[]) {
-                argsString.append("0x").append(new BigInteger(1, (byte[]) arg).toString(16)).append(", ");
-            } else if (arg instanceof String) {
-                argsString.append(arg).append(", ");
-            } else {
-                argsString.append(arg.toString()).append(", ");
-            }
-        }
-        return "ContractReq{" +
-                "senderId=" + getSenderId() +
-                ", count=" + getCount() +
-                ", value=" + value +
-                ", contractAddr=" + contractAddr +
-                ", methodSelector=" + new String(methodSelector) +
-                ", args=[" + argsString.toString() + "]" +
+        return "ContractCallReq{" +
+                "value=" + value +
+                ", contractAddr='" + contractAddr + '\'' +
+                ", methodSelector='" + methodSelector + '\'' +
+                ", args=" + String.join(", ", args) +
+                ", senderId=" + senderId +
+                ", count=" + count +
                 '}';
     }
 }

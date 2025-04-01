@@ -5,6 +5,8 @@ import java.util.HashMap;
 
 import org.hyperledger.besu.datatypes.Address;
 
+import pt.tecnico.ulisboa.utils.ContractUtils;
+
 public class Config {
     public final static int BUFFER_SIZE = 4096;
     public final static int LEADER_ID = 0;
@@ -32,7 +34,6 @@ public class Config {
     public final static String BLOCK_DIRPATH = "blocks";
     public static final int BLOCK_SIZE = 5; // TODO: change this value?
     public static final int ADMIN_ID = -1;
-    public static final String MERGED_CONTRACT_ADDRESS = "0x123123123123";
     public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
     public static final HashMap<Integer, Address> CLIENT_ID_2_ADDR = new HashMap<Integer, Address>() {
         {
@@ -47,6 +48,30 @@ public class Config {
             put(7, Address.fromHexString("0x0000000000000000000000000000000000000008"));
             put(8, Address.fromHexString("0x0000000000000000000000000000000000000009"));
             put(9, Address.fromHexString("0x000000000000000000000000000000000000000a"));
+        }
+    };
+
+    public static final HashMap<String, Address> CONTRACT_NAME_2_ADDR = new HashMap<String, Address>() {
+        {
+            put("MergedContract", Address.fromHexString("0x123123123123"));
+        }
+    };
+
+    public static final HashMap<String, HashMap<String, String>> CONTRACT_METHOD_SIGNATURES = new HashMap<String, HashMap<String, String>>() {
+        {
+            HashMap<String, String> mergedContractMethods = new HashMap<>();
+            mergedContractMethods.put("addToBlacklist", ContractUtils.getFunctionSelector("addToBlacklist(address)"));
+            mergedContractMethods.put("removeFromBlacklist",
+                    ContractUtils.getFunctionSelector("removeFromBlacklist(address)"));
+            mergedContractMethods.put("isBlacklisted", ContractUtils.getFunctionSelector("isBlacklisted(address)"));
+            mergedContractMethods.put("transfer", ContractUtils.getFunctionSelector("transfer(address,uint256)"));
+            mergedContractMethods.put("transferFrom",
+                    ContractUtils.getFunctionSelector("transferFrom(address,address,uint256)"));
+            mergedContractMethods.put("approve", ContractUtils.getFunctionSelector("approve(address,uint256)"));
+            mergedContractMethods.put("balanceOf", ContractUtils.getFunctionSelector("balanceOf(address)"));
+            mergedContractMethods.put("allowance", ContractUtils.getFunctionSelector("allowance(address,address)"));
+            mergedContractMethods.put("buy", ContractUtils.getFunctionSelector("buy()"));
+            put("MergedContract", mergedContractMethods);
         }
     };
 }

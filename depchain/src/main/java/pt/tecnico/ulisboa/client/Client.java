@@ -8,6 +8,7 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,19 +18,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import jnr.ffi.annotations.In;
+import org.hyperledger.besu.datatypes.Address;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
-import pt.tecnico.ulisboa.protocol.IsBlacklistedReq;
-import pt.tecnico.ulisboa.protocol.CheckBalanceReq;
-import pt.tecnico.ulisboa.protocol.GetAllowanceReq;
-import pt.tecnico.ulisboa.protocol.ApproveReq;
-import pt.tecnico.ulisboa.protocol.BlacklistReq;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.ClientReq;
+import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
-import pt.tecnico.ulisboa.protocol.TransferFromReq;
-import pt.tecnico.ulisboa.protocol.TransferReq;
+import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -77,25 +74,43 @@ public class Client {
     private void start() {
         Logger.LOG("Starting client " + clientId);
         Scanner scanner = new Scanner(System.in);
-
         while (true) {
             // Display available commands
             System.out.println("\n===== Blockchain Client Menu =====");
-            System.out.println("Available Commands:");
-            System.out.println("1. TRANSFER <from> <to> <amount>");
-            System.out.println("   Example: TRANSFER alice bob 100.50");
-            System.out.println("2. TRANSFER_FROM <spender> <from> <to> <amount>");
-            System.out.println("   Example: TRANSFER_FROM charlie alice bob 50.25");
-            System.out.println("3. BLACKLIST <address> <true/false>");
-            System.out.println("   Example: BLACKLIST bob true");
-            System.out.println("4. APPROVE <owner> <spender> <amount>");
-            System.out.println("   Example: APPROVE alice charlie 200.00");
-            System.out.println("5. EXIT - Terminate the client");
+            System.out.println("Native Blockchain Commands:");
+            System.out.println("- TRANSFER_DEPCOIN <to_id> <amount>");
+            System.out.println("  Example: TRANSFER_DEPCOIN 2 100");
+            System.out.println("  Transfers DepCoin directly between accounts\n");
+
+            System.out.println("Contract Call Format: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
+            System.out.println("\nExample Contract Commands:");
+            System.out.println("1. MergedContract balanceOf");
+            System.out.println("   - Check your token balance");
+            System.out.println("2. MergedContract transfer <to_id> <amount>");
+            System.out.println("   - Example: MergedContract transfer 2 100");
+            System.out.println("3. MergedContract transferFrom <from_id> <to_id> <amount>");
+            System.out.println("   - Example: MergedContract transferFrom 1 2 50");
+            System.out.println("4. MergedContract approve <spender_id> <amount>");
+            System.out.println("   - Example: MergedContract approve 3 200");
+            System.out.println("5. MergedContract allowance <owner_id>");
+            System.out.println("   - Example: MergedContract allowance 1");
+            System.out.println("6. MergedContract isBlacklisted <account_id>");
+            System.out.println("   - Example: MergedContract isBlacklisted 2");
+            System.out.println("7. MergedContract addToBlacklist <account_id>");
+            System.out.println("   - Example: MergedContract addToBlacklist 4");
+            System.out.println("8. MergedContract removeFromBlacklist <account_id>");
+            System.out.println("   - Example: MergedContract removeFromBlacklist 4");
+            System.out.println("9. MergedContract buy <amount>");
+            System.out.println("   - Example: MergedContract buy 500");
+            System.out.println("10. EXIT - Terminate the client");
+            System.out.println("\nAvailable Contracts:");
+            for (String contractName : Config.CONTRACT_NAME_2_ADDR.keySet()) {
+                System.out.println(" - " + contractName);
+            }
             System.out.println("====================================");
             System.out.print("Enter a command: ");
 
             String input = scanner.nextLine().trim();
-
             if (input == null || input.isEmpty()) {
                 continue;
             }
@@ -109,7 +124,6 @@ public class Client {
             try {
                 Logger.LOG("Sending input: " + input);
                 sendRequest(input);
-
                 // Wait for response
                 Logger.LOG("Waiting for server responses...");
                 if (!waitForResponse()) {
@@ -125,7 +139,6 @@ public class Client {
                 Logger.ERROR("Failed to send message.", e);
             }
         }
-
         scanner.close();
     }
 
@@ -140,99 +153,165 @@ public class Client {
         messageHandler.updateForNewRequest(count, responseLatch);
 
         String[] parts = input.trim().split("\\s+");
-        ClientReq req = null;
-        String signature = null;
+        if (parts.length == 0) {
+            System.out.println("Invalid format. Please enter a valid command.");
+            return;
+        }
 
         try {
-            switch (parts[0].toUpperCase()) {
-                case "CHECK_BALANCE":
-                    // Format: CHECK_BALANCE
-                    if (parts.length != 1) {
-                        throw new IllegalArgumentException("Invalid CHECK_BALANCE format");
-                    }
-                    req = new CheckBalanceReq(clientId, count);
-                    break;
+            ClientReq req = null;
+            String command = parts[0].toUpperCase();
 
-                case "IS_BLACKLISTED":
-                    // Format: IS_BLACKLISTED <address>
-                    if (parts.length != 2) {
-                        throw new IllegalArgumentException("Invalid IS_BLACKLISTED format");
-                    }
-                    req = new IsBlacklistedReq(clientId, count, Integer.parseInt(parts[1]));
-                    break;
+            // Handle special cases for native blockchain operations
+            if (command.equals("TRANSFER_DEPCOIN")) {
+                // Format: TRANSFER_DEPCOIN <to_id> <amount>
+                if (parts.length != 3) {
+                    throw new IllegalArgumentException(
+                            "Invalid TRANSFER_DEPCOIN format. Usage: TRANSFER_DEPCOIN <to_id> <amount>");
+                }
 
-                case "GET_ALLOWANCE":
-                    // Format: GET_ALLOWANCE <allower>
-                    if (parts.length != 2) {
-                        throw new IllegalArgumentException("Invalid GET_ALLOWANCE format");
-                    }
-                    req = new GetAllowanceReq(clientId, count, Integer.parseInt(parts[1]));
-                    break;
+                int toId = Integer.parseInt(parts[1]);
+                Address toAddress = Config.CLIENT_ID_2_ADDR.get(toId);
+                if (toAddress == null) {
+                    throw new IllegalArgumentException("Unknown client ID: " + toId);
+                }
 
-                case "TRANSFER":
-                    // Format: TRANSFER <to> <amount>
-                    if (parts.length != 3) {
-                        throw new IllegalArgumentException("Invalid TRANSFER format");
-                    }
-                    req = new TransferReq(
-                            clientId,
-                            count,
-                            Integer.parseInt(parts[1]),
-                            new BigInteger(parts[2]));
-                    break;
+                BigInteger amount = new BigInteger(parts[2]);
+                req = new TransferDepCoinReq(clientId, count, toAddress, amount);
+            }
+            // Contract call handling
+            else {
+                // Check if this is a contract call (needs at least contract name and function)
+                if (parts.length < 2) {
+                    throw new IllegalArgumentException(
+                            "Invalid format. For contract calls use: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
+                }
 
-                case "TRANSFER_FROM":
-                    // Format: TRANSFER_FROM <from> <to> <amount>
-                    if (parts.length != 4) {
-                        throw new IllegalArgumentException("Invalid TRANSFER_FROM format");
-                    }
-                    req = new TransferFromReq(
-                            clientId,
-                            count,
-                            Integer.parseInt(parts[1]),
-                            Integer.parseInt(parts[2]),
-                            new BigInteger(parts[3]));
-                    break;
+                String contractName = parts[0];
+                String functionName = parts[1];
 
-                case "BLACKLIST":
-                    // Format: BLACKLIST <address> <true/false>
-                    if (parts.length != 3) {
-                        throw new IllegalArgumentException("Invalid BLACKLIST format");
-                    }
-                    req = new BlacklistReq(
-                            clientId,
-                            count,
-                            Integer.parseInt(parts[1]),
-                            Boolean.parseBoolean(parts[2]));
-                    break;
+                // Verify contract exists
+                Address contractAddress = Config.CONTRACT_NAME_2_ADDR.get(contractName);
+                if (contractAddress == null) {
+                    throw new IllegalArgumentException("Unknown contract: " + contractName);
+                }
 
-                case "APPROVE":
-                    // Format: APPROVE <allowee> <amount>
-                    if (parts.length != 3) {
-                        throw new IllegalArgumentException("Invalid APPROVE format");
-                    }
-                    req = new ApproveReq(
-                            clientId,
-                            count,
-                            Integer.parseInt(parts[1]),
-                            new BigInteger(parts[2]));
-                    break;
+                // Verify function exists for this contract
+                Map<String, String> methodSignatures = Config.CONTRACT_METHOD_SIGNATURES.get(contractName);
+                if (methodSignatures == null || !methodSignatures.containsKey(functionName)) {
+                    throw new IllegalArgumentException(
+                            "Unknown function '" + functionName + "' for contract '" + contractName + "'");
+                }
 
-                default:
-                    System.out.println("Invalid command: " + parts[0]);
-                    return;
+                String methodSignature = methodSignatures.get(functionName);
+                req = buildContractRequest(contractAddress, methodSignature,
+                        Arrays.copyOfRange(parts, 2, parts.length));
             }
 
-            // Sign the request
-            signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
-            req.setSignature(signature);
+            if (req != null) {
+                // Sign the request
+                String signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
+                req.setSignature(signature);
 
-            // Send to leader (server with ID 0)
-            aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
-            count++;
-
+                // TODO: Only sending to the leader. Should be good tho(?)
+                aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
+                count++;
+            }
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
         } catch (Exception e) {
             Logger.LOG("Error processing request: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Builds a contract call request based on the contract address, method
+     * signature, and arguments.
+     * 
+     * @param contractAddress The address of the contract
+     * @param methodSignature The signature of the method to call
+     * @param args            The arguments for the function call
+     * @return A ContractCallReq object representing the request
+     * @throws IllegalArgumentException If the arguments are invalid
+     */
+    private ClientReq buildContractRequest(Address contractAddress, String methodSignature, String[] args)
+            throws IllegalArgumentException {
+        try {
+            switch (methodSignature) {
+                // No arguments functions
+                case "balanceOf":
+                    if (args.length != 0) {
+                        throw new IllegalArgumentException("balanceOf takes no arguments");
+                    }
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature);
+
+                // Single address functions
+                case "isBlacklisted":
+                case "allowance":
+                case "addToBlacklist":
+                case "removeFromBlacklist":
+                    if (args.length != 1) {
+                        throw new IllegalArgumentException(methodSignature + " requires one client ID argument");
+                    }
+                    Address address = parseAddress(args[0]);
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, address);
+
+                // Address and amount functions
+                case "transfer":
+                case "approve":
+                    if (args.length != 2) {
+                        throw new IllegalArgumentException(
+                                methodSignature + " requires client ID and amount arguments");
+                    }
+                    Address to = parseAddress(args[0]);
+                    BigInteger amount = new BigInteger(args[1]);
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, to, amount);
+
+                // Transfer from function (2 addresses + amount)
+                case "transferFrom":
+                    if (args.length != 3) {
+                        throw new IllegalArgumentException(
+                                "transferFrom requires from ID, to ID, and amount arguments");
+                    }
+                    Address from = parseAddress(args[0]);
+                    Address to2 = parseAddress(args[1]);
+                    BigInteger amount2 = new BigInteger(args[2]);
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, from, to2, amount2);
+
+                // Buy function (amount)
+                case "buy":
+                    if (args.length != 1) {
+                        throw new IllegalArgumentException("buy requires an amount argument");
+                    }
+                    BigInteger buyAmount = new BigInteger(args[0]);
+                    BigInteger value = buyAmount.multiply(Config.DEPCOIN_PER_IST);
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, value, buyAmount);
+
+                default:
+                    throw new IllegalArgumentException("Unsupported method: " + methodSignature);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid number format in arguments");
+        }
+    }
+
+    /**
+     * Parses a client ID into an Address
+     * 
+     * @param clientIdStr The client ID as a string
+     * @return The corresponding Address
+     * @throws IllegalArgumentException If the client ID is invalid
+     */
+    private Address parseAddress(String clientIdStr) throws IllegalArgumentException {
+        try {
+            int clientId = Integer.parseInt(clientIdStr);
+            Address address = Config.CLIENT_ID_2_ADDR.get(clientId);
+            if (address == null) {
+                throw new IllegalArgumentException("Unknown client ID: " + clientId);
+            }
+            return address;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid client ID format: " + clientIdStr);
         }
     }
 

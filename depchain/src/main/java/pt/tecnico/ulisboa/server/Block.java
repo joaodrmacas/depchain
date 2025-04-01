@@ -18,8 +18,8 @@ public class Block {
     private String blockHash;
     private List<Transaction> transactions = new ArrayList<>();
     private int transactionCount = 0;
-    
-    //constructor to load a already existing block
+
+    // constructor to load a already existing block
     public Block(String prevHash, Integer blockId, String blockHash, List<Transaction> transactions) {
         this.blockId = blockId;
         this.prevHash = prevHash;
@@ -27,14 +27,14 @@ public class Block {
         this.transactions = transactions;
     }
 
-    //constructor for a new block
-    public Block(String prevHash, Integer blockId) {
+    // constructor for a new block
+    public Block(Integer blockId, String prevHash) {
         this.blockId = blockId;
         this.prevHash = prevHash;
         this.blockHash = null;
         this.transactions = null;
     }
-    
+
     // constructor for genesis block
     public Block() {
         this.blockId = 0;
@@ -42,12 +42,11 @@ public class Block {
         this.blockHash = CryptoUtils.hashSHA256("".getBytes());
     }
 
-
     public void finalizeBlock() {
         StringBuilder blockData = new StringBuilder();
         blockData.append(prevHash != null ? prevHash : "");
         for (Transaction tx : transactions) {
-            blockData.append(tx.toString()); 
+            blockData.append(tx.toString());
         }
         this.blockHash = CryptoUtils.hashSHA256(blockData.toString().getBytes());
     }

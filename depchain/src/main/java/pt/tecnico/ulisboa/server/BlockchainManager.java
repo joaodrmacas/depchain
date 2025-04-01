@@ -45,32 +45,38 @@ public class BlockchainManager<T> {
 
     public BlockchainManager() {
         this.persistenceManager = new BlockchainPersistenceManager();
-        //TODO: talvez tirar tanto codigo daqui? e meter um init blockchain or soemthign
+        this.initBlockchain();
+        this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
+        this.output = new ByteArrayOutputStream();
+    }
+
+    private void initBlockchain() {
         try {
-            //TODO: talvez mudar para isto depois
-            //this.world = persistenceManager.loadBlockchain(blockchain);
-            
+            // TODO: talvez mudar para isto depois
+            // this.world = persistenceManager.loadBlockchain(blockchain);
+
             this.world = persistenceManager.loadGenesisBlock(blockchain);
             Block lastBlock = blockchain.get(blockchain.size() - 1);
-            this.currentBlock = new Block(lastBlock.getHash(), lastBlock.getId() + 1);
+            this.currentBlock = new Block(lastBlock.getId() + 1, lastBlock.getHash());
             this.clientAddresses = Config.CLIENT_ID_2_ADDR;
         } catch (Exception e) {
             Logger.LOG("Failed to load blockchain: " + e.getMessage());
             this.world = new SimpleWorld();
             this.blockchain = new ArrayList<>();
             this.currentBlock = new Block();
-        } 
-
-        this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
-        this.output = new ByteArrayOutputStream();
+        }
         executor.tracer(new StandardJsonTracer(new PrintStream(output), true, true, true, true));
         executor.worldUpdater(world.updater());
         executor.commitWorldState();
     }
 
     // Trasnfer depcoin from one account to another
-    // TODO: handler that will call this
     public ClientResp transferDepCoin(TransferDepCoinReq req) {
+        // parse the args
+        Address sender = clientAddresses.get(req.getSenderId());
+        Address receiver = req.getReceiver();
+        BigInteger amount = req.getAmount();
+
         // Get the current world state
         MutableWorldState worldState = (MutableWorldState) world;
 
@@ -85,7 +91,7 @@ public class BlockchainManager<T> {
         Wei weiAmount = Wei.of(amount);
         if (senderAccount.getBalance().lessThan(weiAmount)) {
             Logger.LOG("Sender does not have enough balance");
-            return new ClientResp(false, req.)
+            return new ClientResp(false, req.getCount(), "Sender does not have enough balance");
         }
 
         try {
@@ -95,11 +101,13 @@ public class BlockchainManager<T> {
 
             // Commit changes to the world state
             worldUpdater.commit();
-            return true;
+            return new ClientResp(true, req.getCount(), "Transfer from " + sender + " to " + receiver + " of " + amount
+                    + " DepCoin completed successfully");
         } catch (Exception e) {
             // In case of any error, don't commit the changes
             Logger.LOG("Transaction failed: " + e.getMessage());
-            return false;
+            return new ClientResp(false, req.getCount(), "Transfer from " + sender + " to " + receiver + " of " + amount
+                    + " DepCoin failed: " + e.getMessage());
         }
     }
 
@@ -115,10 +123,13 @@ public class BlockchainManager<T> {
                     ContractCallReq contractCallReq = (ContractCallReq) decided;
                     resp = handleContractCall(contractCallReq);
                     break;
-                // TODO: case for depcoin transfer
+                case TRANSFER_DEP_COIN:
+                    TransferDepCoinReq transferReq = (TransferDepCoinReq) decided;
+                    resp = transferDepCoin(transferReq);
+                    break;
                 default:
                     System.out.println("Invalid request type");
-                    return new ClientResp(false, null, "Invalid request type.");
+                    return new ClientResp(false, decided.getCount(), "Invalid request type.");
             }
             if (resp.getSuccess()) {
                 // TODO: Check if every transaction should be added to the blockchain
@@ -139,8 +150,7 @@ public class BlockchainManager<T> {
 
             // contract and call data
             Address contractAddress = req.getContractAddr();
-            Bytes callData = Bytes.fromHexString(req.getMethodSelector() + req.getArgs()); // TODO: should be good might
-                                                                                           // be wrong
+            Bytes callData = req.getCallData();
 
             // set parameters in the executor
             executor.sender(sender);
@@ -151,7 +161,7 @@ public class BlockchainManager<T> {
             // execute the transaction
             executor.execute();
 
-            return new ClientResp(true, req.getCount(), "Transaction executed successfully");
+            return new ClientResp(true, req.getCount(), "Contract call executed successfully");
         } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());
@@ -163,10 +173,11 @@ public class BlockchainManager<T> {
         if (currentBlock.isFull()) {
             currentBlock.finalizeBlock();
             blockchain.add(currentBlock);
+            Integer prev_id = currentBlock.getId();
             String prev_hash = currentBlock.getHash();
-            currentBlock = new Block(prev_hash);
+            currentBlock = new Block(prev_id + 1, prev_hash); // TODO: maybe make a constructor that creates the new
+                                                              // block from the old one
         }
     }
-
 
 }

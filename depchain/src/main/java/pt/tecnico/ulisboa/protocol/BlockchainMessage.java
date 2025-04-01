@@ -10,7 +10,6 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
     private BlockchainMessageType type;
     protected Long count;
 
-
     public BlockchainMessage(BlockchainMessageType type, Long count) {
         this.type = type;
         this.count = count;
@@ -31,19 +30,20 @@ public abstract class BlockchainMessage implements RequiresEquals, Serializable 
         return count;
     }
 
-    public int getSenderId(){
-        return -1; //TODO: isto está insanely disgusting mas tenho cpd para fazer - fix this 
+    public int getSenderId() {
+        return -1; // TODO: isto está insanely disgusting mas tenho cpd para fazer - fix this
     }
-    
+
     @Override
     public boolean equals(Object obj) {
+        // TODO: acho que isto ta mal nao?
         if (obj instanceof BlockchainMessage) {
             BlockchainMessage other = (BlockchainMessage) obj;
             return type.equals(other.type) && count.equals(other.count);
         }
         return false;
     }
-    
+
     @Override
     public int hashCode() {
         int result = 17;
