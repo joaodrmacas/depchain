@@ -179,8 +179,6 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <mainClass>pt.tecnico.ulisboa.client.Client</mainClass>
-          <classpathScope>compile</classpathScope>
           <additionalClasspathElements>
             <additionalClasspathElement>${project.basedir}/libs/besu-datatypes-24.12.2.jar</additionalClasspathElement>
             <additionalClasspathElement>${project.basedir}/libs/core-24.12.2.jar</additionalClasspathElement>

@@ -44,14 +44,14 @@ public class BlockchainManager<T> {
 
     public BlockchainManager() {
         this.persistenceManager = new BlockchainPersistenceManager();
-        this.initBlockchain();
-        this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
+        this.blockchain = new ArrayList<>();
         this.output = new ByteArrayOutputStream();
+        this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
+        this.initBlockchain();
     }
 
     private void initBlockchain() {
         try {
-            // TODO: talvez mudar para isto depois
             // this.world = persistenceManager.loadBlockchain(blockchain);
 
             this.world = persistenceManager.loadGenesisBlock(blockchain);
@@ -171,14 +171,16 @@ public class BlockchainManager<T> {
     }
 
     private void addTransactionToBlock(Transaction req) {
-        currentBlock.appendTransaction(req);
-        if (currentBlock.isFull()) {
-            currentBlock.finalizeBlock();
-            blockchain.add(currentBlock);
-            Integer prev_id = currentBlock.getId();
-            String prev_hash = currentBlock.getHash();
-            currentBlock = new Block(prev_id + 1, prev_hash); // TODO: maybe make a constructor that creates the new
-                                                              // block from the old one
+        try {
+            currentBlock.appendTransaction(req);
+            if (currentBlock.isFull()) {
+                currentBlock.finalizeBlock();
+                blockchain.add(currentBlock);
+                persistenceManager.persistBlock(currentBlock, world);
+                currentBlock = new Block(currentBlock.getId() + 1, currentBlock.getHash());
+            }
+        } catch (Exception e) {
+            Logger.LOG("Failed to add transaction to block: " + e.getMessage());
         }
     }
 

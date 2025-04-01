@@ -39,7 +39,7 @@ public class BlockchainPersistenceManager {
 
     public BlockchainPersistenceManager() {
         this.dataDirectory = Config.BLOCK_DIRPATH;
-        this.genesisBlockFile = Config.GENESIS_BLOCK_PATH;
+        this.genesisBlockFile = Config.BLOCK_DIRPATH + "/" + Config.GENESIS_BLOCK_PATH;
 
         // Create directory if it doesn't exist
         File dir = new File(dataDirectory);
@@ -59,6 +59,7 @@ public class BlockchainPersistenceManager {
     //ou tmb posso retornar um par idk let me know what u think - Massas
     public SimpleWorld loadGenesisBlock(List<Block> blockchain) throws IOException {
         try (FileReader reader = new FileReader(genesisBlockFile)) {
+
             JsonObject rootObj = JsonParser.parseReader(reader).getAsJsonObject();
             Block genesisBlock = new Block();
             blockchain.add(genesisBlock);
@@ -85,7 +86,6 @@ public class BlockchainPersistenceManager {
                 Transaction tx = Transaction.fromJson(txElement.getAsJsonObject());
                 transactions.add(tx);
             }
-
             blockchain.add(new Block(prevHash, blockId, blockHash, transactions));
             SimpleWorld world = worldFromJson(rootObj.getAsJsonObject("state"));
             return world;
@@ -95,7 +95,7 @@ public class BlockchainPersistenceManager {
         }
     }
 
-    public void persist(Block block, SimpleWorld world) throws IOException {
+    public void persistBlock(Block block, SimpleWorld world) throws IOException {
         // Create JSON for the block and world state
         JsonObject rootObj = new JsonObject();
         
@@ -204,14 +204,22 @@ public class BlockchainPersistenceManager {
         for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
             String addressHex = entry.getKey();
             JsonObject accountJson = entry.getValue().getAsJsonObject();
-
+            Logger.LOG("aa");
             // Create a new account
             Address address = Address.fromHexString(addressHex);
+            Logger.LOG("bb");
             MutableAccount account = world.createAccount(address);
+            Logger.LOG("cc");
 
             // Set balance
-            BigInteger balance = new BigInteger(accountJson.get("balance").getAsString());
+            String balanceStr = accountJson.get("balance").getAsString();
+            // Remove the "0x" prefix if present
+            if (balanceStr.startsWith("0x") || balanceStr.startsWith("0X")) {
+                balanceStr = balanceStr.substring(2);
+}
+            BigInteger balance = new BigInteger(balanceStr, 16);
             account.setBalance(Wei.of(balance));
+            Logger.LOG("dd");
 
             // If it's a contract account, set code and storage
             if (accountJson.has("code")) {
@@ -229,13 +237,13 @@ public class BlockchainPersistenceManager {
                 }
             }
         }
-
+        Logger.LOG("ee");
         return world;
     }
 
     @SuppressWarnings("unchecked")
     private JsonObject worldToJson(SimpleWorld state) {
-
+        int count = 0;
         JsonObject stateObj = new JsonObject();
 
         Collection<SimpleAccount> simpleAccount = (Collection<SimpleAccount>) state.getTouchedAccounts();
@@ -246,7 +254,7 @@ public class BlockchainPersistenceManager {
             
             // If it's a contract account, add code and storage
             if (account.getCode() != Bytes.EMPTY) {
-                accountJson.addProperty("code", "0x" + account.getCode().toHexString());
+                accountJson.addProperty("code", account.getCode().toHexString());
                 
                 JsonObject storageJson = new JsonObject();
                 
@@ -264,7 +272,13 @@ public class BlockchainPersistenceManager {
                 accountJson.add("storage", storageJson);
             }
             
-            stateObj.add(account.getAddress().toHexString(), accountJson);
+            if (account.getAddress() != null) {
+                stateObj.add(account.getAddress().toHexString(), accountJson);
+            } else {
+                //TODO: nao percebo o que leva isto ser executado
+                // stateObj.add("unknow_account"+count, accountJson);
+                // count++;
+            }
         }
         return stateObj;
     }
