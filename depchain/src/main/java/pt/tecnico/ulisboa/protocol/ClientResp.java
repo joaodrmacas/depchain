@@ -1,6 +1,6 @@
 package pt.tecnico.ulisboa.protocol;
 
-import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class ClientResp extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
@@ -29,4 +29,18 @@ public class ClientResp extends BlockchainMessage {
         return message;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        ClientResp that = (ClientResp) o;
+        return success == that.success && Objects.equals(seqNum, that.seqNum) && Objects.equals(message, that.message);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(success, seqNum, message);
+    }
 }

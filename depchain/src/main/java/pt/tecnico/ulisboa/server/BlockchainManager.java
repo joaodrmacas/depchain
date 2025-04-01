@@ -22,7 +22,6 @@ import org.hyperledger.besu.evm.fluent.SimpleAccount;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.contracts.Contract;
-import pt.tecnico.ulisboa.contracts.MergedContract;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
 import pt.tecnico.ulisboa.protocol.ClientResp;

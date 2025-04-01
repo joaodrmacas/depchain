@@ -11,7 +11,7 @@ mkdir -p "${ROOTDIR}/logs"
 bash ${ROOTDIR}/scripts/kill.sh
 
 # Initialize servers
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
     -Dexec.args="0 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_00.log" 2>&1 &
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
     -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_01.log" 2>&1 &
@@ -21,5 +21,5 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.Server" \
     -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_03.log" 2>&1 &
 
 # Run client
-echo "TRANSFER a b 12" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
+echo "MergedContract balanceOf" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/client_01.log" 2>&1 &

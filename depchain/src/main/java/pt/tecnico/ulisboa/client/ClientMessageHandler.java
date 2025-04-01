@@ -7,20 +7,20 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.MessageHandler;
-import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ClientMessageHandler implements MessageHandler {
     private long requestSeqNum;
-    private ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses;
+    private ConcurrentHashMap<ClientResp, Integer> currentRequestResponses;
     private CountDownLatch responseLatch;
-    private AtomicReference<BlockchainMessage> acceptedResponse;
+    private AtomicReference<ClientResp> acceptedResponse;
 
     public ClientMessageHandler(long requestSeqNum,
-            ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses,
+            ConcurrentHashMap<ClientResp, Integer> currentRequestResponses,
             CountDownLatch responseLatch,
-            AtomicReference<BlockchainMessage> acceptedResponse) {
+            AtomicReference<ClientResp> acceptedResponse) {
         this.currentRequestResponses = currentRequestResponses;
         this.requestSeqNum = requestSeqNum;
         this.responseLatch = responseLatch;
@@ -35,7 +35,7 @@ public class ClientMessageHandler implements MessageHandler {
     @Override
     public void onMessage(int senderid, byte[] message) {
         try {
-            BlockchainMessage response = (BlockchainMessage) SerializationUtils.deserializeObject(message);
+            ClientResp response = (ClientResp) SerializationUtils.deserializeObject(message);
             long seqnum = response.getCount();
             if (this.requestSeqNum != seqnum) {
                 Logger.LOG("Ignoring response with wrong sequence number in client on Message: " + seqnum
@@ -44,17 +44,16 @@ public class ClientMessageHandler implements MessageHandler {
             }
 
             currentRequestResponses.put(response, currentRequestResponses.getOrDefault(response, 0) + 1);
-            responseLatch.countDown();
             acceptedResponse.set(response);
-            
-            //TODO: FIXME
-            // // check if we have enough responses
-            // if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {
-            //     Logger.LOG("Received enough responses for request with sequence number " + seqnum);
-                
-            //     acceptedResponse.set(response);
-            //     responseLatch.countDown();
-            // }
+
+            // check if we have enough responses
+            if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {
+                Logger.LOG("Received enough equal responses for request with sequence number " +
+                        seqnum);
+
+                acceptedResponse.set(response);
+                responseLatch.countDown();
+            }
 
         } catch (IOException | ClassNotFoundException e) {
             Logger.LOG("Failed to deserialize response: " + e.getMessage());

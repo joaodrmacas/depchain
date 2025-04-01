@@ -24,6 +24,7 @@ import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.BlockchainMessage;
 import pt.tecnico.ulisboa.protocol.ClientReq;
+import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
@@ -41,8 +42,8 @@ public class Client {
 
     private CountDownLatch responseLatch;
 
-    private ConcurrentHashMap<BlockchainMessage, Integer> currentRequestResponses = new ConcurrentHashMap<>();
-    private AtomicReference<BlockchainMessage> acceptedResponse = new AtomicReference<>();
+    private ConcurrentHashMap<ClientResp, Integer> currentRequestResponses = new ConcurrentHashMap<>();
+    private AtomicReference<ClientResp> acceptedResponse = new AtomicReference<>();
 
     private ClientMessageHandler messageHandler;
 
@@ -122,7 +123,6 @@ public class Client {
             }
 
             try {
-                Logger.LOG("Sending input: " + input);
                 sendRequest(input);
                 // Wait for response
                 Logger.LOG("Waiting for server responses...");
@@ -136,21 +136,13 @@ public class Client {
                     }
                 }
             } catch (Exception e) {
-                Logger.ERROR("Failed to send message.", e);
+                Logger.LOG("Failed to send message." + e.getMessage());
             }
         }
         scanner.close();
     }
 
     private void sendRequest(String input) {
-        if (count == 0) { // First message. Send public key to servers
-            sendPublicKeyToServers();
-        }
-
-        responseLatch = new CountDownLatch(1);
-        currentRequestResponses.clear();
-        acceptedResponse.set(null);
-        messageHandler.updateForNewRequest(count, responseLatch);
 
         String[] parts = input.trim().split("\\s+");
         if (parts.length == 0) {
@@ -158,69 +150,63 @@ public class Client {
             return;
         }
 
-        try {
-            ClientReq req = null;
-            String command = parts[0].toUpperCase();
+        ClientReq req = null;
+        String command = parts[0].toUpperCase();
 
-            // Handle special cases for native blockchain operations
-            if (command.equals("TRANSFER_DEPCOIN")) {
-                // Format: TRANSFER_DEPCOIN <to_id> <amount>
-                if (parts.length != 3) {
-                    throw new IllegalArgumentException(
-                            "Invalid TRANSFER_DEPCOIN format. Usage: TRANSFER_DEPCOIN <to_id> <amount>");
-                }
-
-                int toId = Integer.parseInt(parts[1]);
-                Address toAddress = Config.CLIENT_ID_2_ADDR.get(toId);
-                if (toAddress == null) {
-                    throw new IllegalArgumentException("Unknown client ID: " + toId);
-                }
-
-                BigInteger amount = new BigInteger(parts[2]);
-                req = new TransferDepCoinReq(clientId, count, toAddress, amount);
-            }
-            // Contract call handling
-            else {
-                // Check if this is a contract call (needs at least contract name and function)
-                if (parts.length < 2) {
-                    throw new IllegalArgumentException(
-                            "Invalid format. For contract calls use: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
-                }
-
-                String contractName = parts[0];
-                String functionName = parts[1];
-
-                // Verify contract exists
-                Address contractAddress = Config.CONTRACT_NAME_2_ADDR.get(contractName);
-                if (contractAddress == null) {
-                    throw new IllegalArgumentException("Unknown contract: " + contractName);
-                }
-
-                // Verify function exists for this contract
-                Map<String, String> methodSignatures = Config.CONTRACT_METHOD_SIGNATURES.get(contractName);
-                if (methodSignatures == null || !methodSignatures.containsKey(functionName)) {
-                    throw new IllegalArgumentException(
-                            "Unknown function '" + functionName + "' for contract '" + contractName + "'");
-                }
-
-                String methodSignature = methodSignatures.get(functionName);
-                req = buildContractRequest(contractAddress, methodSignature,
-                        Arrays.copyOfRange(parts, 2, parts.length));
+        // Handle special cases for native blockchain operations
+        if (command.equals("TRANSFER_DEPCOIN")) {
+            // Format: TRANSFER_DEPCOIN <to_id> <amount>
+            if (parts.length != 3) {
+                throw new IllegalArgumentException(
+                        "Invalid TRANSFER_DEPCOIN format. Usage: TRANSFER_DEPCOIN <to_id> <amount>");
             }
 
-            if (req != null) {
-                // Sign the request
-                String signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
-                req.setSignature(signature);
-
-                // TODO: Only sending to the leader. Should be good tho(?)
-                aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
-                count++;
+            int toId = Integer.parseInt(parts[1]);
+            Address toAddress = Config.CLIENT_ID_2_ADDR.get(toId);
+            if (toAddress == null) {
+                throw new IllegalArgumentException("Unknown client ID: " + toId);
             }
-        } catch (IllegalArgumentException e) {
-            System.out.println(e.getMessage());
-        } catch (Exception e) {
-            Logger.LOG("Error processing request: " + e.getMessage());
+
+            BigInteger amount = new BigInteger(parts[2]);
+            req = new TransferDepCoinReq(clientId, count, toAddress, amount);
+        }
+        // Contract call handling
+        else {
+            // Check if this is a contract call (needs at least contract name and function)
+            if (parts.length < 2) {
+                throw new IllegalArgumentException(
+                        "Invalid format. For contract calls use: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
+            }
+
+            String contractName = parts[0];
+            String functionName = parts[1];
+
+            req = buildContractRequest(contractName, functionName,
+                    Arrays.copyOfRange(parts, 2, parts.length));
+        }
+
+        if (req != null) {
+            if (count == 0) { // First message. Send public key to servers
+                sendPublicKeyToServers();
+            }
+            // Initialize response tracking for the new request
+            responseLatch = new CountDownLatch(1);
+            currentRequestResponses.clear();
+            acceptedResponse.set(null);
+            messageHandler.updateForNewRequest(count, responseLatch);
+
+            // Sign the request
+            Logger.LOG("Signing request: " + req);
+            String signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
+            req.setSignature(signature);
+
+            // TODO: Only sending to the leader. Should be good tho(?)
+            Logger.LOG("Sending request: " + req);
+            aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
+            count++;
+            return; // Successfully sent a request
+        } else {
+            throw new IllegalArgumentException("Failed to create a valid request.");
         }
     }
 
@@ -234,10 +220,24 @@ public class Client {
      * @return A ContractCallReq object representing the request
      * @throws IllegalArgumentException If the arguments are invalid
      */
-    private ClientReq buildContractRequest(Address contractAddress, String methodSignature, String[] args)
+    private ClientReq buildContractRequest(String contractName, String functionName, String[] args)
             throws IllegalArgumentException {
         try {
-            switch (methodSignature) {
+            // Verify contract exists
+            Address contractAddress = Config.CONTRACT_NAME_2_ADDR.get(contractName);
+            if (contractAddress == null) {
+                throw new IllegalArgumentException("Unknown contract: " + contractName);
+            }
+
+            // Verify function exists for this contract
+            Map<String, String> methodSignatures = Config.CONTRACT_METHOD_SIGNATURES.get(contractName);
+            if (methodSignatures == null || !methodSignatures.containsKey(functionName)) {
+                throw new IllegalArgumentException(
+                        "Unknown function '" + functionName + "' for contract '" + contractName + "'");
+            }
+
+            String methodSignature = methodSignatures.get(functionName);
+            switch (functionName) {
                 // No arguments functions
                 case "balanceOf":
                     if (args.length != 0) {

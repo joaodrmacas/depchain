@@ -86,12 +86,12 @@ public class ContractCallReq extends ClientReq {
     @Override
     public String toString() {
         return "ContractCallReq{" +
-                "value=" + value +
+                "senderId=" + senderId +
+                ", count=" + count +
                 ", contractAddr='" + contractAddr + '\'' +
                 ", methodSelector='" + methodSelector + '\'' +
+                ", value=" + value +
                 ", args=" + String.join(", ", args) +
-                ", senderId=" + senderId +
-                ", count=" + count +
                 '}';
     }
 }

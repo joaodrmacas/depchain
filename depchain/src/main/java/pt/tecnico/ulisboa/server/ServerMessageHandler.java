@@ -24,7 +24,8 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
     private ConcurrentHashMap<Integer, Address> clientAddresses;
 
-    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Address> clientAddresses) {
+    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus,
+            ConcurrentHashMap<Integer, Address> clientAddresses) {
         this.clientKus = clientKus;
         this.clientAddresses = clientAddresses;
         this.txQueue = txQueue;
@@ -59,14 +60,13 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
             return;
         }
         clientKus.put(senderId, ku);
-        
-        //TODO: change this? genesis block? what defines admin address balance?
+
+        // TODO: change this? genesis block? what defines admin address balance?
         Random random = new Random();
         int randomNumber = random.nextInt(100);
         clientAddresses.put(senderId, ContractUtils.generateAddressFromId(senderId));
     }
 
-    @SuppressWarnings("unchecked")
     public void handleClientRequest(ClientReq message) {
         PublicKey clientKU = clientKus.get(message.getSenderId());
         if (clientKU == null) {
