@@ -204,7 +204,7 @@ public abstract class AplManager {
                     // Get the APL for this sender and dispatch the data of the packet
                     APLImpl apl = aplInstances.get(senderId);
                     if (apl != null) {
-                        apl.handleData(senderId, data);
+                        apl.handleMessage(senderId, data);
                     } else {
                         Logger.LOG("No APL instance found for sender ID: " + senderId);
                     }

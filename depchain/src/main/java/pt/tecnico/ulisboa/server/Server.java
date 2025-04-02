@@ -385,8 +385,7 @@ public class Server<T extends RequiresEquals> {
     }
 
     public void sendToMember(int memberId, ConsensusMessage<T> msg) {
-        Logger.LOG((memberId + 8080) + ") Sending message: DT{Consensus{" + msg.toString() + "}}");
-
+        Logger.LOG((memberId + 8080) + ") Sending message : DT{Consensus{" + msg.toString() + "}}");
         serversManager.send(memberId, msg);
     }
 

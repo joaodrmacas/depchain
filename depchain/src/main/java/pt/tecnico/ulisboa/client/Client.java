@@ -205,7 +205,7 @@ public class Client {
 
             // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
-            aplManager.sendWithTimeout(0, req, Config.CLIENT_TIMEOUT_MS);
+            aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
             count++;
             return; // Successfully sent a request
         } else {

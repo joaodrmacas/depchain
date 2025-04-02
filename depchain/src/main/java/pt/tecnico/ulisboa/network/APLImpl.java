@@ -105,6 +105,8 @@ public class APLImpl implements APL {
         byte[] hmac = generateHMAC(message, seqNum, secretKey);
         DataMessage dataMsg = new DataMessage(message, seqNum, hmac);
 
+        Logger.LOG(destPort + ") Sending datamessage of seqnum " + seqNum);
+
         // Store the message in the pending list
         pendingMessages.put(seqNum, dataMsg);
 
@@ -164,7 +166,6 @@ public class APLImpl implements APL {
             // Store the message in the pending list
             pendingMessages.put(seqNum, dataMsg);
 
-            Logger.LOG("Sending message: " + seqNum);
             sendUdpPacket(dataMsg.serialize());
         } catch (Exception e) {
             Logger.ERROR("Failed to sign and send message: " + e.getMessage(), e);
@@ -202,7 +203,7 @@ public class APLImpl implements APL {
         this.messageHandler = handler;
     }
 
-    public boolean handleData(int senderId, byte[] data) {
+    public boolean handleMessage(int senderId, byte[] data) {
         try {
             processReceivedPacket(senderId, data);
             return true;
@@ -220,18 +221,13 @@ public class APLImpl implements APL {
 
         Logger.LOG(destPort + ") Received message: " + message.toStringExtended());
 
-        if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
-
-            Logger.LOG(
-                    "Received message was out-of-order : Message seqnum: " + message.getSeqNum() + ". From: " + senderId
-                            + ". Last received: " + lastReceivedSeqNum.get());
-
-            return;
-        }
-
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
                 DataMessage dataMessage = (DataMessage) message;
+                if (isOutOfOrder(message, senderId)) {
+                    Logger.LOG("Message was out of order. Ignoring.");
+                    return;
+                }
                 handleData(senderId, dataMessage);
                 break;
             case Message.ACK_MESSAGE_TYPE:
@@ -240,11 +236,35 @@ public class APLImpl implements APL {
                 break;
             case Message.KEY_MESSAGE_TYPE:
                 KeyMessage keyMessage = (KeyMessage) message;
+                if (isOutOfOrder(message, senderId)) {
+                    Logger.LOG("Message was out of order. Ignoring.");
+                    return;
+                }
                 handleKey(keyMessage);
                 break;
             default:
                 Logger.ERROR("Unknown message type: " + message.getType());
         }
+    }
+
+    private boolean isOutOfOrder(Message message, int senderId) {
+        if (!lastReceivedSeqNum.compareAndSet(message.getSeqNum() - 1, message.getSeqNum())) {
+            if (lastReceivedSeqNum.get() >= message.getSeqNum()) {
+                Logger.LOG("Received message was already received: Message seqnum: " + message.getSeqNum() + ". From: "
+                        + senderId + ". Last received: " + lastReceivedSeqNum.get());
+                try {
+                    sendAuthenticatedAcknowledgment(message.getSeqNum());
+                } catch (Exception e) {
+                    Logger.LOG("Failed to send acknowledgment: " + e.getMessage());
+                }
+            } else {
+                Logger.LOG(
+                    "Received message was from the future: Message seqnum: " + message.getSeqNum() + ". From: " + senderId
+                            + ". Last received: " + lastReceivedSeqNum.get());
+            }
+            return true;
+        }
+        return false;
     }
 
     private void handleKey(KeyMessage keyMessage) {
@@ -273,13 +293,11 @@ public class APLImpl implements APL {
     }
 
     private void handleACK(AckMessage ackMessage) {
-        byte[] content = ackMessage.getContent();
         long seqNum = ackMessage.getSeqNum();
         byte[] hmac = ackMessage.getMac();
-        long dataSeqNum = ByteBuffer.wrap(content).getLong();
 
-        if (!verifyHMAC(content, seqNum, hmac)) {
-            Logger.LOG("Authentication failed for ACK: " + dataSeqNum);
+        if (!verifyHMAC(seqNum, hmac)) {
+            Logger.LOG("Authentication failed for ACK: " + seqNum);
             return;
         }
 
@@ -288,12 +306,12 @@ public class APLImpl implements APL {
         }
 
         // Remove the message from the pending list
-        if (!pendingMessages.containsKey(dataSeqNum)) {
-            Logger.LOG("Received ACK for unsent message: " + dataSeqNum);
+        if (!pendingMessages.containsKey(seqNum)) {
+            Logger.LOG("Received ACK for unsent message: " + seqNum);
             return;
         }
 
-        Logger.LOG("Received ACK for message: " + dataSeqNum);
+        Logger.LOG("Received ACK for message: " + seqNum);
         // Logger.LOG("attempting to remove message: " + seqNum + " from pending
         // list\n...");
         // print messages in pending list
@@ -301,7 +319,7 @@ public class APLImpl implements APL {
         // for (Long key : pendingMessages.keySet()) {
         // Logger.LOG("Pending message: " + key);
         // }
-        pendingMessages.remove(dataSeqNum);
+        pendingMessages.remove(seqNum);
 
         // print messages in pending list
         // Logger.LOG("...\nPending messages after:");
@@ -351,17 +369,15 @@ public class APLImpl implements APL {
 
     private void sendAuthenticatedAcknowledgment(long dataSeqNum) throws Exception {
         try {
-            Logger.LOG(destPort + ") " + "SENDING ACK: " + dataSeqNum);
             SecretKey secretKey = getSecretKey();
-            long seqNum = nextSeqNum.getAndIncrement();
+            long seqNum = dataSeqNum;
             // create the content from the dataSeqNum
-            byte[] content = ByteBuffer.allocate(Long.BYTES).putLong(dataSeqNum).array();
 
-            byte[] hmac = generateHMAC(content, seqNum, secretKey);
+            byte[] hmac = generateHMAC(seqNum, secretKey);
 
-            AckMessage ackMessage = new AckMessage(content, seqNum, hmac);
+            AckMessage ackMessage = new AckMessage(seqNum, hmac);
 
-            Logger.LOG(destPort + ") " + "Sending ACK of seqNum: " + seqNum + " for message " + dataSeqNum);
+            Logger.LOG(destPort + ") " + "Sending ACK of seqNum: " + seqNum);
 
             byte[] byteMsg = ackMessage.serialize();
 
@@ -456,6 +472,10 @@ public class APLImpl implements APL {
         }, Config.RETRANSMISSION_TIME, Config.RETRANSMISSION_TIME, TimeUnit.MILLISECONDS);
     }
 
+    private boolean verifyHMAC(long seqNum, byte[] hmac) {
+        return verifyHMAC(new byte[0], seqNum, hmac);
+    }
+
     private boolean verifyHMAC(byte[] content, long seqNum, byte[] hmac) {
         try {
             SecretKey secretKey = getSecretKey();
@@ -481,6 +501,10 @@ public class APLImpl implements APL {
             Logger.ERROR("Failed to generate HMAC: " + e.getMessage(), e);
             return null;
         }
+    }
+
+    private byte[] generateHMAC(long seqNum, SecretKey secretKey) {
+        return generateHMAC(new byte[0], seqNum, secretKey);
     }
 
     private SecretKey getOrGenerateSecretKey() {
