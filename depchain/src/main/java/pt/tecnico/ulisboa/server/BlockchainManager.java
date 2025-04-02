@@ -163,6 +163,12 @@ public class BlockchainManager<T> {
             // execute the transaction
             executor.execute();
 
+            ContractUtils.checkForExecutionErrors(output);
+
+            String returnValue = ContractUtils.extractHexStringFromReturnData(output);
+
+            Logger.LOG("Contract call executed successfully. Return value: " + returnValue);
+
             return new ClientResp(true, req.getCount(), "Contract call executed successfully");
         } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
@@ -179,9 +185,22 @@ public class BlockchainManager<T> {
                 persistenceManager.persistBlock(currentBlock, world);
                 currentBlock = new Block(currentBlock.getId() + 1, currentBlock.getHash());
             }
+            Logger.LOG("Transaction added to block: " + req.toString());
+            printBlockchain();
         } catch (Exception e) {
             Logger.LOG("Failed to add transaction to block: " + e.getMessage());
         }
+    }
+
+    public void printBlockchain() {
+        System.out.println("BLOCKCHAIN:");
+        for (int i = 0; i < blockchain.size(); i++) {
+            Block block = blockchain.get(i);
+            block.printBlock();
+            System.out.println("   ↓");
+        }
+        currentBlock.printBlock();
+
     }
 
 }

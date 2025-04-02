@@ -33,7 +33,6 @@ import pt.tecnico.ulisboa.server.Block;
 import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
-
 public class ContractUtils {
 
     public static String padBigIntegerTo256Bit(BigInteger value) {
@@ -154,15 +153,20 @@ public class ContractUtils {
     }
 
     public static void checkForExecutionErrors(ByteArrayOutputStream output) {
+        Logger.LOG("Checking for execution errors in output stream");
         try {
             // Create a copy of the output stream to avoid consuming it
             // TODO: acho que nao precisa de ser copiado
             ByteArrayOutputStream outputCopy = new ByteArrayOutputStream();
             outputCopy.write(output.toByteArray());
 
+            Logger.LOG("Execution output before ");
             String[] lines = outputCopy.toString().split("\\r?\\n");
+            Logger.LOG("Execution output: " + Arrays.toString(lines));
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
+                // print the jsonObject
+                Logger.LOG("Execution output: " + jsonObject.toString());
                 if (jsonObject.has("error")) {
                     String errorMessage = jsonObject.get("error").getAsString();
                     throw new RuntimeException("Execution error: " + errorMessage);

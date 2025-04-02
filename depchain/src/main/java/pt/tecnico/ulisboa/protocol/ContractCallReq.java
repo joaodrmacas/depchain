@@ -8,6 +8,7 @@ import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.utils.ContractUtils;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 // Get spending allowance between two accounts
 public class ContractCallReq extends ClientReq {
@@ -52,6 +53,8 @@ public class ContractCallReq extends ClientReq {
                 hexArgs[i] = ((BigInteger) args[i]).toString(16);
             } else if (args[i] instanceof Address) {
                 hexArgs[i] = ((Address) args[i]).toHexString();
+            } else if (args[i] instanceof String) { // already in hex format
+                hexArgs[i] = (String) args[i];
             } else {
                 throw new IllegalArgumentException("Unsupported argument type: " + args[i].getClass().getName());
             }
@@ -69,13 +72,14 @@ public class ContractCallReq extends ClientReq {
     }
 
     public Bytes getCallData() {
-        // TODO: check if the method selector needs to be padded. (It prob does)
-        StringBuilder callData = new StringBuilder(ContractUtils.padHexStringTo256Bit(methodSelector));
+        StringBuilder callData = new StringBuilder(methodSelector);
         for (String arg : args) {
             // Convert the argument to a 256-bit hex string and append it to the callData
             String paddedArg = ContractUtils.padHexStringTo256Bit(arg);
             callData.append(paddedArg);
         }
+        // print the call data
+        Logger.LOG("Call data: " + callData.toString());
         return Bytes.fromHexString(callData.toString());
     }
 

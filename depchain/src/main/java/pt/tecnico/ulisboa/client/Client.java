@@ -37,7 +37,7 @@ public class Client {
     private ServerAplManager aplManager;
     private Map<Integer, PublicKey> serversPublicKeys = new HashMap<Integer, PublicKey>();
     private Integer clientId;
-    private Long count = 0L;
+    private Long count = 1L;
     private String keysDirectory;
 
     private CountDownLatch responseLatch;
@@ -129,10 +129,12 @@ public class Client {
                 if (!waitForResponse()) {
                     Logger.LOG("Timed out waiting for enough responses");
                 } else {
-                    Logger.DEBUG("Got a response");
-                    BlockchainMessage response = acceptedResponse.get();
-                    if (response != null) {
-                        Logger.LOG("Accepted response: " + response);
+                    Logger.DEBUG("GOT A RESPONSE");
+                    ClientResp response = acceptedResponse.get();
+                    if (response.getSuccess()) {
+                        Logger.LOG("Accepted response: " + response.getMessage());
+                    } else {
+                        Logger.LOG("Rejected response: " + response.getMessage());
                     }
                 }
             } catch (Exception e) {
@@ -186,7 +188,7 @@ public class Client {
         }
 
         if (req != null) {
-            if (count == 0) { // First message. Send public key to servers
+            if (count == 1) { // First message. Send public key to servers
                 sendPublicKeyToServers();
             }
             // Initialize response tracking for the new request
@@ -194,6 +196,7 @@ public class Client {
             currentRequestResponses.clear();
             acceptedResponse.set(null);
             messageHandler.updateForNewRequest(count, responseLatch);
+            Logger.LOG("Count: " + count);
 
             // Sign the request
             Logger.LOG("Signing request: " + req);
@@ -243,7 +246,7 @@ public class Client {
                     if (args.length != 0) {
                         throw new IllegalArgumentException("balanceOf takes no arguments");
                     }
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature);
+                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, Config.CLIENT_ID_2_ADDR.get(clientId));
 
                 // Single address functions
                 case "isBlacklisted":
@@ -340,18 +343,17 @@ public class Client {
 
         // // TODO: fix this to send periodically (...). Only send to leader change
         // later plsp ls pls
-        // for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-        // byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-        // aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
-        // publicKeyBytes, count),
-        // Config.CLIENT_TIMEOUT_MS);
-        // }
-        aplManager.sendWithTimeout(0, new RegisterReq(
-                clientId,
-                CryptoUtils.publicKeyToBytes(publicKey),
-                count), Config.CLIENT_TIMEOUT_MS);
+        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
+            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+            aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
+                    publicKeyBytes, 0), // TODO: isto ta nojento mas funciona
+                    Config.CLIENT_TIMEOUT_MS);
+        }
+        // aplManager.sendWithTimeout(0, new RegisterReq(
+        // clientId,
+        // CryptoUtils.publicKeyToBytes(publicKey),
+        // count), Config.CLIENT_TIMEOUT_MS);
 
-        count++;
     }
 
     private void setup(String addr, int port) {

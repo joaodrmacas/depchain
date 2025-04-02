@@ -16,7 +16,7 @@ public class Block {
     private final Integer blockId;
     private final String prevHash;
     private String blockHash;
-    private List<Transaction> transactions = new ArrayList<>();
+    private List<Transaction> transactions;
     private int transactionCount = 0;
 
     // constructor to load a already existing block
@@ -32,7 +32,7 @@ public class Block {
         this.blockId = blockId;
         this.prevHash = prevHash;
         this.blockHash = null;
-        this.transactions = null;
+        this.transactions = new ArrayList<>();
     }
 
     // constructor for genesis block
@@ -40,6 +40,7 @@ public class Block {
         this.blockId = 0;
         this.prevHash = null;
         this.blockHash = CryptoUtils.hashSHA256("".getBytes());
+        this.transactions = new ArrayList<>();
     }
 
     public void finalizeBlock() {
@@ -81,6 +82,18 @@ public class Block {
 
     public List<Transaction> getTransactions() {
         return transactions;
+    }
+
+    public void printBlock() {
+        System.out.println("┌───────────────────────────────────────────────────────────────┐");
+        System.out.println("│ Block ID: " + blockId + "                                    │");
+        System.out.println("│ Previous Hash: " + prevHash + "                          │");
+        System.out.println("│ Block Hash: " + blockHash + "                             │");
+        System.out.println("│ Transactions:                                             │");
+        for (Transaction tx : transactions) {
+            System.out.println("│ " + tx.toString() + " │");
+        }
+        System.out.println("└───────────────────────────────────────────────────────────────┘");
     }
 
 }

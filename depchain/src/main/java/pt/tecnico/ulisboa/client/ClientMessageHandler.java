@@ -29,6 +29,7 @@ public class ClientMessageHandler implements MessageHandler {
 
     public void updateForNewRequest(long requestSeqNum, CountDownLatch newLatch) {
         this.requestSeqNum = requestSeqNum;
+        Logger.LOG("Updating request sequence number to: " + requestSeqNum);
         this.responseLatch = newLatch;
     }
 
