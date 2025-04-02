@@ -158,6 +158,8 @@ public class BlockchainManager<T> {
             executor.sender(sender);
             executor.ethValue(Wei.of(value));
             executor.contract(contractAddress);
+            MutableAccount contract = world.getAccount(contractAddress);
+            executor.code(contract.getCode());
             executor.callData(callData);
 
             // execute the transaction
