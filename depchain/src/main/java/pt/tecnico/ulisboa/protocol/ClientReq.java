@@ -31,4 +31,6 @@ public abstract class ClientReq extends BlockchainMessage {
         CONTRACT_CALL,
         TRANSFER_DEP_COIN
     }
+
+    public abstract boolean needsConsensus();
 }

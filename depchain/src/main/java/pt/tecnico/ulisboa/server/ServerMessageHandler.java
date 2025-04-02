@@ -20,15 +20,15 @@ import pt.tecnico.ulisboa.utils.types.ObservedResource;
 import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
 public class ServerMessageHandler<T extends RequiresEquals> implements MessageHandler {
-    private ObservedResource<Queue<T>> txQueue;
+    private Server<T> server;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
     private ConcurrentHashMap<Integer, Address> clientAddresses;
 
-    public ServerMessageHandler(ObservedResource<Queue<T>> txQueue, ConcurrentHashMap<Integer, PublicKey> clientKus,
+    public ServerMessageHandler(Server<T> server, ConcurrentHashMap<Integer, PublicKey> clientKus,
             ConcurrentHashMap<Integer, Address> clientAddresses) {
+        this.server = server;
         this.clientKus = clientKus;
         this.clientAddresses = clientAddresses;
-        this.txQueue = txQueue;
     }
 
     public void onMessage(int senderid, byte[] message) {
@@ -78,7 +78,13 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
             return;
         }
         Logger.LOG("Valid signature for message: " + message.getCount());
-        txQueue.getResource().add((T) message);
-        txQueue.notifyChange();
+        
+        if (message.needsConsensus()) {
+            Logger.LOG("Pushing to consensus: " + message.getCount());
+            server.pushReceivedTx((T) message);
+        } else {
+            Logger.LOG("Pushing to decided: " + message.getCount());
+            server.pushDecidedTx((T) message);
+        }
     }
 }

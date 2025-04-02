@@ -95,4 +95,9 @@ public class ContractCallReq extends ClientReq {
                 ", args=" + String.join(", ", args) +
                 '}';
     }
+
+    @Override
+    public boolean needsConsensus() {
+        return true;
+    }
 }

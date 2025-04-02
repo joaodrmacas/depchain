@@ -39,4 +39,9 @@ public class TransferDepCoinReq extends ClientReq {
                 '}';
     }
 
+    @Override
+    public boolean needsConsensus() {
+        return true;
+    }
+
 }

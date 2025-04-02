@@ -183,8 +183,7 @@ public class Server<T extends RequiresEquals> {
             serversManager.startListening();
 
             // Initialize register APL
-            clientManager = new ClientAplManager<>(address, portRegister, privateKey, transactions, clientPublicKeys,
-                    userAddresses);
+            clientManager = new ClientAplManager<>(this, address, portRegister, privateKey, clientPublicKeys, userAddresses);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");
@@ -274,6 +273,11 @@ public class Server<T extends RequiresEquals> {
             }
         }
         return content.toString();
+    }
+
+    public void pushReceivedTx(T value) {
+        transactions.getResource().add(value);
+        transactions.notifyChange();
     }
 
     public T peekReceivedTxOrWait(Integer timeout) throws InterruptedException {
