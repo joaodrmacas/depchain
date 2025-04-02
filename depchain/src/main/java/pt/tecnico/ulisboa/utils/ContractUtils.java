@@ -160,13 +160,10 @@ public class ContractUtils {
             ByteArrayOutputStream outputCopy = new ByteArrayOutputStream();
             outputCopy.write(output.toByteArray());
 
-            Logger.LOG("Execution output before ");
             String[] lines = outputCopy.toString().split("\\r?\\n");
-            Logger.LOG("Execution output: " + Arrays.toString(lines));
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
                 // print the jsonObject
-                Logger.LOG("Execution output: " + jsonObject.toString());
                 if (jsonObject.has("error")) {
                     String errorMessage = jsonObject.get("error").getAsString();
                     throw new RuntimeException("Execution error: " + errorMessage);

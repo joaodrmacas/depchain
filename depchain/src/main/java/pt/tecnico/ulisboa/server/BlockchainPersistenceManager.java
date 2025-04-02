@@ -204,12 +204,9 @@ public class BlockchainPersistenceManager {
         for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
             String addressHex = entry.getKey();
             JsonObject accountJson = entry.getValue().getAsJsonObject();
-            Logger.LOG("aa");
             // Create a new account
             Address address = Address.fromHexString(addressHex);
-            Logger.LOG("bb");
             MutableAccount account = world.createAccount(address);
-            Logger.LOG("cc");
 
             // Set balance
             String balanceStr = accountJson.get("balance").getAsString();
@@ -219,7 +216,6 @@ public class BlockchainPersistenceManager {
 }
             BigInteger balance = new BigInteger(balanceStr, 16);
             account.setBalance(Wei.of(balance));
-            Logger.LOG("dd");
 
             // If it's a contract account, set code and storage
             if (accountJson.has("code")) {
@@ -237,7 +233,6 @@ public class BlockchainPersistenceManager {
                 }
             }
         }
-        Logger.LOG("ee");
         return world;
     }
 
