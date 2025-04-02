@@ -15,8 +15,8 @@ public class Config {
     public final static int MAX_COOLDOWN = 5000000;
     public final static int NUM_MEMBERS = 3 * ALLOWED_FAILURES + 1;
     public final static int QUORUM = 2 * ALLOWED_FAILURES + 1;
-    public final static int CONSENSUS_LINK_TIMEOUT = 2000;
-    public final static int NEW_TRANSACTION_TIMEOUT = 2000;
+    public final static int CONSENSUS_LINK_TIMEOUT = 3000;
+    public final static int NEW_TRANSACTION_TIMEOUT = 3000;
     public final static int WAIT_MSG_TIME = 100;
     public final static int CLIENT_KEYPAIR_SIZE = 4096;
     public final static String DEFAULT_KEYS_DIR = "keys";

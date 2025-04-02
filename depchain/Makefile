@@ -23,5 +23,8 @@ client:
 consensus:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/consensus_4servers.sh
 
+4servers:
+	bash ./src/main/java/pt/tecnico/ulisboa/scripts/4servers.sh
+
 kill:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/kill.sh

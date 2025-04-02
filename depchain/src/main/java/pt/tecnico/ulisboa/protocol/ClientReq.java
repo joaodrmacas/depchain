@@ -32,5 +32,17 @@ public abstract class ClientReq extends BlockchainMessage {
         TRANSFER_DEP_COIN
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof ClientReq)) {
+            return false;
+        }
+        ClientReq other = (ClientReq) obj;
+        return super.equals(obj) && senderId == other.senderId;
+    }
+
     public abstract boolean needsConsensus();
 }

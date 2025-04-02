@@ -41,8 +41,7 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
                     return false;
                 }
             } else {
-                Logger.LOG("state " + i + " not found in collected states");
-                return false;
+                Logger.DEBUG("state " + i + " not found in collected states");
             }
         }
         return true;

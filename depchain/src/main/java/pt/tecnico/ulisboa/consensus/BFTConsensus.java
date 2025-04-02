@@ -25,7 +25,7 @@ public class BFTConsensus<T extends RequiresEquals> {
     public void start() {
         AtomicInteger epochNumber = new AtomicInteger(0);
         int consensusIndex = 0;
-        AtomicBoolean readPhaseDone = new AtomicBoolean(false);
+        AtomicBoolean readPhaseDone = new AtomicBoolean(true);
         
         while (true) {
             T valueToBeProposed = null;
@@ -123,6 +123,8 @@ public class BFTConsensus<T extends RequiresEquals> {
                     this.service.take();
                 }
                 
+                Logger.DEBUG("Work detected in thread " + firstAwaken.get());
+
                 // Ensure all tasks are cancelled after one completes
                 for (Future<?> task : waitingTasks) {
                     if (!task.isDone()) {
@@ -134,15 +136,7 @@ public class BFTConsensus<T extends RequiresEquals> {
             }
 
             // Try one last time to peek a value (new tx from clients)
-            if (valueToBeProposed == null) {
-                try {
-                    valueToBeProposed = member.peekReceivedTxOrWait(0);
-                } catch (InterruptedException e) {
-                    Logger.LOG("Interrupted while peeking received tx");
-                } catch (Exception e) {
-                    Logger.ERROR("Error while peeking received tx", e);
-                }
-            }
+            valueToBeProposed = member.peekReceivedTx();
 
             EpochConsensus<T> consensus = new EpochConsensus<>(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
 
@@ -154,6 +148,9 @@ public class BFTConsensus<T extends RequiresEquals> {
             Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on value " + value);
         
             consensusIndex++;
+
+            // only when one consensus is done, we are sure we dont need to read the next
+            readPhaseDone.set(true);
         }
     }
 

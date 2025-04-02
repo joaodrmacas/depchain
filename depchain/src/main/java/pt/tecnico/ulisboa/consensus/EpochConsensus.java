@@ -106,14 +106,18 @@ public class EpochConsensus<T extends RequiresEquals> {
     public T epoch() throws AbortedSignal {
         Logger.LOG("Starting epoch");
 
-        T valueToBeProposed = this.state.getMostRecentQuorumWritten().getValue();
+        if (this.state.getMostRecentQuorumWritten().getValue() == null) {
+            T valueToBeProposed = member.peekReceivedTx();
+            this.state.setMostRecentQuorumWritten(new WriteTuple<>(valueToBeProposed, 0));
+        }
 
         while (true) {
             woa = null;
             // Leader
             if (getLeader(this.epochNumber.get()) == member.getId()) {
                 // aborts this epoch if is leader and has no value to propose
-                if (valueToBeProposed == null) {
+                if (this.state.getMostRecentQuorumWritten().getValue() == null) {
+                    Logger.LOG("I'm leader and I have no value to propose");
                     abort();
                 }
 
@@ -133,8 +137,6 @@ public class EpochConsensus<T extends RequiresEquals> {
                         Logger.DEBUG("Collected states:");
                         System.err.println(this.collected + "\n");
                     }
-
-                    this.readPhaseDone.set(true);
                 }
 
                 this.state.sign(member.getPrivateKey());
@@ -145,27 +147,30 @@ public class EpochConsensus<T extends RequiresEquals> {
                 Logger.LOG("send COLLECTEDs done");
             } else { // Not leader
                 boolean wentWrong;
-                
                 int leaderId = getLeader(this.epochNumber.get());
 
-                wentWrong = !receiveFrom(ConsensusMessage.MessageType.READ, leaderId);
-                if (wentWrong) {
-                    broadcastAbort();
-                    this.woa = checkForEvents();
+                if (!this.readPhaseDone.get()) {
+                    wentWrong = !receiveFrom(ConsensusMessage.MessageType.READ, leaderId);
+                    if (wentWrong) {
+                        Logger.LOG("Received READ went wrong");
+                        broadcastAbort();
+                        this.woa = checkForEvents();
+                    }
+                    if (this.woa != null) {
+                        break;
+                    }
+
+                    Logger.LOG("receive READ done");
+
+                    this.state.sign(member.getPrivateKey());
+                    sendTo(new StateMessage<>(this.state, this.epochNumber.get(), this.consensusIndex), leaderId);
+
+                    Logger.LOG("send STATE done");
                 }
-                if (this.woa != null) {
-                    break;
-                }
-
-                Logger.LOG("receive READ done");
-
-                this.state.sign(member.getPrivateKey());
-                sendTo(new StateMessage<>(this.state, this.epochNumber.get(), this.consensusIndex), leaderId);
-
-                Logger.LOG("send STATE done");
 
                 wentWrong = !receiveFrom(ConsensusMessage.MessageType.COLLECTED, leaderId);
                 if (wentWrong) {
+                    Logger.LOG("Received COLLECTED went wrong");
                     broadcastAbort();
                     this.woa = checkForEvents();
                 }
@@ -176,6 +181,7 @@ public class EpochConsensus<T extends RequiresEquals> {
                 Logger.LOG("receive COLLECTED done");
 
                 if (!this.collected.verifyStates(member.getPublicKeys())) {
+                    Logger.LOG("Collected states not valid");
                     if (Logger.IS_DEBUGGING()) {
                         Logger.DEBUG("Collected states:");
                         System.err.println(this.collected + "\n");
@@ -230,7 +236,6 @@ public class EpochConsensus<T extends RequiresEquals> {
         // if no value to accept we can proceed so we abort to a new epoch
         if (this.woa == null || !this.woa.isToAccept()) {
             Logger.LOG("No value to accept");
-
             abort();
         }
 
@@ -242,29 +247,21 @@ public class EpochConsensus<T extends RequiresEquals> {
 
         // if the leader didn't send its own state, abort
         if (this.collected.getStates().get(getLeader(this.epochNumber.get())) == null) {
+            Logger.LOG("Leader state not found in collected states");
             abort();
         }
 
         WriteTuple<T> bestWT = null;
 
-        int countCorrectStates = 0;
-
         for (int i = 0; i < Config.NUM_MEMBERS; i++) {
             ConsensusState<T> state = this.collected.getStates().get(i);
             if (state != null) {
-                countCorrectStates++;
-
                 WriteTuple<T> wt = state.getMostRecentQuorumWritten();
                 if (bestWT == null
                         || wt.getTimestamp() > bestWT.getTimestamp()) {
                     bestWT = wt;
                 }
             }
-        }
-
-        // if the leader didn't send enough states, abort
-        if (countCorrectStates < Config.ALLOWED_FAILURES + 1) {
-            abort();
         }
 
         if (bestWT != null) {
@@ -490,12 +487,13 @@ public class EpochConsensus<T extends RequiresEquals> {
         // Prevents byzantine process to send useless messages to keep the leader stuck
         long startTime = System.currentTimeMillis();
 
-        while (System.currentTimeMillis() - startTime < 2 * Config.CONSENSUS_LINK_TIMEOUT) {
+        int timeout = Config.CONSENSUS_LINK_TIMEOUT;
+        while (System.currentTimeMillis() - startTime < 2 * timeout) {
             //Logger.DEBUG("Recv loop: time left: " + (2 * Config.LINK_TIMEOUT - (System.currentTimeMillis() - startTime)));
             ConsensusMessage<T> msg = null;
             
             try {
-                msg = member.peekConsensusMessageOrWait(senderId, Config.CONSENSUS_LINK_TIMEOUT);
+                msg = member.peekConsensusMessageOrWait(senderId, timeout);
             } catch (InterruptedException e) {
                 Logger.LOG(senderId + ") Interrupted while peeking consensus message");
                 return true;

@@ -112,6 +112,8 @@ public class Server<T extends RequiresEquals> {
                     T value = decidedValues.getResource().poll();
                     if (value != null) {
                         ClientResp response = blockchainManager.handleDecidedValue(value);
+
+                        Logger.DEBUG("Sending response to client " + value.getSenderId() + ": " + response.toString());
                         clientManager.send(value.getSenderId(), response);
                     }
                     // consensus thread already changes the decided queue
@@ -280,12 +282,42 @@ public class Server<T extends RequiresEquals> {
         transactions.notifyChange();
     }
 
+    public T peekReceivedTx() {
+        while (true) {
+            T value = transactions.getResource().peek();
+            if (value != null) {
+                if (decidedValuesSet.contains(value)) {
+                    Logger.DEBUG("Transaction already decided: " + value);
+                    
+                    synchronized (transactions.getResource()) {
+                        T firstValue = transactions.getResource().peek();
+                        if (firstValue.equals(value)) {
+                            transactions.getResource().poll();
+                        }
+                    }
+
+                    continue;
+                }
+                return value;
+            }
+            return null;
+        }
+    }
+
     public T peekReceivedTxOrWait(Integer timeout) throws InterruptedException {
         while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {
                 if (decidedValuesSet.contains(value)) {
-                    transactions.getResource().poll();
+                    Logger.DEBUG("Transaction already decided: " + value);
+
+                    synchronized (transactions.getResource()) {
+                        T firstValue = transactions.getResource().peek();
+                        if (firstValue.equals(value)) {
+                            transactions.getResource().poll();
+                        }
+                    }
+
                     continue;
                 }
                 return value;
