@@ -33,6 +33,7 @@ import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 
 public class Server {
     private int nodeId;
@@ -44,14 +45,13 @@ public class Server {
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Address> userAddresses = new ConcurrentHashMap<>();
 
-    private ObservedResource<Queue<ClientReq>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
-
-    private ObservedResource<Queue<Block>> decidedBlocks = new ObservedResource<>(new ConcurrentLinkedQueue<>());
-    
+    private Block currentBlock = new Block();
+    private ObservedResource<Queue<Block>> blocksForConsensus = new ObservedResource<>(new ConcurrentLinkedQueue<>());
     private ObservedResource<Queue<ClientReq>> txToBeExecuted = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    private ObservedResource<Queue<Block>> decidedBlocks = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
-    private Set<ClientReq> decidedTransactions = ConcurrentHashMap.newKeySet();
-
+    private Set<Block> decidedBlocksSet = ConcurrentHashMap.newKeySet();
+    
     private Map<Integer, ObservedResource<Queue<ConsensusMessage>>> consensusMessages = new HashMap<>();
     private BlockchainManager blockchainManager = new BlockchainManager();
 
@@ -108,16 +108,40 @@ public class Server {
 
     public void mainLoop() {
 
+        Thread transactionExecutorThread = new Thread(()-> {
+
+            try {
+                while (true) {
+                    ClientReq tx = txToBeExecuted.getResource().poll();
+                    if (tx != null) {
+                        ClientResp response = blockchainManager.executeTx(tx);
+                        Logger.DEBUG("Sending response to client " + tx.getSenderId() + ": " + response.toString());
+                        clientManager.send(tx.getSenderId(), response);
+                    } else {
+                        //TODO: is this possible? no, right?
+                        Logger.ERROR("Transaction executor thread: no transaction to execute");
+                    }
+                }
+            } catch (Exception e) {
+                Logger.ERROR("Transaction executor thread failed with exception", e);
+                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
+            }
+
+        });
+
         Thread blockHandlerThread = new Thread(() -> {
             try {
                 while (true) {
                     Block block = decidedBlocks.getResource().poll();
-                    if (block != null) {
-                        ClientResp response = blockchainManager.handleDecidedBlock(block);
 
-                        // TODO: put clientrequets in the transactions to be executed
-                        // Logger.DEBUG("Sending response to client " + block.getSenderId() + ": " + response.toString());
-                        // clientManager.send(block.getSenderId(), response);
+                    //TODO: verify if the decided block has the same transactions as the decided transactions
+                    //TODO: If not, go through my block and check which are not in the decided. Take those and add to the beginning of the queue (?) //helpppppppppp
+
+                    if (block != null) {
+                        blockchainManager.addBlockToBlockchain(block);
+                        for (ClientReq tx : block.getTransactions()) {
+                            txToBeExecuted.getResource().add(tx);
+                        }
                     }
                     // consensus thread already changes the decided queue
                     decidedBlocks.waitForChange(-1);
@@ -138,9 +162,11 @@ public class Server {
             }
         });
 
+        transactionExecutorThread.setName("Transaction-Executor-Thread");
         consensusThread.setName("BFT-Consensus-Thread");
         blockHandlerThread.setName("Block-Handler-Thread");
 
+        transactionExecutorThread.start();
         consensusThread.start();
         blockHandlerThread.start();
     }
@@ -280,22 +306,31 @@ public class Server {
         return content.toString();
     }
 
-    public void pushReceivedTx(ClientReq tx) {
-        transactions.getResource().add(tx);
-        transactions.notifyChange();
+    public void pushTxToBlock(ClientReq tx) {
+        currentBlock.appendTransaction(tx);
+        if (currentBlock.isFull()) {
+            blocksForConsensus.getResource().add(currentBlock);
+            blocksForConsensus.notifyChange();
+            currentBlock = new Block();
+        }
     }
 
-    public T peekReceivedTxs() {
+    public void pushTxToExecute(ClientReq tx) {
+        txToBeExecuted.getResource().add(tx);
+        txToBeExecuted.notifyChange();
+    }
+
+    public Block peekBlockToConsensus() {
         while (true) {
-            T value = transactions.getResource().peek();
+            Block value = blocksForConsensus.getResource().peek();
             if (value != null) {
-                if (decidedValuesSet.contains(value)) {
+                if (decidedBlocksSet.contains(value)) {
                     Logger.DEBUG("Transaction already decided: " + value);
                     
-                    synchronized (transactions.getResource()) {
-                        T firstValue = transactions.getResource().peek();
+                    synchronized (blocksForConsensus.getResource()) {
+                        Block firstValue = blocksForConsensus.getResource().peek();
                         if (firstValue.equals(value)) {
-                            transactions.getResource().poll();
+                            blocksForConsensus.getResource().poll();
                         }
                     }
 
@@ -307,17 +342,17 @@ public class Server {
         }
     }
 
-    public T peekReceivedTxOrWait(Integer timeout) throws InterruptedException {
+    public Block peekBlockToConsensusOrWait(Integer timeout) throws InterruptedException {
         while (true) {
-            T value = transactions.getResource().peek();
+            Block value = blocksForConsensus.getResource().peek();
             if (value != null) {
-                if (decidedValuesSet.contains(value)) {
+                if (decidedBlocksSet.contains(value)) {
                     Logger.DEBUG("Transaction already decided: " + value);
 
-                    synchronized (transactions.getResource()) {
-                        T firstValue = transactions.getResource().peek();
+                    synchronized (blocksForConsensus.getResource()) {
+                        Block firstValue = blocksForConsensus.getResource().peek();
                         if (firstValue.equals(value)) {
-                            transactions.getResource().poll();
+                            blocksForConsensus.getResource().poll();
                         }
                     }
 
@@ -326,7 +361,7 @@ public class Server {
                 return value;
             }
 
-            boolean hasTimedOut = !transactions.waitForChange(timeout);
+            boolean hasTimedOut = !blocksForConsensus.waitForChange(timeout);
 
             if (hasTimedOut) {
                 return null;
@@ -334,15 +369,15 @@ public class Server {
         }
     }
 
-    public void pushDecidedTx(T value) {
-        decidedValuesSet.add(value);
-        decidedValues.getResource().add(value);
-        decidedValues.notifyChange();
+    public void pushDecidedBlock(Block value) {
+        decidedBlocksSet.add(value);
+        decidedBlocks.getResource().add(value);
+        decidedBlocks.notifyChange();
     }
 
-    public ConsensusMessage<T> pollConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
+    public ConsensusMessage pollConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
         while (true) {
-            ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().poll();
+            ConsensusMessage msg = consensusMessages.get(senderId).getResource().poll();
             if (msg != null) {
                 return msg;
             }
@@ -355,9 +390,9 @@ public class Server {
         }
     }
 
-    public ConsensusMessage<T> peekConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
+    public ConsensusMessage peekConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
         while (true) {
-            ConsensusMessage<T> msg = consensusMessages.get(senderId).getResource().peek();
+            ConsensusMessage msg = consensusMessages.get(senderId).getResource().peek();
             if (msg != null) {
                 return msg;
             }
@@ -387,7 +422,7 @@ public class Server {
         return privateKey;
     }
 
-    public void sendToMember(int memberId, ConsensusMessage<T> msg) {
+    public void sendToMember(int memberId, ConsensusMessage msg) {
         Logger.LOG((memberId + 8080) + ") Sending message : DT{Consensus{" + msg.toString() + "}}");
         serversManager.send(memberId, msg);
     }
@@ -395,7 +430,7 @@ public class Server {
     public void printReceivedTxs() {
         String str = "***** BEGIN Received transactions: \n";
 
-        for (T value : transactions.getResource()) {
+        for (Block value : blocksForConsensus.getResource()) {
             str += value.toString() + "\n";
         }
 
@@ -406,7 +441,7 @@ public class Server {
     public void printDecidedValues() {
         String str = "***** BEGIN Decided values: \n";
 
-        for (T value : decidedValues.getResource()) {
+        for (Block value : decidedBlocks.getResource()) {
             str += value.toString() + "\n";
         }
 
@@ -422,7 +457,7 @@ public class Server {
                 continue;
 
             str += "\nDestination: " + i + "\n";
-            for (ConsensusMessage<T> msg : consensusMessages.get(i).getResource()) {
+            for (ConsensusMessage msg : consensusMessages.get(i).getResource()) {
                 str += msg.toString() + "\n";
             }
         }

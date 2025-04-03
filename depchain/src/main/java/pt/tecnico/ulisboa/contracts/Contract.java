@@ -2,63 +2,41 @@ package pt.tecnico.ulisboa.contracts;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.tuweni.bytes.Bytes;
+import org.checkerframework.checker.units.qual.A;
 import org.hyperledger.besu.datatypes.Address;
-import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.evm.EvmSpecVersion;
-import org.hyperledger.besu.evm.fluent.EVMExecutor;
-import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
-import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 public class Contract {
+    protected final String address; // hex string of the address
+    private static HashMap<String, ContractMethod> functions;
 
-    private String RUNTIME_CODE;
-    private String DEPLOY_CODE;
-
-    protected static Map<String, String> METHOD_SIGNATURES;
-
-    protected final Address address;
-    protected final EVMExecutor executor;
-    protected final ByteArrayOutputStream output;
-    protected final StandardJsonTracer tracer;
-
-    public Contract(Address address, WorldUpdater world) {
-        // Generate contract address
+    public Contract(String address, Bytes byteCode, HashMap<String, ContractMethod> functions) {
         this.address = address;
-
-        // Create contract account
-        world.createAccount(address, 0, Wei.fromEth(0));
-
-        // Create objects to catch output
-        // TODO: o tracer é para dar memory state, stack e de gas, pode ser util mas a
-        // partida nao é preciso
-        this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
-        this.output = new ByteArrayOutputStream();
-        this.tracer = new StandardJsonTracer(new PrintStream(output), true, true, true, true);
-
-        executor.tracer(tracer);
-        executor.receiver(address);
-        executor.worldUpdater(world.updater());
-        executor.commitWorldState();
-    }
-
-    public void setByteCode(String byteCode) {
-        Bytes b = Bytes.fromHexString(byteCode);
-        executor.code(b);
+        this.functions = functions;
     }
 
     public Address getAddress() {
-        return address;
+        return Address.fromHexString(address);
     }
 
-    public String getRuntimeCode() {
-        return RUNTIME_CODE;
+    public HashMap<String, ContractMethod> getMethods() {
+        return functions;
     }
 
-    public String getDeployCode() {
-        return DEPLOY_CODE;
+    public ContractMethod getMethod(String functionName) {
+        return functions.get(functionName);
     }
 
+    @Override
+    public String toString() {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        ps.println("Contract{" +
+                "address='" + address + '\'' +
+                ", functions=" + functions +
+                '}');
+        return baos.toString();
+    }
 }

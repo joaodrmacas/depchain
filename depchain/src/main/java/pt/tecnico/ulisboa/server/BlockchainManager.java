@@ -26,22 +26,26 @@ import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
+import pt.tecnico.ulisboa.contracts.AbiParameter;
+import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
+import pt.tecnico.ulisboa.contracts.Contract;
+import pt.tecnico.ulisboa.contracts.ContractMethod;
 
 public class BlockchainManager {
     private SimpleWorld world;
 
     private ArrayList<Block> blockchain;
-    private Block currentBlock;
     BlockchainPersistenceManager persistenceManager;
 
     // map of client ids to their respective addresses
     private Map<Integer, Address> clientAddresses;
+    private Map<String, Contract> contracts;
     private final EVMExecutor executor;
     private final ByteArrayOutputStream output;
 
     public BlockchainManager() {
-        this.persistenceManager = new BlockchainPersistenceManager();
         this.blockchain = new ArrayList<>();
+        this.persistenceManager = new BlockchainPersistenceManager();
         this.output = new ByteArrayOutputStream();
         this.executor = EVMExecutor.evm(EvmSpecVersion.CANCUN);
         this.initBlockchain();
@@ -50,14 +54,14 @@ public class BlockchainManager {
     private void initBlockchain() {
         try {
             // this.world = persistenceManager.loadBlockchain(blockchain);
-
-            this.world = persistenceManager.loadGenesisBlock(blockchain);
+            this.world = persistenceManager.loadGenesisBlock(blockchain); // this changes the blockchain
             Block lastBlock = blockchain.get(blockchain.size() - 1);
             this.currentBlock = new Block(lastBlock.getId() + 1, lastBlock.getHash());
             this.clientAddresses = new HashMap<>();
             for (Map.Entry<Integer, String> entry : Config.CLIENT_ID_2_ADDR.entrySet()) {
                 clientAddresses.put(entry.getKey(), Address.fromHexString(entry.getValue()));
             }
+            this.contracts = new HashMap<>();
         } catch (Exception e) {
             Logger.LOG("Failed to load blockchain: " + e.getMessage());
             this.world = new SimpleWorld();
@@ -110,30 +114,33 @@ public class BlockchainManager {
         }
     }
 
-    public ClientResp handleDecidedBlock(final Block block) {
-        // handle the decided block
+    public void addBlockToBlockchain(final Block block) {
+        Block lastBlock = blockchain.get(blockchain.size() - 1);
+        block.setPrevHash(lastBlock.getHash());
+        block.setId(lastBlock.getId() + 1);
+        blockchain.add(block);
+    }
+
+    public ClientResp executeTx(ClientReq tx) {
+        // TODO: change this logic to the executor thread and make this get a block, set
+        // the previous hash of the previous hash
         try {
-            ClientReq decided = (ClientReq) block;
-            ClientReqType decidedType = decided.getReqType();
+            ClientReqType decidedType = tx.getReqType();
             ClientResp resp = null;
 
             switch (decidedType) {
                 // these change the blockchain state
                 case CONTRACT_CALL:
-                    ContractCallReq contractCallReq = (ContractCallReq) decided;
+                    ContractCallReq contractCallReq = (ContractCallReq) tx;
                     resp = handleContractCall(contractCallReq);
                     break;
                 case TRANSFER_DEP_COIN:
-                    TransferDepCoinReq transferReq = (TransferDepCoinReq) decided;
+                    TransferDepCoinReq transferReq = (TransferDepCoinReq) tx;
                     resp = transferDepCoin(transferReq);
                     break;
                 default:
                     System.out.println("Invalid request type");
-                    return new ClientResp(false, decided.getCount(), "Invalid request type.");
-            }
-            if (resp.getSuccess()) {
-                // TODO: Check if every transaction should be added to the blockchain
-                addTransactionToBlock(new Transaction(decided));
+                    return new ClientResp(false, tx.getCount(), "Invalid request type.");
             }
             return resp;
         } catch (Exception e) {
@@ -144,32 +151,70 @@ public class BlockchainManager {
 
     private ClientResp handleContractCall(ContractCallReq req) {
         try {
-            // msg.sender and msg.value
-            Address sender = clientAddresses.get(req.getSenderId());
-            BigInteger value = req.getValue();
+            // get the contract and method
+            Contract contract = contracts.get(req.getContractName());
+            if (contract == null) {
+                Logger.LOG("Contract not found: " + req.getContractName());
+                return new ClientResp(false, req.getCount(), "Contract not found: " + req.getContractName());
+            }
+            ContractMethod method = contract.getMethod(req.getMethodName());
+            if (method == null) {
+                Logger.LOG("Method not found: " + req.getMethodName());
+                return new ClientResp(false, req.getCount(), "Method not found: " + req.getMethodName());
+            }
 
-            // contract and call data
-            Address contractAddress = req.getContractAddr();
-            Bytes callData = req.getCallData();
+            if (method.changesState()) {
+                // TODO: go to consensus
+            } else {
+                // execute the contract call
 
-            // set parameters in the executor
-            executor.sender(sender);
-            executor.ethValue(Wei.of(value));
-            executor.contract(contractAddress);
-            MutableAccount contract = world.getAccount(contractAddress);
-            executor.code(contract.getCode());
-            executor.callData(callData);
+                // msg.sender and msg.value
+                Address sender = clientAddresses.get(req.getSenderId());
+                BigInteger value = req.getValue();
+                executor.sender(sender);
+                executor.ethValue(Wei.of(value));
 
-            // execute the transaction
-            executor.execute();
+                // address and code
+                executor.contract(contract.getAddress());
+                MutableAccount contractAccount = world.getAccount(contract.getAddress());
+                executor.code(contractAccount.getCode());
 
-            ContractUtils.checkForExecutionErrors(output);
+                // call data
+                Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
+                executor.callData(callData);
 
-            String returnValue = ContractUtils.extractHexStringFromReturnData(output);
+                executor.execute();
 
-            Logger.LOG("Contract call executed successfully. Return value: " + returnValue);
+                ContractUtils.checkForExecutionErrors(output);
 
-            return new ClientResp(true, req.getCount(), "Contract call executed successfully");
+                // List of objects to hold the return values
+                ArrayList<Object> returnValues = new ArrayList<>();
+                for (int i = 0; i < method.getOutputs().size(); i++) {
+                    AbiType outputType = method.getOutputs().get(i).getType();
+                    switch (outputType) {
+                        case UINT256:
+                            BigInteger returnValue = ContractUtils.extractBigIntegerFromReturnData(output);
+                            break;
+                        case INT256:
+                            BigInteger returnValue = ContractUtils.extractBigIntegerFromReturnData(output);
+                            break;
+                        case BOOL:
+                            boolean returnValue = ContractUtils.extractBooleanFromReturnData(output);
+                            // handle bool output
+                            break;
+                            break;
+                        default:
+                            Logger.LOG("Unsupported output type: " + output.getType());
+                    }
+                }
+
+                String returnValue = ContractUtils.extractHexStringFromReturnData(output);
+
+                Logger.LOG("Contract call executed successfully. Return value: " + returnValue);
+
+                return new ClientResp(true, req.getCount(), "Contract call executed successfully");
+
+            }
         } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());

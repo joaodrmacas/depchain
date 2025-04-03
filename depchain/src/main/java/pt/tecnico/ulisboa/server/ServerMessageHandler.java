@@ -81,10 +81,10 @@ public class ServerMessageHandler implements MessageHandler {
         //Verify if it's a read or write
         if (message.needsConsensus()) {
             Logger.LOG("Pushing to consensus: " + message.getCount());
-            server.pushReceivedTx(message);
+            //TODO: se for contract request ver se é read only functions @duda
+            server.pushTxToBlock(message);
         } else {
-            Logger.LOG("Pushing to decided: " + message.getCount());
-            server.pushDecidedTx(message);
+            server.pushTxToExecute(message);
         }
     }
 }

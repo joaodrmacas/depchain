@@ -52,7 +52,7 @@ public class EpochConsensus {
         }
     }
 
-    public EpochConsensus(Server<T> member, AtomicInteger epochNumber, int consensusIndex, T valueToBeProposed, AtomicBoolean readPhaseDone) {
+    public EpochConsensus(Server member, AtomicInteger epochNumber, int consensusIndex, T valueToBeProposed, AtomicBoolean readPhaseDone) {
         this.member = member;
         this.epochNumber = epochNumber;
         this.consensusIndex = consensusIndex;

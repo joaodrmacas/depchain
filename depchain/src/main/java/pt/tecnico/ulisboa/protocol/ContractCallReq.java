@@ -1,5 +1,3 @@
-// TODO: is sender the allower or allowee
-
 package pt.tecnico.ulisboa.protocol;
 
 import java.math.BigInteger;
@@ -14,27 +12,26 @@ import pt.tecnico.ulisboa.utils.types.Logger;
 public class ContractCallReq extends ClientReq {
     private static final long serialVersionUID = 1L;
     private final BigInteger value;
-    private final String contractAddr;
-    private final String methodSelector;
+    private final String contractName; // Changed from contractAddr
+    private final String methodName; // Changed from methodSelector
     private final String[] args;
 
-    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector, BigInteger value,
+    public ContractCallReq(int senderId, Long count, String contractName, String methodName, BigInteger value,
             Object... args) {
         super(senderId, count);
 
-        this.contractAddr = contractAddr;
+        this.contractName = contractName;
         this.value = value;
-        this.methodSelector = methodSelector;
+        this.methodName = methodName;
         this.args = parseArgs(args);
-
     }
 
-    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector) {
-        this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, new Object[] {});
+    public ContractCallReq(int senderId, Long count, String contractName, String methodName) {
+        this(senderId, count, contractName, methodName, BigInteger.ZERO, new Object[] {});
     }
 
-    public ContractCallReq(int senderId, Long count, String contractAddr, String methodSelector, Object... args) {
-        this(senderId, count, contractAddr, methodSelector, BigInteger.ZERO, args);
+    public ContractCallReq(int senderId, Long count, String contractName, String methodName, Object... args) {
+        this(senderId, count, contractName, methodName, BigInteger.ZERO, args);
     }
 
     /**
@@ -46,7 +43,6 @@ public class ContractCallReq extends ClientReq {
      *                                  encountered.
      */
     private String[] parseArgs(Object... args) {
-        // TODO: check if this is correct
         String[] hexArgs = new String[args.length];
         for (int i = 0; i < args.length; i++) {
             if (args[i] instanceof BigInteger) {
@@ -62,25 +58,26 @@ public class ContractCallReq extends ClientReq {
         return hexArgs;
     }
 
-    public Address getContractAddr() {
-        // returning the address in the expected format
-        return Address.fromHexString(contractAddr);
+    public String getContractName() {
+        return contractName;
+    }
+
+    public String getMethodName() {
+        return methodName;
     }
 
     public BigInteger getValue() {
         return value;
     }
 
-    public Bytes getCallData() {
-        StringBuilder callData = new StringBuilder(methodSelector);
+    public Bytes getArgs() {
+        StringBuilder argsString = new StringBuilder();
         for (String arg : args) {
-            // Convert the argument to a 256-bit hex string and append it to the callData
+            // Convert the argument to a 256-bit hex string and append it to the argsString
             String paddedArg = ContractUtils.padHexStringTo256Bit(arg);
-            callData.append(paddedArg);
+            argsString.append(paddedArg);
         }
-        // print the call data
-        Logger.LOG("Call data: " + callData.toString());
-        return Bytes.fromHexString(callData.toString());
+        return Bytes.fromHexString(argsString.toString());
     }
 
     @Override
@@ -93,8 +90,8 @@ public class ContractCallReq extends ClientReq {
         return "ContractCallReq{" +
                 "senderId=" + senderId +
                 ", count=" + count +
-                ", contractAddr='" + contractAddr + '\'' +
-                ", methodSelector='" + methodSelector + '\'' +
+                ", contractName='" + contractName + '\'' +
+                ", methodName='" + methodName + '\'' +
                 ", value=" + value +
                 ", args=" + String.join(", ", args) +
                 '}';

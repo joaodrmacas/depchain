@@ -136,9 +136,9 @@ public class BFTConsensus {
             }
 
             // Try one last time to peek a value (new tx from clients)
-            valueToBeProposed = member.peekReceivedTx();
+            valueToBeProposed = member.peekBlockToConsensus();
 
-            EpochConsensus<T> consensus = new EpochConsensus<>(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
+            EpochConsensus consensus = new EpochConsensus(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
 
             Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
             T value = consensus.start();

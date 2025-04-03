@@ -8,7 +8,6 @@ import org.hyperledger.besu.evm.fluent.SimpleWorld;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.client.Client;
 import pt.tecnico.ulisboa.protocol.ClientReq;
-import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.types.Consensable;
 
@@ -16,8 +15,8 @@ public class Block implements Consensable {
 
     private final int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
 
-    private final Integer blockId;
-    private final String prevHash;
+    private Integer blockId;
+    private String prevHash;
     private String blockHash;
     private List<ClientReq> transactions;
     private int transactionCount = 0;
@@ -38,7 +37,7 @@ public class Block implements Consensable {
         this.transactions = new ArrayList<>();
     }
 
-    // constructor for genesis block
+    // constructor for genesis block and for server to create an empty block.
     public Block() {
         this.blockId = 0;
         this.prevHash = null;
@@ -85,6 +84,14 @@ public class Block implements Consensable {
 
     public List<ClientReq> getTransactions() {
         return transactions;
+    }
+
+    public void setPrevHash(String prevHash) {
+        this.prevHash = prevHash;
+    }
+
+    public void setId(Integer blockId) {
+        this.blockId = blockId;
     }
 
     public void printBlock() {
