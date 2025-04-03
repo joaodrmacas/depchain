@@ -53,7 +53,8 @@ public class BlockchainManager {
     private void initBlockchain() {
         try {
             // this.world = persistenceManager.loadBlockchain(blockchain);
-            this.world = persistenceManager.loadGenesisBlock(blockchain, contracts); // this changes the blockchain and the contract map
+            this.world = persistenceManager.loadGenesisBlock(blockchain, contracts); // this changes the blockchain and
+                                                                                     // the contract map
             Block lastBlock = blockchain.get(blockchain.size() - 1);
             this.clientAddresses = new HashMap<>();
             for (Map.Entry<Integer, String> entry : Config.CLIENT_ID_2_ADDR.entrySet()) {
@@ -191,20 +192,16 @@ public class BlockchainManager {
                 return new ClientResp(false, req.getCount(), "Method not found: " + req.getMethodName());
             }
 
-            if (method.changesState()) {
-                // TODO: go to consensus
-                return new ClientResp(false, req.getCount(), "Should go to consensus");
-            } else {
-                // Execute the read-only contract call
-                return executeReadOnlyCall(req, contract, method);
-            }
-        } catch (Exception e) {
+            return executeCall(req, contract, method);
+        } catch (
+
+        Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());
         }
     }
 
-    private ClientResp executeReadOnlyCall(ContractCallReq req, Contract contract, ContractMethod method) {
+    private ClientResp executeCall(ContractCallReq req, Contract contract, ContractMethod method) {
         // Setup execution context
         setupExecutionContext(req, contract);
 
@@ -218,7 +215,7 @@ public class BlockchainManager {
         ArrayList<Object> returnValues = processReturnValues(method);
 
         Logger.LOG("Contract call executed successfully. Return values: " + returnValues);
-        return new ClientResp(true, req.getCount(), "Contract call executed successfully");
+        return new ClientResp(true, req.getCount(), "Contract call executed successfully" + returnValues.toString());
     }
 
     private void setupExecutionContext(ContractCallReq req, Contract contract) {
