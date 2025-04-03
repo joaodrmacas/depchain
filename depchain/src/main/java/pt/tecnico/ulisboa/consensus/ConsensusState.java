@@ -8,36 +8,36 @@ import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class ConsensusState<T extends RequiresEquals> implements Serializable {
+public class ConsensusState implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private WriteTuple<T> mostRecentQuorumWritten;
-    private Map<T, WriteTuple<T>> writeSet = new HashMap<>();
+    private WriteTuple mostRecentQuorumWritten;
+    private Map<Consensable, WriteTuple> writeSet = new HashMap<>();
 
     private String signature = null;
 
-    public ConsensusState(WriteTuple<T> mostRecentQuorumWritten) {
+    public ConsensusState(WriteTuple mostRecentQuorumWritten) {
         this.mostRecentQuorumWritten = mostRecentQuorumWritten;
     }
 
-    public WriteTuple<T> getMostRecentQuorumWritten() {
+    public WriteTuple getMostRecentQuorumWritten() {
         return mostRecentQuorumWritten;
     }
 
-    public void setMostRecentQuorumWritten(WriteTuple<T> mostRecentQuorumWritten) {
+    public void setMostRecentQuorumWritten(WriteTuple mostRecentQuorumWritten) {
         this.mostRecentQuorumWritten = mostRecentQuorumWritten;
     }
 
-    public Map<T, WriteTuple<T>> getWriteSet() {
+    public Map<Consensable, WriteTuple> getWriteSet() {
         return writeSet;
     }
 
-    public void addToWriteSet(WriteTuple<T> writeTuple) {
-        T key = writeTuple.getValue();
-        WriteTuple<T> existing = writeSet.get(key);
+    public void addToWriteSet(WriteTuple writeTuple) {
+        Consensable key = writeTuple.getValue();
+        WriteTuple existing = writeSet.get(key);
 
         if (existing != null) {
             if (existing.getTimestamp() < writeTuple.getTimestamp()) {
@@ -77,7 +77,7 @@ public class ConsensusState<T extends RequiresEquals> implements Serializable {
             return false;
         }
 
-        for (WriteTuple<T> writeTuple : writeSet.values()) {
+        for (WriteTuple writeTuple : writeSet.values()) {
             if (!writeTuple.isValid()) {
                 Logger.ERROR("Invalid write tuple");
                 return false;

@@ -6,21 +6,24 @@ import java.util.ArrayList;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.client.Client;
+import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class Block {
+public class Block implements Consensable {
 
     private final int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
 
     private final Integer blockId;
     private final String prevHash;
     private String blockHash;
-    private List<Transaction> transactions;
+    private List<ClientReq> transactions;
     private int transactionCount = 0;
 
     // constructor to load a already existing block
-    public Block(String prevHash, Integer blockId, String blockHash, List<Transaction> transactions) {
+    public Block(String prevHash, Integer blockId, String blockHash, List<ClientReq> transactions) {
         this.blockId = blockId;
         this.prevHash = prevHash;
         this.blockHash = blockHash;
@@ -46,13 +49,13 @@ public class Block {
     public void finalizeBlock() {
         StringBuilder blockData = new StringBuilder();
         blockData.append(prevHash != null ? prevHash : "");
-        for (Transaction tx : transactions) {
+        for (ClientReq tx : transactions) {
             blockData.append(tx.toString());
         }
         this.blockHash = CryptoUtils.hashSHA256(blockData.toString().getBytes());
     }
 
-    public void appendTransaction(Transaction transaction) {
+    public void appendTransaction(ClientReq transaction) {
         if (transactionCount >= maxTxPerBlock) {
             throw new IllegalStateException("Block is full");
         }
@@ -80,7 +83,7 @@ public class Block {
         return blockId;
     }
 
-    public List<Transaction> getTransactions() {
+    public List<ClientReq> getTransactions() {
         return transactions;
     }
 
@@ -90,10 +93,23 @@ public class Block {
         System.out.println("│ Previous Hash: " + prevHash + "                          │");
         System.out.println("│ Block Hash: " + blockHash + "                             │");
         System.out.println("│ Transactions:                                             │");
-        for (Transaction tx : transactions) {
+        for (ClientReq tx : transactions) {
             System.out.println("│ " + tx.toString() + " │");
         }
         System.out.println("└───────────────────────────────────────────────────────────────┘");
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Block other = (Block) obj;
+        return this.blockHash.equals(other.blockHash);
+    }
+
+    @Override
+    public int hashCode() {
+        return blockHash.hashCode();
     }
 
 }

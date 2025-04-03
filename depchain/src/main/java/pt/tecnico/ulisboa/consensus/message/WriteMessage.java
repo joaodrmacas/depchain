@@ -1,18 +1,18 @@
 package pt.tecnico.ulisboa.consensus.message;
 
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class WriteMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
+public class WriteMessage extends ConsensusMessage {
     private static final long serialVersionUID = 1L;
-    private T value;
+    private Consensable value;
 
-    public WriteMessage(T value, int epochNumber, int consensusIndex) {
+    public WriteMessage(Consensable value, int epochNumber, int consensusIndex) {
         super(MessageType.WRITE, epochNumber, consensusIndex);
 
         this.value = value;
     }
 
-    public T getValue() {
+    public Consensable getValue() {
         return value;
     }
 

@@ -20,15 +20,13 @@ import pt.tecnico.ulisboa.consensus.message.StateMessage;
 import pt.tecnico.ulisboa.consensus.message.WriteMessage;
 import pt.tecnico.ulisboa.server.Server;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
-
-public class EpochConsensus<T extends RequiresEquals> {
-    private Server<T> member;
+public class EpochConsensus {
+    private Server member;
     private AtomicInteger epochNumber;
     private int consensusIndex;
     private AtomicBoolean readPhaseDone;
-    private ConsensusState<T> state;
-    private CollectedStates<T> collected = new CollectedStates<>(Config.NUM_MEMBERS);
+    private ConsensusState state;
+    private CollectedStates collected = new CollectedStates<>(Config.NUM_MEMBERS);
     private EventCounter<T> writeCounts = new EventCounter<>();
     private EventCounter<T> acceptCounts = new EventCounter<>();
     private EventCounter<T> abortCounts = new EventCounter<>();

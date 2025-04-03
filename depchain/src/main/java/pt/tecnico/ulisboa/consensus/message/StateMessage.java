@@ -1,19 +1,18 @@
 package pt.tecnico.ulisboa.consensus.message;
 
 import pt.tecnico.ulisboa.consensus.ConsensusState;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class StateMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
+public class StateMessage extends ConsensusMessage {
     private static final long serialVersionUID = 1L;
-    private ConsensusState<T> state;
+    private ConsensusState state;
 
-    public StateMessage(ConsensusState<T> state, int epochNumber, int consensusIndex) {
+    public StateMessage(ConsensusState state, int epochNumber, int consensusIndex) {
         super(MessageType.STATE, epochNumber, consensusIndex);
 
         this.state = state;
     }
 
-    public ConsensusState<T> getState() {
+    public ConsensusState getState() {
         return state;
     }
 

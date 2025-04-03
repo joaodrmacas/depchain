@@ -6,14 +6,13 @@ import java.util.Queue;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 import pt.tecnico.ulisboa.network.MessageHandler;
 
-public class ConsensusMessageHandler<T extends RequiresEquals> implements MessageHandler {
+public class ConsensusMessageHandler implements MessageHandler {
     
-    private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> receivedMessages;
+    private Map<Integer, ObservedResource<Queue<ConsensusMessage>>> receivedMessages;
 
-    public ConsensusMessageHandler(Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> receivedMessages) {
+    public ConsensusMessageHandler(Map<Integer, ObservedResource<Queue<ConsensusMessage>>> receivedMessages) {
         this.receivedMessages = receivedMessages;
     }
 
@@ -21,9 +20,8 @@ public class ConsensusMessageHandler<T extends RequiresEquals> implements Messag
     public void onMessage(int senderId, byte[] message) {
         try {
             Object deserializedObject = SerializationUtils.deserializeObject(message);
-            if (deserializedObject instanceof ConsensusMessage<?>) {
-                @SuppressWarnings("unchecked")
-                ConsensusMessage<T> consensusMessage = (ConsensusMessage<T>) deserializedObject;
+            if (deserializedObject instanceof ConsensusMessage) {
+                ConsensusMessage consensusMessage = (ConsensusMessage) deserializedObject;
 
                 receivedMessages.get(senderId).getResource().add(consensusMessage);
                 receivedMessages.get(senderId).notifyChange();
@@ -35,7 +33,7 @@ public class ConsensusMessageHandler<T extends RequiresEquals> implements Messag
         }
     }
 
-    public Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> getReceivedMessages() {
+    public Map<Integer, ObservedResource<Queue<ConsensusMessage>>> getReceivedMessages() {
         return receivedMessages;
     }
 }

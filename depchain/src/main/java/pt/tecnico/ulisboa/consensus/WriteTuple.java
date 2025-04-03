@@ -2,20 +2,20 @@ package pt.tecnico.ulisboa.consensus;
 
 import java.io.Serializable;
 
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class WriteTuple<T extends RequiresEquals> implements Serializable {
+public class WriteTuple implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private T value;
+    private Consensable value;
     private int ts;
 
-    public WriteTuple(T value, int ts) {
+    public WriteTuple(Consensable value, int ts) {
         this.value = value;
         this.ts = ts;
     }
 
-    public T getValue() {
+    public Consensable getValue() {
         return value;
     }
 
@@ -34,7 +34,7 @@ public class WriteTuple<T extends RequiresEquals> implements Serializable {
         if (obj == this) return true;
         if (obj.getClass() != this.getClass()) return false;
 
-        WriteTuple<?> other = (WriteTuple<?>) obj;
+        WriteTuple other = (WriteTuple) obj;
         return value.equals(other.value) && ts == other.ts;
     }
 

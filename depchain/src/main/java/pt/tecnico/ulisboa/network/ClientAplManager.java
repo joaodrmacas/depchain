@@ -15,15 +15,14 @@ import pt.tecnico.ulisboa.server.Server;
 import pt.tecnico.ulisboa.server.ServerMessageHandler;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class ClientAplManager<T extends RequiresEquals> extends AplManager {
+public class ClientAplManager extends AplManager {
 
-    private Server<T> server;
+    private Server server;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
     private ConcurrentHashMap<Integer, Address> addresses;
 
-    public ClientAplManager(Server<T> server, String address, Integer port, PrivateKey privateKey,
+    public ClientAplManager(Server server, String address, Integer port, PrivateKey privateKey,
             ConcurrentHashMap<Integer, PublicKey> clientKus, ConcurrentHashMap<Integer, Address> addresses)
             throws SocketException, IOException {
         super(address, port, privateKey);
@@ -40,7 +39,7 @@ public class ClientAplManager<T extends RequiresEquals> extends AplManager {
         try {
             // KeyMessage message = (KeyMessage) Message.deserialize(packet.getData());
 
-            ServerMessageHandler<T> handler = new ServerMessageHandler<>(server, clientKus, addresses);
+            ServerMessageHandler handler = new ServerMessageHandler(server, clientKus, addresses);
 
             FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
 

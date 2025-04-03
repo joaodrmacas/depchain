@@ -6,11 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class CollectedStates<T extends RequiresEquals> implements Serializable {
+public class CollectedStates implements Serializable {
     private static final long serialVersionUID = 1L;
-    private Map<Integer, ConsensusState<T>> states = new HashMap<>();
+    private Map<Integer, ConsensusState> states = new HashMap<>();
     private int memberCount;
 
     public CollectedStates(int memberCount) {
@@ -20,11 +19,11 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
         }
     }
 
-    public Map<Integer, ConsensusState<T>> getStates() {
+    public Map<Integer, ConsensusState> getStates() {
         return this.states;
     }
 
-    public void addState(int memberId, ConsensusState<T> state) {
+    public void addState(int memberId, ConsensusState state) {
         if (this.states.containsKey(memberId)) {
             this.states.put(memberId, state);
         } else {
@@ -34,7 +33,7 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
 
     public boolean verifyStates(Map<Integer, PublicKey> publicKeys) {
         for (int i = 0; i < this.memberCount; i++) {
-            ConsensusState<T> state = this.states.get(i);
+            ConsensusState state = this.states.get(i);
             if (state != null) {
                 if (!state.isValid(publicKeys.get(i))) {
                     Logger.LOG("state " + i + " is not valid");
@@ -47,16 +46,16 @@ public class CollectedStates<T extends RequiresEquals> implements Serializable {
         return true;
     }
 
-    public void overwriteWith(CollectedStates<T> other) {
+    public void overwriteWith(CollectedStates other) {
         this.states.clear();
-        for (Map.Entry<Integer, ConsensusState<T>> entry : other.states.entrySet()) {
+        for (Map.Entry<Integer, ConsensusState> entry : other.states.entrySet()) {
             this.states.put(entry.getKey(), entry.getValue());   
         }
     }
 
     public String toString() {
         String res = "{\n";
-        for (Map.Entry<Integer, ConsensusState<T>> entry : this.states.entrySet()) {
+        for (Map.Entry<Integer, ConsensusState> entry : this.states.entrySet()) {
             res += "\t" + entry.getKey() + ": " + entry.getValue() + "\n";
         }
         return res + "}\n";

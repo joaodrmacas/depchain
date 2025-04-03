@@ -18,7 +18,7 @@ public class TransferDepCoinReq extends ClientReq {
 
     @Override
     public ClientReqType getReqType() {
-        return ClientReqType.CONTRACT_CALL;
+        return ClientReqType.TRANSFER_DEP_COIN;
     }
 
     public Address getReceiver() {

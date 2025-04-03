@@ -17,14 +17,13 @@ import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class ServerMessageHandler<T extends RequiresEquals> implements MessageHandler {
-    private Server<T> server;
+public class ServerMessageHandler implements MessageHandler {
+    private Server server;
     private ConcurrentHashMap<Integer, PublicKey> clientKus;
     private ConcurrentHashMap<Integer, Address> clientAddresses;
 
-    public ServerMessageHandler(Server<T> server, ConcurrentHashMap<Integer, PublicKey> clientKus,
+    public ServerMessageHandler(Server server, ConcurrentHashMap<Integer, PublicKey> clientKus,
             ConcurrentHashMap<Integer, Address> clientAddresses) {
         this.server = server;
         this.clientKus = clientKus;
@@ -79,12 +78,13 @@ public class ServerMessageHandler<T extends RequiresEquals> implements MessageHa
         }
         Logger.LOG("Valid signature for message: " + message.getCount());
         
+        //Verify if it's a read or write
         if (message.needsConsensus()) {
             Logger.LOG("Pushing to consensus: " + message.getCount());
-            server.pushReceivedTx((T) message);
+            server.pushReceivedTx(message);
         } else {
             Logger.LOG("Pushing to decided: " + message.getCount());
-            server.pushDecidedTx((T) message);
+            server.pushDecidedTx(message);
         }
     }
 }

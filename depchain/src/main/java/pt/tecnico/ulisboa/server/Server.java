@@ -33,25 +33,27 @@ import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.utils.GeneralUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.utils.types.ObservedResource;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class Server<T extends RequiresEquals> {
+public class Server {
     private int nodeId;
     private PrivateKey privateKey;
     private ConcurrentHashMap<Integer, PublicKey> publicKeys;
-    private ClientAplManager<T> clientManager;
+    private ClientAplManager clientManager;
     private ServerAplManager serversManager;
     private String keysDirectory = Config.DEFAULT_KEYS_DIR;
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Address> userAddresses = new ConcurrentHashMap<>();
 
-    private ObservedResource<Queue<T>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    private ObservedResource<Queue<ClientReq>> transactions = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
-    private ObservedResource<Queue<T>> decidedValues = new ObservedResource<>(new ConcurrentLinkedQueue<>());
-    private Set<T> decidedValuesSet = ConcurrentHashMap.newKeySet();
+    private ObservedResource<Queue<Block>> decidedBlocks = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    
+    private ObservedResource<Queue<ClientReq>> txToBeExecuted = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
-    private Map<Integer, ObservedResource<Queue<ConsensusMessage<T>>>> consensusMessages = new HashMap<>();
-    private BlockchainManager<T> blockchainManager = new BlockchainManager<>();
+    private Set<ClientReq> decidedTransactions = ConcurrentHashMap.newKeySet();
+
+    private Map<Integer, ObservedResource<Queue<ConsensusMessage>>> consensusMessages = new HashMap<>();
+    private BlockchainManager blockchainManager = new BlockchainManager();
 
     // TODO: should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
@@ -69,7 +71,7 @@ public class Server<T extends RequiresEquals> {
         int serverPort = GeneralUtils.id2ServerPort.get(nodeId);
 
         try {
-            Server<ClientReq> node = new Server<>(nodeId);
+            Server node = new Server(nodeId);
 
             if (args.length >= 2) {
                 node.setKeysDirectory(args[1]);
@@ -106,18 +108,19 @@ public class Server<T extends RequiresEquals> {
 
     public void mainLoop() {
 
-        Thread valueHandlerThread = new Thread(() -> {
+        Thread blockHandlerThread = new Thread(() -> {
             try {
                 while (true) {
-                    T value = decidedValues.getResource().poll();
-                    if (value != null) {
-                        ClientResp response = blockchainManager.handleDecidedValue(value);
+                    Block block = decidedBlocks.getResource().poll();
+                    if (block != null) {
+                        ClientResp response = blockchainManager.handleDecidedBlock(block);
 
-                        Logger.DEBUG("Sending response to client " + value.getSenderId() + ": " + response.toString());
-                        clientManager.send(value.getSenderId(), response);
+                        // TODO: put clientrequets in the transactions to be executed
+                        // Logger.DEBUG("Sending response to client " + block.getSenderId() + ": " + response.toString());
+                        // clientManager.send(block.getSenderId(), response);
                     }
                     // consensus thread already changes the decided queue
-                    decidedValues.waitForChange(-1);
+                    decidedBlocks.waitForChange(-1);
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -125,7 +128,7 @@ public class Server<T extends RequiresEquals> {
             }
         });
 
-        BFTConsensus<T> consensusLoop = new BFTConsensus<>(this);
+        BFTConsensus consensusLoop = new BFTConsensus(this);
         Thread consensusThread = new Thread(() -> {
             try {
                 consensusLoop.start();
@@ -136,10 +139,10 @@ public class Server<T extends RequiresEquals> {
         });
 
         consensusThread.setName("BFT-Consensus-Thread");
-        valueHandlerThread.setName("Value-Handler-Thread");
+        blockHandlerThread.setName("Block-Handler-Thread");
 
         consensusThread.start();
-        valueHandlerThread.start();
+        blockHandlerThread.start();
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -178,14 +181,14 @@ public class Server<T extends RequiresEquals> {
 
                 Logger.LOG("Creating APL for destination node " + destAddr + ":" + destPort);
 
-                ConsensusMessageHandler<T> handler = new ConsensusMessageHandler<>(consensusMessages);
+                ConsensusMessageHandler handler = new ConsensusMessageHandler(consensusMessages);
                 serversManager.createAPL(i, destAddr, destPort, publicKeys.get(i), handler);
                 Logger.LOG("APL created for destination node " + i);
             }
             serversManager.startListening();
 
             // Initialize register APL
-            clientManager = new ClientAplManager<>(this, address, portRegister, privateKey, clientPublicKeys, userAddresses);
+            clientManager = new ClientAplManager(this, address, portRegister, privateKey, clientPublicKeys, userAddresses);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");
@@ -277,12 +280,12 @@ public class Server<T extends RequiresEquals> {
         return content.toString();
     }
 
-    public void pushReceivedTx(T value) {
-        transactions.getResource().add(value);
+    public void pushReceivedTx(ClientReq tx) {
+        transactions.getResource().add(tx);
         transactions.notifyChange();
     }
 
-    public T peekReceivedTx() {
+    public T peekReceivedTxs() {
         while (true) {
             T value = transactions.getResource().peek();
             if (value != null) {

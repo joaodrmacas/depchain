@@ -3,7 +3,6 @@ package pt.tecnico.ulisboa.server;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.math.BigInteger;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,10 +17,8 @@ import org.hyperledger.besu.evm.fluent.EVMExecutor;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
 import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
-import org.hyperledger.besu.evm.fluent.SimpleAccount;
 
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
 import pt.tecnico.ulisboa.protocol.ClientResp;
@@ -30,7 +27,7 @@ import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
-public class BlockchainManager<T> {
+public class BlockchainManager {
     private SimpleWorld world;
 
     private ArrayList<Block> blockchain;
@@ -113,9 +110,10 @@ public class BlockchainManager<T> {
         }
     }
 
-    public ClientResp handleDecidedValue(final T value) {
+    public ClientResp handleDecidedBlock(final Block block) {
+        // handle the decided block
         try {
-            ClientReq decided = (ClientReq) value;
+            ClientReq decided = (ClientReq) block;
             ClientReqType decidedType = decided.getReqType();
             ClientResp resp = null;
 
@@ -175,22 +173,6 @@ public class BlockchainManager<T> {
         } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());
-        }
-    }
-
-    private void addTransactionToBlock(Transaction req) {
-        try {
-            currentBlock.appendTransaction(req);
-            if (currentBlock.isFull()) {
-                currentBlock.finalizeBlock();
-                blockchain.add(currentBlock);
-                persistenceManager.persistBlock(currentBlock, world);
-                currentBlock = new Block(currentBlock.getId() + 1, currentBlock.getHash());
-            }
-            Logger.LOG("Transaction added to block: " + req.toString());
-            printBlockchain();
-        } catch (Exception e) {
-            Logger.LOG("Failed to add transaction to block: " + e.getMessage());
         }
     }
 

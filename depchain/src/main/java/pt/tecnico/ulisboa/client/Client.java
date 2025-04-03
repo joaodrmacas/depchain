@@ -22,7 +22,7 @@ import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
-import pt.tecnico.ulisboa.protocol.BlockchainMessage;
+import pt.tecnico.ulisboa.protocol.BalanceOfDepCoinReq;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.protocol.ContractCallReq;
@@ -171,6 +171,20 @@ public class Client {
 
             BigInteger amount = new BigInteger(parts[2]);
             req = new TransferDepCoinReq(clientId, count, toAddress, amount);
+        }
+        else if (command.equals("BALANCE_OF")){
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Invalid BALANCE_OF format. Usage: BALANCE_OF <client_id>");
+            }
+
+            int clientId = Integer.parseInt(parts[1]);
+            String clientAddress = Config.CLIENT_ID_2_ADDR.get(clientId);
+            if (clientAddress == null) {
+                throw new IllegalArgumentException("Unknown client ID: " + clientId);
+            }
+
+            BigInteger amount = new BigInteger(parts[2]);
+            req = new BalanceOfDepCoinReq(clientId, count);
         }
         // Contract call handling
         else {

@@ -10,14 +10,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.server.Server;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
 
-public class BFTConsensus<T extends RequiresEquals> {
-    private Server<T> member;
+public class BFTConsensus {
+    private Server member;
     private ExecutorCompletionService<Void> service;
 
-    public BFTConsensus(Server<T> member) {
+    public BFTConsensus(Server member) {
         this.member = member;
         this.service = new ExecutorCompletionService<>(member.getExecutor());
     }
@@ -28,7 +28,7 @@ public class BFTConsensus<T extends RequiresEquals> {
         AtomicBoolean readPhaseDone = new AtomicBoolean(true);
         
         while (true) {
-            T valueToBeProposed = null;
+            Consensable valueToBeProposed = null;
 
             AtomicInteger firstAwaken = new AtomicInteger(-1);
 
@@ -44,7 +44,7 @@ public class BFTConsensus<T extends RequiresEquals> {
                 final int _i = i, _consensusIndex = consensusIndex;
                 Future<?> task = this.service.submit(() -> {
                     while (true) {
-                        ConsensusMessage<T> msg = null;
+                        ConsensusMessage msg = null;
                         try {
                             msg = member.peekConsensusMessageOrWait(_i, -1);
                         } catch (InterruptedException e) {
@@ -88,16 +88,16 @@ public class BFTConsensus<T extends RequiresEquals> {
             }
 
             // Wait to be awaken by new tx from clients
-            Future<?> txTask = this.service.submit(() -> {
+            Future<?> newValueTask = this.service.submit(() -> {
                 while (true) {
-                    T tx = null;
+                    Consensable value = null;
                     try {
-                        tx = member.peekReceivedTxOrWait(-1);
+                        value = member.peekBlockToConsensusOrWait(-1);
                     } catch (InterruptedException e) {
-                        Logger.LOG("Interrupted while peeking received tx");
+                        Logger.LOG("Interrupted while peeking block to consensus");
                         return null;
                     } catch (Exception e) {
-                        Logger.ERROR("Error while peeking received tx", e);
+                        Logger.ERROR("Error while peeking block to consensus", e);
                     }
 
                     if (firstAwaken.get() != -1) {
@@ -105,8 +105,8 @@ public class BFTConsensus<T extends RequiresEquals> {
                         return null;
                     }
 
-                    if (tx != null) {
-                        Logger.DEBUG("New transaction detected");
+                    if (value != null) {
+                        Logger.DEBUG("New blocked detected");
                         firstAwaken.set(Config.NUM_MEMBERS);
                         Logger.DEBUG("firstAwaken set to " + firstAwaken.get());
                         return null;
@@ -114,7 +114,7 @@ public class BFTConsensus<T extends RequiresEquals> {
                 }
             });
 
-            waitingTasks.add(txTask);
+            waitingTasks.add(newValueTask);
 
             try {
                 Logger.DEBUG("Waiting for work");
@@ -154,12 +154,12 @@ public class BFTConsensus<T extends RequiresEquals> {
         }
     }
 
-    public boolean isFromTheFuture(ConsensusMessage<T> msg, int epochNumber, int consensusIndex) {
+    public boolean isFromTheFuture(ConsensusMessage msg, int epochNumber, int consensusIndex) {
         return consensusIndex < msg.getConsensusIndex()
                 || ( consensusIndex == msg.getConsensusIndex()) && epochNumber < msg.getEpochNumber();
     }
 
-    public boolean isFromThePast(ConsensusMessage<T> msg, int epochNumber, int consensusIndex) {
+    public boolean isFromThePast(ConsensusMessage msg, int epochNumber, int consensusIndex) {
         return consensusIndex > msg.getConsensusIndex()
                 || ( consensusIndex == msg.getConsensusIndex()) && epochNumber > msg.getEpochNumber();
     }

@@ -1,8 +1,6 @@
 package pt.tecnico.ulisboa.consensus.message;
 
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
-
-public class NewEpochMessage<T extends RequiresEquals> extends ConsensusMessage<T> {
+public class NewEpochMessage extends ConsensusMessage {
     private static final long serialVersionUID = 1L;
 
     public NewEpochMessage(int epochNumber, int consensusIndex) {

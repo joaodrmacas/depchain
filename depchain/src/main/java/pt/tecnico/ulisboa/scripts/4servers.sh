@@ -19,10 +19,3 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
     -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_02.log" 2>&1 &
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
     -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/server_03.log" 2>&1 &
-
-# Run client
-# echo "MergedContract balanceOf" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
-#     -Dexec.args="-1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/client_01.log" 2>&1 &
-
-echo "MergedContract balanceOf" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
-     -Dexec.args="-1 ${ROOTDIR}/keys"
