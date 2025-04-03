@@ -40,11 +40,6 @@ public class Client {
     private Long count = 1L;
     private String keysDirectory;
 
-    private CountDownLatch responseLatch;
-
-    private ConcurrentHashMap<ClientResp, Integer> currentRequestResponses = new ConcurrentHashMap<>();
-    private AtomicReference<ClientResp> acceptedResponse = new AtomicReference<>();
-
     private ClientMessageHandler messageHandler;
 
     public static void main(String[] args) {
@@ -66,9 +61,7 @@ public class Client {
     public Client(int clientId, String addr, int port, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
-        responseLatch = new CountDownLatch(1);
-        this.messageHandler = new ClientMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
-
+        this.messageHandler = new ClientMessageHandler();
         setup(addr, port);
     }
 
@@ -124,19 +117,6 @@ public class Client {
 
             try {
                 sendRequest(input);
-                // Wait for response
-                Logger.LOG("Waiting for server responses...");
-                if (!waitForResponse()) {
-                    Logger.LOG("Timed out waiting for enough responses");
-                } else {
-                    Logger.DEBUG("GOT A RESPONSE");
-                    ClientResp response = acceptedResponse.get();
-                    if (response.getSuccess()) {
-                        Logger.LOG("Accepted response: " + response.getMessage());
-                    } else {
-                        Logger.LOG("Rejected response: " + response.getMessage());
-                    }
-                }
             } catch (Exception e) {
                 Logger.LOG("Failed to send message." + e.getMessage());
             }
@@ -145,7 +125,6 @@ public class Client {
     }
 
     private void sendRequest(String input) {
-
         String[] parts = input.trim().split("\\s+");
         if (parts.length == 0) {
             System.out.println("Invalid format. Please enter a valid command.");
@@ -204,11 +183,7 @@ public class Client {
             if (count == 1) { // First message. Send public key to servers
                 sendPublicKeyToServers();
             }
-            // Initialize response tracking for the new request
-            responseLatch = new CountDownLatch(1);
-            currentRequestResponses.clear();
-            acceptedResponse.set(null);
-            messageHandler.updateForNewRequest(count, responseLatch);
+
             Logger.LOG("Count: " + count);
 
             // Sign the request
@@ -218,6 +193,7 @@ public class Client {
 
             // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
+            messageHandler.addRequestToWait(count);
             aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
             count++;
             return; // Successfully sent a request
@@ -332,24 +308,7 @@ public class Client {
         }
     }
 
-    public boolean waitForResponse() {
-        try {
-            return responseLatch.await(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Logger.LOG("Interrupted while waiting for response");
-            return false;
-        }
-    }
-
     private void sendPublicKeyToServers() {
-        // Create new latch for key registration
-        responseLatch = new CountDownLatch(1);
-        currentRequestResponses.clear();
-        acceptedResponse.set(null);
-
-        // Update message handler with the current sequence number and new latch
-        messageHandler.updateForNewRequest(count, responseLatch);
 
         PublicKey publicKey = keyPair.getPublic();
 

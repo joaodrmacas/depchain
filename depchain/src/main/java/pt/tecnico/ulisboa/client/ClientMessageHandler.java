@@ -5,6 +5,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.checkerframework.checker.units.qual.m;
+
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.MessageHandler;
 import pt.tecnico.ulisboa.protocol.ClientResp;
@@ -12,48 +14,36 @@ import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ClientMessageHandler implements MessageHandler {
-    private long requestSeqNum;
-    private ConcurrentHashMap<ClientResp, Integer> currentRequestResponses;
-    private CountDownLatch responseLatch;
-    private AtomicReference<ClientResp> acceptedResponse;
+    private ConcurrentHashMap<Long,ConcurrentHashMap<ClientResp, Integer>> requestResponses;
 
-    public ClientMessageHandler(long requestSeqNum,
-            ConcurrentHashMap<ClientResp, Integer> currentRequestResponses,
-            CountDownLatch responseLatch,
-            AtomicReference<ClientResp> acceptedResponse) {
-        this.currentRequestResponses = currentRequestResponses;
-        this.requestSeqNum = requestSeqNum;
-        this.responseLatch = responseLatch;
-        this.acceptedResponse = acceptedResponse;
+    public ClientMessageHandler() {
+        this.requestResponses = new ConcurrentHashMap<>();
     }
 
-    public void updateForNewRequest(long requestSeqNum, CountDownLatch newLatch) {
-        this.requestSeqNum = requestSeqNum;
-        Logger.LOG("Updating request sequence number to: " + requestSeqNum);
-        this.responseLatch = newLatch;
+    public void addRequestToWait(Long seqnum) {
+        this.requestResponses.put(seqnum, new ConcurrentHashMap<>());
     }
 
     @Override
     public void onMessage(int senderid, byte[] message) {
         try {
             ClientResp response = (ClientResp) SerializationUtils.deserializeObject(message);
-            long seqnum = response.getCount();
-            if (this.requestSeqNum != seqnum) {
-                Logger.LOG("Ignoring response with wrong sequence number in client on Message: " + seqnum
-                        + "; expected: " + this.requestSeqNum);
+            Long seqnum = response.getCount();
+
+            ConcurrentHashMap<ClientResp, Integer> numResponses = this.requestResponses.get(seqnum);
+            if (numResponses == null) {
+                Logger.LOG("Received response for unknown request with sequence number: " + seqnum);
                 return;
             }
 
-            currentRequestResponses.put(response, currentRequestResponses.getOrDefault(response, 0) + 1);
-            acceptedResponse.set(response);
+            numResponses.put(response, numResponses.getOrDefault(response, 0) + 1);
 
-            // check if we have enough responses
-            if (currentRequestResponses.get(response) > Config.ALLOWED_FAILURES) {
-                Logger.LOG("Received enough equal responses for request with sequence number " +
-                        seqnum);
-
-                acceptedResponse.set(response);
-                responseLatch.countDown();
+            if (numResponses.get(response) > Config.ALLOWED_FAILURES) {
+                if (response.getSuccess()) {
+                    Logger.LOG("Successful transaction: " + response.getMessage());
+                } else {
+                    Logger.LOG("Failed transaction: " + response.getMessage());
+                }
             }
 
         } catch (IOException | ClassNotFoundException e) {
