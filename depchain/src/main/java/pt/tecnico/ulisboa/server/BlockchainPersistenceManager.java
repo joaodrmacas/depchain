@@ -61,12 +61,7 @@ public class BlockchainPersistenceManager {
                 .create();
     }
 
-    // TODO: opinioes needed (tanto para este como para o loadblock)
-    // Tenho que passar aqui a blockchain pq so assim altera por referencia...
-    // Podemos considerar ter uma class que é block + state que seria um blockchain
-    // state
-    // ou tmb posso retornar um par idk let me know what u think - Massas
-    public SimpleWorld loadGenesisBlock(List<Block> blockchain, Contract contracts) throws IOException {
+    public SimpleWorld loadGenesisBlock(List<Block> blockchain, Map<String, Contract> contracts) throws IOException {
         try (FileReader reader = new FileReader(genesisBlockFile)) {
 
             JsonObject rootObj = JsonParser.parseReader(reader).getAsJsonObject();
@@ -81,7 +76,8 @@ public class BlockchainPersistenceManager {
         }
     }
 
-    private SimpleWorld loadBlock(int blockId, List<Block> blockchain) throws IOException {
+    private SimpleWorld loadBlock(int blockId, List<Block> blockchain, Map<String, Contract> contracts)
+            throws IOException {
         String blockFileName = String.format("%s/block_%d.json", dataDirectory, blockId);
         try (FileReader reader = new FileReader(blockFileName)) {
             JsonObject rootObj = JsonParser.parseReader(reader).getAsJsonObject();
@@ -97,7 +93,7 @@ public class BlockchainPersistenceManager {
                 transactions.add(tx);
             }
             blockchain.add(new Block(prevHash, blockId, blockHash, transactions));
-            SimpleWorld world = worldFromJson(rootObj.getAsJsonObject("state"));
+            SimpleWorld world = worldFromJson(rootObj.getAsJsonObject("state"), contracts);
             return world;
 
         } catch (IOException e) {
@@ -105,7 +101,7 @@ public class BlockchainPersistenceManager {
         }
     }
 
-    public void persistBlock(Block block, SimpleWorld world) throws IOException {
+    public void persistBlock(Block block, SimpleWorld world, Map<String, Contract> contracts) throws IOException {
         // Create JSON for the block and world state
         JsonObject rootObj = new JsonObject();
 
@@ -125,7 +121,7 @@ public class BlockchainPersistenceManager {
         rootObj.add("transactions", txArray);
 
         // Add world state
-        JsonObject stateObj = worldToJson(world);
+        JsonObject stateObj = worldToJson(world, contracts);
 
         rootObj.add("state", stateObj);
 
@@ -172,7 +168,8 @@ public class BlockchainPersistenceManager {
         return true;
     }
 
-    public SimpleWorld loadBlockchain(List<Block> blockchain) throws IOException {
+    public SimpleWorld loadBlockchain(List<Block> blockchain, Map<String, Contract> contracts)
+            throws IOException {
         blockchain.clear();
 
         File dir = new File(dataDirectory);
@@ -181,7 +178,7 @@ public class BlockchainPersistenceManager {
             throw new IOException("Genesis block file not found: " + genesisBlockFile);
         }
 
-        SimpleWorld currentWorld = loadGenesisBlock(blockchain);
+        SimpleWorld currentWorld = loadGenesisBlock(blockchain, contracts);
 
         // Find all block files and sort them by block number
         File[] blockFiles = dir.listFiles((_, name) -> name.startsWith("block_") && name.endsWith(".json"));
@@ -202,14 +199,14 @@ public class BlockchainPersistenceManager {
                 }
 
                 // Load the block and update the world state
-                currentWorld = loadBlock(blockId, blockchain);
+                currentWorld = loadBlock(blockId, blockchain, contracts);
             }
         }
 
         return currentWorld;
     }
 
-    private SimpleWorld worldFromJson(JsonObject jsonObject, Contract contracts) {
+    private SimpleWorld worldFromJson(JsonObject jsonObject, Map<String, Contract> contracts) {
         SimpleWorld world = new SimpleWorld();
 
         for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
@@ -279,7 +276,7 @@ public class BlockchainPersistenceManager {
         return world;
     }
 
-    private JsonObject worldToJson(SimpleWorld state, Contract contracts) {
+    private JsonObject worldToJson(SimpleWorld state, Map<String, Contract> contracts) {
         int count = 0;
         JsonObject stateObj = new JsonObject();
 
@@ -313,7 +310,8 @@ public class BlockchainPersistenceManager {
                 // functions
                 JsonObject functionsJson = new JsonObject();
 
-                HashMap<String, ContractMethod> functions = contracts.getMethods();
+                // TODO: temos de mudar isto. Ta hardcoded
+                HashMap<String, ContractMethod> functions = contracts.get("MergedContract").getMethods();
                 for (Map.Entry<String, ContractMethod> functionEntry : functions.entrySet()) {
                     String functionName = functionEntry.getKey();
                     ContractMethod function = functionEntry.getValue();

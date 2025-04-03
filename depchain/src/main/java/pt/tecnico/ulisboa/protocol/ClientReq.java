@@ -14,7 +14,7 @@ public abstract class ClientReq extends BlockchainMessage {
         super(BlockchainMessageType.CLIENT_REQ, 0L);
     }
 
-    public ClientReq(int senderId, Long count,ClientReqType reqType) {
+    public ClientReq(int senderId, Long count, ClientReqType reqType) {
         super(BlockchainMessageType.CLIENT_REQ, count);
         this.senderId = senderId;
         this.reqType = reqType;
@@ -22,7 +22,6 @@ public abstract class ClientReq extends BlockchainMessage {
 
     public abstract ClientReqType getReqType();
 
-    @Override
     public int getSenderId() {
         return senderId;
     }
@@ -62,8 +61,6 @@ public abstract class ClientReq extends BlockchainMessage {
         }
         this.reqType = ClientReqType.valueOf(json.get("reqType").getAsString());
     }
-
-    
 
     @Override
     public boolean equals(Object obj) {

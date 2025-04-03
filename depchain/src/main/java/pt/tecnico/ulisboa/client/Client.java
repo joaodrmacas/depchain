@@ -171,8 +171,7 @@ public class Client {
 
             BigInteger amount = new BigInteger(parts[2]);
             req = new TransferDepCoinReq(clientId, count, toAddress, amount);
-        }
-        else if (command.equals("BALANCE_OF")){
+        } else if (command.equals("BALANCE_OF")) {
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Invalid BALANCE_OF format. Usage: BALANCE_OF <client_id>");
             }
@@ -260,7 +259,8 @@ public class Client {
                     if (args.length != 0) {
                         throw new IllegalArgumentException("balanceOf takes no arguments");
                     }
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, Config.CLIENT_ID_2_ADDR.get(clientId));
+                    return new ContractCallReq(clientId, count, contractName, functionName,
+                            Config.CLIENT_ID_2_ADDR.get(clientId));
 
                 // Single address functions
                 case "isBlacklisted":
@@ -268,21 +268,21 @@ public class Client {
                 case "addToBlacklist":
                 case "removeFromBlacklist":
                     if (args.length != 1) {
-                        throw new IllegalArgumentException(methodSignature + " requires one client ID argument");
+                        throw new IllegalArgumentException(functionName + " requires one client ID argument");
                     }
                     Address address = parseAddress(args[0]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, address);
+                    return new ContractCallReq(clientId, count, contractName, functionName, address);
 
                 // Address and amount functions
                 case "transfer":
                 case "approve":
                     if (args.length != 2) {
                         throw new IllegalArgumentException(
-                                methodSignature + " requires client ID and amount arguments");
+                                functionName + " requires client ID and amount arguments");
                     }
                     Address to = parseAddress(args[0]);
                     BigInteger amount = new BigInteger(args[1]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, to, amount);
+                    return new ContractCallReq(clientId, count, contractName, functionName, to, amount);
 
                 // Transfer from function (2 addresses + amount)
                 case "transferFrom":
@@ -293,7 +293,7 @@ public class Client {
                     Address from = parseAddress(args[0]);
                     Address to2 = parseAddress(args[1]);
                     BigInteger amount2 = new BigInteger(args[2]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, from, to2, amount2);
+                    return new ContractCallReq(clientId, count, contractName, functionName, from, to2, amount2);
 
                 // Buy function (amount)
                 case "buy":
@@ -302,10 +302,10 @@ public class Client {
                     }
                     BigInteger buyAmount = new BigInteger(args[0]);
                     BigInteger value = buyAmount.multiply(Config.DEPCOIN_PER_IST);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, value, buyAmount);
+                    return new ContractCallReq(clientId, count, contractName, functionName, value, buyAmount);
 
                 default:
-                    throw new IllegalArgumentException("Unsupported method: " + methodSignature);
+                    throw new IllegalArgumentException("Unsupported method: " + functionName);
             }
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid number format in arguments");

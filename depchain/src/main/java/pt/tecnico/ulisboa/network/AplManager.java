@@ -169,7 +169,6 @@ public abstract class AplManager {
 
                     Logger.LOG("Received packet from sender ID: " + senderId);
 
-                    // TODO: esta para aqui esparguetada
                     // receive fragment
                     byte[] actualData = Arrays.copyOf(packet.getData(), packet.getLength());
                     FragmentedMessage fragmentedMessage = SerializationUtils.deserializeObject(actualData);

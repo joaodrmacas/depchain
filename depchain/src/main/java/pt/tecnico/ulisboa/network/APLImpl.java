@@ -457,8 +457,6 @@ public class APLImpl implements APL {
                     Logger.LOG(destPort + ") " + "Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
-                        // TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar
-                        // refactor para ir tudo como um fragment
                         fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {
                         Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);

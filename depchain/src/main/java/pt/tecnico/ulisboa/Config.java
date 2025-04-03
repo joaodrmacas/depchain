@@ -32,7 +32,7 @@ public class Config {
 
     public final static String GENESIS_BLOCK_PATH = "genesis_block.json";
     public final static String BLOCK_DIRPATH = "blocks";
-    public static final int BLOCK_SIZE = 5; // TODO: change this value?
+    public static final int BLOCK_SIZE = 5;
     public static final int ADMIN_ID = -1;
     public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
     public static final HashMap<Integer, String> CLIENT_ID_2_ADDR = new HashMap<Integer, String>() {

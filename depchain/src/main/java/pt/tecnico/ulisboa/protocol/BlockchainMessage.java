@@ -33,10 +33,6 @@ public abstract class BlockchainMessage implements Serializable {
         return count;
     }
 
-    public int getSenderId() {
-        return -1; // TODO: isto está insanely disgusting mas tenho cpd para fazer - fix this
-    }
-
     @Override
     public boolean equals(Object obj) {
         // TODO: acho que isto ta mal nao?

@@ -144,15 +144,13 @@ public class BlockchainManager {
                 block.setId(lastBlock.getId() + 1);
             }
             blockchain.add(block);
-            persistenceManager.persistBlock(block, world);
+            persistenceManager.persistBlock(block, world, contracts);
         } catch (Exception e) {
             Logger.ERROR("Failed to persis block to blockchain: " + e.getMessage());
         }
     }
 
     public ClientResp executeTx(ClientReq tx) {
-        // TODO: change this logic to the executor thread and make this get a block, set
-        // the previous hash of the previous hash
         try {
             ClientReqType decidedType = tx.getReqType();
             ClientResp resp = null;

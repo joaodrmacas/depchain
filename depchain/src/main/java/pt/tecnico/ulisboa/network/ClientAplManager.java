@@ -43,9 +43,7 @@ public class ClientAplManager extends AplManager {
 
             FragmentedMessage frag = SerializationUtils.deserializeObject(packet.getData());
 
-            int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT; // TODO: meti isto para amanha dar para testar
-                                                                        // com varios clientes sem tar hardcode. Amanha
-                                                                        // é wild
+            int destId = packet.getPort() - Config.DEFAULT_CLIENT_PORT;
             APLImpl apl = createAPL(destId, packet.getAddress().getHostAddress(), packet.getPort(), handler);
             apl.processReceivedPacket(destId, frag.getFragmentData());
 
