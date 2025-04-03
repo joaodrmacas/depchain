@@ -53,6 +53,7 @@ public class BlockchainManager {
     private void initBlockchain() {
         try {
             // this.world = persistenceManager.loadBlockchain(blockchain);
+            this.contracts = new HashMap<>();
             this.world = persistenceManager.loadGenesisBlock(blockchain, contracts); // this changes the blockchain and
                                                                                      // the contract map
             Block lastBlock = blockchain.get(blockchain.size() - 1);
@@ -60,7 +61,6 @@ public class BlockchainManager {
             for (Map.Entry<Integer, String> entry : Config.CLIENT_ID_2_ADDR.entrySet()) {
                 clientAddresses.put(entry.getKey(), Address.fromHexString(entry.getValue()));
             }
-            this.contracts = new HashMap<>();
         } catch (Exception e) {
             Logger.LOG("Failed to load blockchain: " + e.getMessage());
             this.world = new SimpleWorld();

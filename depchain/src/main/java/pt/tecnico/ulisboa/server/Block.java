@@ -1,6 +1,7 @@
 package pt.tecnico.ulisboa.server;
 
 import java.util.List;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
@@ -11,8 +12,9 @@ import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class Block implements Consensable {
+public class Block implements Consensable, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private final int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
 
     private Integer blockId;

@@ -43,4 +43,9 @@ public class ClientResp extends BlockchainMessage {
     public int hashCode() {
         return Objects.hash(success, seqNum, message);
     }
+
+    @Override
+    public String toString() {
+        return "ClientResp{" + "success=" + success + ", seqNum=" + seqNum + ", message='" + message + '\'' + '}';
+    }
 }

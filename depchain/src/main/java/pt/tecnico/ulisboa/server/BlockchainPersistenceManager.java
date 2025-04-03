@@ -239,6 +239,12 @@ public class BlockchainPersistenceManager {
                         account.setStorageValue(slot, value);
                     }
                 }
+                //TODO: tirar o logger.error
+                if (!accountJson.has("name")) {
+                    Logger.ERROR("Missing contract name");
+                }
+                String contractName = accountJson.get("name").getAsString();
+
                 if (accountJson.has("functions")) {
                     HashMap<String, ContractMethod> functions = new HashMap<>();
                     JsonObject functionsJson = accountJson.getAsJsonObject("functions");
@@ -270,12 +276,14 @@ public class BlockchainPersistenceManager {
                         functions.put(functionName, function);
                     }
                     Contract contract = new Contract(addressHex, functions);
+                    contracts.put(contractName, contract);
                 }
             }
         }
         return world;
     }
 
+    @SuppressWarnings("unchecked")
     private JsonObject worldToJson(SimpleWorld state, Map<String, Contract> contracts) {
         int count = 0;
         JsonObject stateObj = new JsonObject();
@@ -307,11 +315,16 @@ public class BlockchainPersistenceManager {
 
                 accountJson.add("storage", storageJson);
 
+                // name
+                // TODO: temos de mudar isto. Ta hardcoded e mudar o nome de merged para istcoin contract
+                String contractName = "MergedContract";
+                accountJson.addProperty("name", contractName);
+
+
                 // functions
                 JsonObject functionsJson = new JsonObject();
 
-                // TODO: temos de mudar isto. Ta hardcoded
-                HashMap<String, ContractMethod> functions = contracts.get("MergedContract").getMethods();
+                HashMap<String, ContractMethod> functions = contracts.get(contractName).getMethods();
                 for (Map.Entry<String, ContractMethod> functionEntry : functions.entrySet()) {
                     String functionName = functionEntry.getKey();
                     ContractMethod function = functionEntry.getValue();

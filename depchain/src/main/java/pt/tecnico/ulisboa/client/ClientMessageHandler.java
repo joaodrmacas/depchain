@@ -27,6 +27,7 @@ public class ClientMessageHandler implements MessageHandler {
     @Override
     public void onMessage(int senderid, byte[] message) {
         try {
+            Logger.LOG("Received message from server: " + senderid);
             ClientResp response = (ClientResp) SerializationUtils.deserializeObject(message);
             Long seqnum = response.getCount();
 

@@ -109,7 +109,6 @@ public class Server {
     public void mainLoop() {
 
         Thread transactionExecutorThread = new Thread(() -> {
-
             try {
                 while (true) {
                     ClientReq tx = txToBeExecuted.getResource().poll();
@@ -117,10 +116,8 @@ public class Server {
                         ClientResp response = blockchainManager.executeTx(tx);
                         Logger.DEBUG("Sending response to client " + tx.getSenderId() + ": " + response.toString());
                         clientManager.send(tx.getSenderId(), response);
-                    } else {
-                        // TODO: is this possible? no, right?
-                        Logger.ERROR("Transaction executor thread: no transaction to execute");
                     }
+                    txToBeExecuted.waitForChange(-1);
                 }
             } catch (Exception e) {
                 Logger.ERROR("Transaction executor thread failed with exception", e);
@@ -143,6 +140,7 @@ public class Server {
                         blockchainManager.addBlockToBlockchain(block);
                         for (ClientReq tx : block.getTransactions()) {
                             txToBeExecuted.getResource().add(tx);
+                            txToBeExecuted.notifyChange();
                         }
                     }
                     // consensus thread already changes the decided queue
@@ -374,6 +372,7 @@ public class Server {
 
     public void pushDecidedBlock(Consensable value) {
         Block block = (Block) value;
+        Logger.DEBUG("Pushing decided block: " + block);
         decidedBlocksSet.add(block);
         decidedBlocks.getResource().add(block);
         decidedBlocks.notifyChange();
@@ -477,7 +476,6 @@ public class Server {
     public void handleClientRequest(ClientReq tx) {
         Logger.DEBUG("Received transaction: " + tx.toString());
         try {
-
             if (needsConsensus(tx)) {
                 pushTxToBlock(tx);
                 blocksForConsensus.notifyChange();
