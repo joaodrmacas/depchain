@@ -51,7 +51,7 @@ public class Server {
     private ObservedResource<Queue<Block>> decidedBlocks = new ObservedResource<>(new ConcurrentLinkedQueue<>());
 
     private Set<Block> decidedBlocksSet = ConcurrentHashMap.newKeySet();
-    
+
     private Map<Integer, ObservedResource<Queue<ConsensusMessage>>> consensusMessages = new HashMap<>();
     private BlockchainManager blockchainManager = new BlockchainManager();
 
@@ -108,7 +108,7 @@ public class Server {
 
     public void mainLoop() {
 
-        Thread transactionExecutorThread = new Thread(()-> {
+        Thread transactionExecutorThread = new Thread(() -> {
 
             try {
                 while (true) {
@@ -118,7 +118,7 @@ public class Server {
                         Logger.DEBUG("Sending response to client " + tx.getSenderId() + ": " + response.toString());
                         clientManager.send(tx.getSenderId(), response);
                     } else {
-                        //TODO: is this possible? no, right?
+                        // TODO: is this possible? no, right?
                         Logger.ERROR("Transaction executor thread: no transaction to execute");
                     }
                 }
@@ -134,8 +134,10 @@ public class Server {
                 while (true) {
                     Block block = decidedBlocks.getResource().poll();
 
-                    //TODO: verify if the decided block has the same transactions as the decided transactions
-                    //TODO: If not, go through my block and check which are not in the decided. Take those and add to the beginning of the queue (?) //helpppppppppp
+                    // TODO: verify if the decided block has the same transactions as the decided
+                    // transactions
+                    // TODO: If not, go through my block and check which are not in the decided.
+                    // Take those and add to the beginning of the queue (?) //helpppppppppp
 
                     if (block != null) {
                         blockchainManager.addBlockToBlockchain(block);
@@ -214,7 +216,8 @@ public class Server {
             serversManager.startListening();
 
             // Initialize register APL
-            clientManager = new ClientAplManager(this, address, portRegister, privateKey, clientPublicKeys, userAddresses);
+            clientManager = new ClientAplManager(this, address, portRegister, privateKey, clientPublicKeys,
+                    userAddresses);
             clientManager.startListening();
 
             Logger.LOG("Node setup complete");
@@ -326,7 +329,7 @@ public class Server {
             if (value != null) {
                 if (decidedBlocksSet.contains(value)) {
                     Logger.DEBUG("Transaction already decided: " + value);
-                    
+
                     synchronized (blocksForConsensus.getResource()) {
                         Block firstValue = blocksForConsensus.getResource().peek();
                         if (firstValue.equals(value)) {
@@ -369,9 +372,10 @@ public class Server {
         }
     }
 
-    public void pushDecidedBlock(Block value) {
-        decidedBlocksSet.add(value);
-        decidedBlocks.getResource().add(value);
+    public void pushDecidedBlock(Consensable value) {
+        Block block = (Block) value;
+        decidedBlocksSet.add(block);
+        decidedBlocks.getResource().add(block);
         decidedBlocks.notifyChange();
     }
 
@@ -464,6 +468,25 @@ public class Server {
 
         str += "\n***** END Consensus messages\n";
         System.err.println(str);
+    }
+
+    public boolean needsConsensus(ClientReq tx) {
+        return this.blockchainManager.needsConsensus(tx);
+    }
+
+    public void handleClientRequest(ClientReq tx) {
+        Logger.DEBUG("Received transaction: " + tx.toString());
+        try {
+
+            if (needsConsensus(tx)) {
+                pushTxToBlock(tx);
+                blocksForConsensus.notifyChange();
+            } else {
+                pushTxToExecute(tx);
+            }
+        } catch (Exception e) {
+            Logger.LOG("Failed to handle client request, ignoring it: " + e.getMessage());
+        }
     }
 
     public ExecutorService getExecutor() {

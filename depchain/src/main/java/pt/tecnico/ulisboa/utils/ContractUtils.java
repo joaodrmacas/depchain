@@ -30,7 +30,6 @@ import com.google.gson.JsonElement;
 
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.server.Block;
-import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ContractUtils {

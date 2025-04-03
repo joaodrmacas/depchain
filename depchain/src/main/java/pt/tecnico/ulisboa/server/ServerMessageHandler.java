@@ -78,13 +78,6 @@ public class ServerMessageHandler implements MessageHandler {
         }
         Logger.LOG("Valid signature for message: " + message.getCount());
         
-        //Verify if it's a read or write
-        if (message.needsConsensus()) {
-            Logger.LOG("Pushing to consensus: " + message.getCount());
-            //TODO: se for contract request ver se é read only functions @duda
-            server.pushTxToBlock(message);
-        } else {
-            server.pushTxToExecute(message);
-        }
+        server.handleClientRequest(message);
     }
 }

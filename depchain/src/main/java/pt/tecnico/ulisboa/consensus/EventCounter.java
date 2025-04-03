@@ -4,9 +4,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import pt.tecnico.ulisboa.utils.types.RequiresEquals;
+import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class EventCounter<T extends RequiresEquals> {
+public class EventCounter<T extends Consensable> {
     private Map<T, Integer> counter = new HashMap<>();
     private HashSet<Integer> alreadyCounted = new HashSet<>();
 

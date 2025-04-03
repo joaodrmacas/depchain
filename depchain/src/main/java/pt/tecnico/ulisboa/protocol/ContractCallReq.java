@@ -7,18 +7,27 @@ import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 
 // Get spending allowance between two accounts
 public class ContractCallReq extends ClientReq {
     private static final long serialVersionUID = 1L;
-    private final BigInteger value;
-    private final String contractName; // Changed from contractAddr
-    private final String methodName; // Changed from methodSelector
-    private final String[] args;
+    private BigInteger value;
+    private String contractName; // Changed from contractAddr
+    private String methodName; // Changed from methodSelector
+    private String[] args;
+
+    public ContractCallReq() {
+        // For json
+        super();
+        this.args = new String[0];
+        this.value = BigInteger.ZERO;
+    }
 
     public ContractCallReq(int senderId, Long count, String contractName, String methodName, BigInteger value,
             Object... args) {
-        super(senderId, count);
+        super(senderId, count, ClientReqType.CONTRACT_CALL);
 
         this.contractName = contractName;
         this.value = value;
@@ -98,7 +107,44 @@ public class ContractCallReq extends ClientReq {
     }
 
     @Override
-    public boolean needsConsensus() {
-        return true;
+    public JsonObject toJson() {
+        JsonObject json = super.toJson();
+        json.addProperty("contractName", contractName);
+        json.addProperty("methodName", methodName);
+        json.addProperty("value", value.toString());
+        
+        // Convert args array to a JSON array instead of a comma-separated string
+        if (args != null && args.length > 0) {
+            JsonArray argsArray = new JsonArray();
+            for (String arg : args) {
+                argsArray.add(arg);
+            }
+            json.add("argsArray", argsArray);            
+        } else {
+            json.add("argsArray", new JsonArray());
+            json.addProperty("args", "");
+        }
+        
+        return json;
+    }
+
+    @Override
+    public void fromJson(JsonObject json) {
+        super.fromJson(json);
+        this.contractName = json.get("contractName").getAsString();
+        this.methodName = json.get("methodName").getAsString();
+        this.value = new BigInteger(json.get("value").getAsString());
+        
+        if (json.has("argsArray") && json.get("argsArray").isJsonArray()) {
+            JsonArray argsArray = json.getAsJsonArray("argsArray");
+            this.args = new String[argsArray.size()];
+            for (int i = 0; i < argsArray.size(); i++) {
+                this.args[i] = argsArray.get(i).getAsString();
+            }
+        } else if (json.has("args") && !json.get("args").getAsString().isEmpty()) {
+            this.args = json.get("args").getAsString().split(", ");
+        } else {
+            this.args = new String[0];
+        }
     }
 }

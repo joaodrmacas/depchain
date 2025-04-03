@@ -19,6 +19,9 @@ import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
+import pt.tecnico.ulisboa.contracts.Contract;
+import pt.tecnico.ulisboa.contracts.ContractMethod;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
 import pt.tecnico.ulisboa.protocol.ClientResp;
@@ -26,10 +29,6 @@ import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.contracts.AbiParameter;
-import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
-import pt.tecnico.ulisboa.contracts.Contract;
-import pt.tecnico.ulisboa.contracts.ContractMethod;
 
 public class BlockchainManager {
     private SimpleWorld world;
@@ -54,9 +53,8 @@ public class BlockchainManager {
     private void initBlockchain() {
         try {
             // this.world = persistenceManager.loadBlockchain(blockchain);
-            this.world = persistenceManager.loadGenesisBlock(blockchain); // this changes the blockchain
+            this.world = persistenceManager.loadGenesisBlock(blockchain, contracts); // this changes the blockchain and the contract map
             Block lastBlock = blockchain.get(blockchain.size() - 1);
-            this.currentBlock = new Block(lastBlock.getId() + 1, lastBlock.getHash());
             this.clientAddresses = new HashMap<>();
             for (Map.Entry<Integer, String> entry : Config.CLIENT_ID_2_ADDR.entrySet()) {
                 clientAddresses.put(entry.getKey(), Address.fromHexString(entry.getValue()));
@@ -66,7 +64,6 @@ public class BlockchainManager {
             Logger.LOG("Failed to load blockchain: " + e.getMessage());
             this.world = new SimpleWorld();
             this.blockchain = new ArrayList<>();
-            this.currentBlock = new Block();
         }
         executor.tracer(new StandardJsonTracer(new PrintStream(output), true, true, true, true));
         executor.worldUpdater(world.updater());
@@ -114,11 +111,43 @@ public class BlockchainManager {
         }
     }
 
+    public boolean needsConsensus(ClientReq tx) {
+        if (tx.getReqType() == ClientReqType.CONTRACT_CALL) {
+            ContractCallReq contractCallReq = (ContractCallReq) tx;
+            Contract contract = contracts.get(contractCallReq.getContractName());
+            if (contract != null) {
+                ContractMethod method = contract.getMethod(contractCallReq.getMethodName());
+                if (method != null && method.changesState()) {
+                    return true;
+                }
+            }
+            return false;
+        } else if (tx.getReqType() == ClientReqType.TRANSFER_DEP_COIN) {
+            return true;
+        } else if (tx.getReqType() == ClientReqType.BALANCE_OF_DEP_COIN) {
+            return false;
+        } else {
+            Logger.LOG("Invalid request type when checking if it should go to consensus");
+            throw new IllegalArgumentException("Invalid request type when checking if it should go to consensus");
+        }
+    }
+
     public void addBlockToBlockchain(final Block block) {
-        Block lastBlock = blockchain.get(blockchain.size() - 1);
-        block.setPrevHash(lastBlock.getHash());
-        block.setId(lastBlock.getId() + 1);
-        blockchain.add(block);
+        try {
+            if (blockchain.size() == 0) {
+                Logger.ERROR("Blockchain is empty, genesis block was not added");
+                block.setId(0);
+            } else {
+                blockchain.add(block);
+                Block lastBlock = blockchain.get(blockchain.size() - 1);
+                block.setPrevHash(lastBlock.getHash());
+                block.setId(lastBlock.getId() + 1);
+            }
+            blockchain.add(block);
+            persistenceManager.persistBlock(block, world);
+        } catch (Exception e) {
+            Logger.ERROR("Failed to persis block to blockchain: " + e.getMessage());
+        }
     }
 
     public ClientResp executeTx(ClientReq tx) {
@@ -151,12 +180,13 @@ public class BlockchainManager {
 
     private ClientResp handleContractCall(ContractCallReq req) {
         try {
-            // get the contract and method
+            // Validate contract and method
             Contract contract = contracts.get(req.getContractName());
             if (contract == null) {
                 Logger.LOG("Contract not found: " + req.getContractName());
                 return new ClientResp(false, req.getCount(), "Contract not found: " + req.getContractName());
             }
+
             ContractMethod method = contract.getMethod(req.getMethodName());
             if (method == null) {
                 Logger.LOG("Method not found: " + req.getMethodName());
@@ -165,59 +195,68 @@ public class BlockchainManager {
 
             if (method.changesState()) {
                 // TODO: go to consensus
+                return new ClientResp(false, req.getCount(), "Should go to consensus");
             } else {
-                // execute the contract call
-
-                // msg.sender and msg.value
-                Address sender = clientAddresses.get(req.getSenderId());
-                BigInteger value = req.getValue();
-                executor.sender(sender);
-                executor.ethValue(Wei.of(value));
-
-                // address and code
-                executor.contract(contract.getAddress());
-                MutableAccount contractAccount = world.getAccount(contract.getAddress());
-                executor.code(contractAccount.getCode());
-
-                // call data
-                Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
-                executor.callData(callData);
-
-                executor.execute();
-
-                ContractUtils.checkForExecutionErrors(output);
-
-                // List of objects to hold the return values
-                ArrayList<Object> returnValues = new ArrayList<>();
-                for (int i = 0; i < method.getOutputs().size(); i++) {
-                    AbiType outputType = method.getOutputs().get(i).getType();
-                    switch (outputType) {
-                        case UINT256:
-                            BigInteger returnValue = ContractUtils.extractBigIntegerFromReturnData(output);
-                            break;
-                        case INT256:
-                            BigInteger returnValue = ContractUtils.extractBigIntegerFromReturnData(output);
-                            break;
-                        case BOOL:
-                            boolean returnValue = ContractUtils.extractBooleanFromReturnData(output);
-                            // handle bool output
-                            break;
-                            break;
-                        default:
-                            Logger.LOG("Unsupported output type: " + output.getType());
-                    }
-                }
-
-                String returnValue = ContractUtils.extractHexStringFromReturnData(output);
-
-                Logger.LOG("Contract call executed successfully. Return value: " + returnValue);
-
-                return new ClientResp(true, req.getCount(), "Contract call executed successfully");
-
+                // Execute the read-only contract call
+                return executeReadOnlyCall(req, contract, method);
             }
         } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());
+        }
+    }
+
+    private ClientResp executeReadOnlyCall(ContractCallReq req, Contract contract, ContractMethod method) {
+        // Setup execution context
+        setupExecutionContext(req, contract);
+
+        // Prepare call data and execute
+        Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
+        executor.callData(callData);
+        executor.execute();
+        ContractUtils.checkForExecutionErrors(output);
+
+        // Process return values
+        ArrayList<Object> returnValues = processReturnValues(method);
+
+        Logger.LOG("Contract call executed successfully. Return values: " + returnValues);
+        return new ClientResp(true, req.getCount(), "Contract call executed successfully");
+    }
+
+    private void setupExecutionContext(ContractCallReq req, Contract contract) {
+        // Set sender and value
+        Address sender = clientAddresses.get(req.getSenderId());
+        BigInteger value = req.getValue();
+        executor.sender(sender);
+        executor.ethValue(Wei.of(value));
+
+        // Set contract address and code
+        executor.contract(contract.getAddress());
+        MutableAccount contractAccount = world.getAccount(contract.getAddress());
+        executor.code(contractAccount.getCode());
+    }
+
+    private ArrayList<Object> processReturnValues(ContractMethod method) {
+        ArrayList<Object> returnValues = new ArrayList<>();
+
+        for (int i = 0; i < method.getOutputs().size(); i++) {
+            AbiType outputType = method.getOutputs().get(i).getType();
+            Object returnValue = extractReturnValue(outputType);
+            returnValues.add(returnValue);
+        }
+
+        return returnValues;
+    }
+
+    private Object extractReturnValue(AbiType outputType) {
+        switch (outputType) {
+            case UINT256:
+                return ContractUtils.extractBigIntegerFromReturnData(output);
+            case BOOL:
+                return ContractUtils.extractBooleanFromReturnData(output);
+            default:
+                Logger.LOG("Unsupported output type: " + outputType);
+                return null;
         }
     }
 
@@ -228,8 +267,6 @@ public class BlockchainManager {
             block.printBlock();
             System.out.println("   ↓");
         }
-        currentBlock.printBlock();
-
     }
 
 }

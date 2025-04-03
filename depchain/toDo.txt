@@ -1,22 +1,18 @@
-> [carro] o que vai a consensus é um bloco da blockchain
 > [carro] melhorar o consensus com a info do stor 1st stage
-> [carro] testes do consensus
 > [braços] servers verificar as assinaturas dos clients requests durante o collected (problema para o duarte pensar)
 > [braços] adicionar client a receber mensagens decentes para se conseguir verificar se os contratos tao a funcionar fixe
-> [massas] não adicionar transações READ (de depcoin) à blockchain
 > client a mandar para todos os servers com time between cada um
-
-
 > client mandar varios requests enquanto espera por resposta
-
+> Relatório
 
 
 Extra:
 > gas
-> aceitarmos nfts
+> aceitarmos nftstransactions
 
 
 Tests:
+> o que vai a consensus é um bloco da blockchain
 > client recebe f+1 messages iguais dos servers e só aí aceita
 > testes de consensus (servers byzantinos)
 > testes de clients byzantinos

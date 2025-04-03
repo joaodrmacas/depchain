@@ -141,9 +141,9 @@ public class BFTConsensus {
             EpochConsensus consensus = new EpochConsensus(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
 
             Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
-            T value = consensus.start();
+            Consensable value = consensus.start();
 
-            member.pushDecidedTx(value);
+            member.pushDecidedBlock(value);
 
             Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on value " + value);
         

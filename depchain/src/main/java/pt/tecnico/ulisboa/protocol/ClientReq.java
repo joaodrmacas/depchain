@@ -1,14 +1,23 @@
 package pt.tecnico.ulisboa.protocol;
 
+import com.google.gson.JsonObject;
+
 public abstract class ClientReq extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
 
     protected int senderId;
     protected String signature;
+    protected ClientReqType reqType;
 
-    public ClientReq(int senderId, Long count) {
+    public ClientReq() {
+        // To build from json
+        super(BlockchainMessageType.CLIENT_REQ, 0L);
+    }
+
+    public ClientReq(int senderId, Long count,ClientReqType reqType) {
         super(BlockchainMessageType.CLIENT_REQ, count);
         this.senderId = senderId;
+        this.reqType = reqType;
     }
 
     public abstract ClientReqType getReqType();
@@ -34,6 +43,29 @@ public abstract class ClientReq extends BlockchainMessage {
     }
 
     @Override
+    public JsonObject toJson() {
+        JsonObject json = super.toJson();
+        json.addProperty("senderId", senderId);
+        if (signature != null) {
+            json.addProperty("signature", signature);
+        }
+        json.addProperty("reqType", getReqType().toString());
+        return json;
+    }
+
+    @Override
+    public void fromJson(JsonObject json) {
+        super.fromJson(json);
+        this.senderId = json.get("senderId").getAsInt();
+        if (json.has("signature")) {
+            this.signature = json.get("signature").getAsString();
+        }
+        this.reqType = ClientReqType.valueOf(json.get("reqType").getAsString());
+    }
+
+    
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -45,5 +77,4 @@ public abstract class ClientReq extends BlockchainMessage {
         return super.equals(obj) && senderId == other.senderId;
     }
 
-    public abstract boolean needsConsensus();
 }

@@ -12,7 +12,7 @@ public class Contract {
     protected final String address; // hex string of the address
     private static HashMap<String, ContractMethod> functions;
 
-    public Contract(String address, Bytes byteCode, HashMap<String, ContractMethod> functions) {
+    public Contract(String address, HashMap<String, ContractMethod> functions) {
         this.address = address;
         this.functions = functions;
     }

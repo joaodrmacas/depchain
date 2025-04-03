@@ -2,6 +2,8 @@ package pt.tecnico.ulisboa.protocol;
 
 import java.math.BigInteger;
 
+import com.google.gson.JsonObject;
+
 import org.hyperledger.besu.datatypes.Address;
 
 public class TransferDepCoinReq extends ClientReq {
@@ -10,8 +12,13 @@ public class TransferDepCoinReq extends ClientReq {
     private String receiverAddr;
     private BigInteger amount;
 
+     public TransferDepCoinReq() {
+        // For json
+        super();
+    }
+
     public TransferDepCoinReq(int senderId, Long count, String receiver, BigInteger amount) {
-        super(senderId, count);
+        super(senderId, count, ClientReqType.TRANSFER_DEP_COIN);
         this.receiverAddr = receiver;
         this.amount = amount;
     }
@@ -39,9 +46,17 @@ public class TransferDepCoinReq extends ClientReq {
                 '}';
     }
 
-    @Override
-    public boolean needsConsensus() {
-        return true;
+    public void fromJson(JsonObject json) {
+        super.fromJson(json);
+        this.receiverAddr = json.get("receiverAddr").getAsString();
+        this.amount = new BigInteger(json.get("amount").getAsString());
     }
 
+    @Override
+    public JsonObject toJson() {
+        JsonObject json = super.toJson();
+        json.addProperty("receiverAddr", receiverAddr);
+        json.addProperty("amount", amount.toString());
+        return json;
+    }
 }
