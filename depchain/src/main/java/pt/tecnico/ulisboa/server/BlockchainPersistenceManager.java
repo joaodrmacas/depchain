@@ -324,26 +324,35 @@ public class BlockchainPersistenceManager {
                 // functions
                 JsonObject functionsJson = new JsonObject();
 
-                HashMap<String, ContractMethod> functions = contracts.get(contractName).getMethods();
-                for (Map.Entry<String, ContractMethod> functionEntry : functions.entrySet()) {
-                    String functionName = functionEntry.getKey();
-                    ContractMethod function = functionEntry.getValue();
-
-                    JsonObject functionJson = new JsonObject();
-                    functionJson.addProperty("signature", function.getSignature().toHexString());
-
-                    // Convert outputs to JsonArray
-                    JsonArray outputsArray = new JsonArray();
-                    for (AbiParameter output : function.getOutputs()) {
-                        JsonObject outputJson = new JsonObject();
-                        outputJson.addProperty("type", output.getType().toString());
-                        outputJson.addProperty("name", output.getName());
-                        outputsArray.add(outputJson);
+                Contract c = contracts.get(contractName);
+                if (c!=null){
+                    HashMap<String, ContractMethod> functions = c.getMethods();
+                    if (functions != null){
+                        for (Map.Entry<String, ContractMethod> functionEntry : functions.entrySet()) {
+                            String functionName = functionEntry.getKey();
+                            ContractMethod function = functionEntry.getValue();
+        
+                            JsonObject functionJson = new JsonObject();
+                            functionJson.addProperty("signature", function.getSignature().toHexString());
+        
+                            // Convert outputs to JsonArray
+                            JsonArray outputsArray = new JsonArray();
+                            for (AbiParameter output : function.getOutputs()) {
+                                JsonObject outputJson = new JsonObject();
+                                outputJson.addProperty("type", output.getType().toString());
+                                outputJson.addProperty("name", output.getName());
+                                outputsArray.add(outputJson);
+                            }
+                            functionJson.add("outputs", outputsArray);
+                            functionJson.addProperty("changesState", function.changesState());
+        
+                            functionsJson.add(functionName, functionJson);
+                        }
+                    } else {
+                        Logger.LOG("Didnt find contract methods for contract: " + contractName);
                     }
-                    functionJson.add("outputs", outputsArray);
-                    functionJson.addProperty("changesState", function.changesState());
-
-                    functionsJson.add(functionName, functionJson);
+                } else {
+                    Logger.LOG("Didnt find contract for contract: " + contractName);
                 }
             }
 

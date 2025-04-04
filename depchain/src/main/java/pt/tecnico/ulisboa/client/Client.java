@@ -89,7 +89,7 @@ public class Client {
             System.out.println("   - Example: MergedContract transferFrom 1 2 50");
             System.out.println("4. MergedContract approve <spender_id> <amount>");
             System.out.println("   - Example: MergedContract approve 3 200");
-            System.out.println("5. MergedContract allowance <owner_id>"); //TODO: isto nao devia ter 2 args?
+            System.out.println("5. MergedContract allowance <owner_id>"); // TODO: isto nao devia ter 2 args?
             System.out.println("   - Example: MergedContract allowance 1");
             System.out.println("6. MergedContract isBlacklisted <account_id>");
             System.out.println("   - Example: MergedContract isBlacklisted 2");
@@ -177,13 +177,12 @@ public class Client {
                         "Invalid format. For contract calls use: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             }
 
-
-
             String contractName = parts[0];
             String functionName = parts[1];
 
-            //TODO: change this hardcode for a config map or something
-            if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted") || functionName.equals("allowance")) {
+            // TODO: change this hardcode for a config map or something
+            if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted")
+                    || functionName.equals("allowance")) {
                 isStateful = false;
             }
 
@@ -215,7 +214,6 @@ public class Client {
                 aplManager.sendToAll(req);
             }
 
-            
             count++;
             return; // Successfully sent a request
         } else {

@@ -163,10 +163,10 @@ public class ContractUtils {
 
             String[] lines = outputCopy.toString().split("\\r?\\n");
             // print the lines
-            Logger.LOG("Output lines: ");
-            for (String line : lines) {
-                Logger.LOG(line);
-            }
+            // Logger.LOG("Output lines: ");
+            // for (String line : lines) {
+            //     Logger.LOG(line);
+            // }
             // Check if the last line is a JSON object
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();

@@ -205,6 +205,9 @@ public class BlockchainManager {
     private ClientResp handleContractCall(ContractCallReq req) {
         try {
             // Validate contract and method
+            Logger.LOG("CONTRACT CALL: " + req.toString());
+
+
             Contract contract = contracts.get(req.getContractName());
             if (contract == null) {
                 Logger.LOG("Contract not found: " + req.getContractName());
@@ -231,6 +234,9 @@ public class BlockchainManager {
         setupExecutionContext(req, contract);
 
         // Prepare call data and execute
+
+        Logger.LOG("Args: " + req.getArgs());
+
         Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
         executor.callData(callData);
         executor.execute();
