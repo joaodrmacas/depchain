@@ -75,6 +75,9 @@ public class Client {
             System.out.println("- TRANSFER_DEPCOIN <to_id> <amount>");
             System.out.println("  Example: TRANSFER_DEPCOIN 2 100");
             System.out.println("  Transfers DepCoin directly between accounts\n");
+            System.out.println("- BALANCEOF_DEPCOIN <client_id>");
+            System.out.println("  Example: BALANCEOF_DEPCOIN 1");
+            System.out.println("  Check the balance of a client in DepCoin\n");
 
             System.out.println("Contract Call Format: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             System.out.println("\nExample Contract Commands:");
@@ -86,7 +89,7 @@ public class Client {
             System.out.println("   - Example: MergedContract transferFrom 1 2 50");
             System.out.println("4. MergedContract approve <spender_id> <amount>");
             System.out.println("   - Example: MergedContract approve 3 200");
-            System.out.println("5. MergedContract allowance <owner_id>");
+            System.out.println("5. MergedContract allowance <owner_id>"); //TODO: isto nao devia ter 2 args?
             System.out.println("   - Example: MergedContract allowance 1");
             System.out.println("6. MergedContract isBlacklisted <account_id>");
             System.out.println("   - Example: MergedContract isBlacklisted 2");
@@ -131,6 +134,7 @@ public class Client {
             return;
         }
 
+        boolean isStateful = true;
         ClientReq req = null;
         String command = parts[0].toUpperCase();
 
@@ -150,19 +154,20 @@ public class Client {
 
             BigInteger amount = new BigInteger(parts[2]);
             req = new TransferDepCoinReq(clientId, count, toAddress, amount);
-        } else if (command.equals("BALANCE_OF")) {
+        } else if (command.equals("BALANCEOF_DEPCOIN")) {
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Invalid BALANCE_OF format. Usage: BALANCE_OF <client_id>");
             }
 
-            int clientId = Integer.parseInt(parts[1]);
-            String clientAddress = Config.CLIENT_ID_2_ADDR.get(clientId);
+            int ofId = Integer.parseInt(parts[1]);
+            String clientAddress = Config.CLIENT_ID_2_ADDR.get(ofId);
             if (clientAddress == null) {
                 throw new IllegalArgumentException("Unknown client ID: " + clientId);
             }
 
-            BigInteger amount = new BigInteger(parts[2]);
-            req = new BalanceOfDepCoinReq(clientId, count);
+            isStateful = false;
+            Logger.LOG("Client address: " + clientAddress);
+            req = new BalanceOfDepCoinReq(clientId, count, clientAddress);
         }
         // Contract call handling
         else {
@@ -172,8 +177,15 @@ public class Client {
                         "Invalid format. For contract calls use: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             }
 
+
+
             String contractName = parts[0];
             String functionName = parts[1];
+
+            //TODO: change this hardcode for a config map or something
+            if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted") || functionName.equals("allowance")) {
+                isStateful = false;
+            }
 
             req = buildContractRequest(contractName, functionName,
                     Arrays.copyOfRange(parts, 2, parts.length));
@@ -194,7 +206,16 @@ public class Client {
             // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
             messageHandler.addRequestToWait(count);
-            aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
+
+            if (isStateful) {
+                // Send write request for consensus
+                aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
+            } else {
+                // Send read
+                aplManager.sendToAll(req);
+            }
+
+            
             count++;
             return; // Successfully sent a request
         } else {

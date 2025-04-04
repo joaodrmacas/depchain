@@ -39,7 +39,7 @@ public class ClientMessageHandler implements MessageHandler {
 
             numResponses.put(response, numResponses.getOrDefault(response, 0) + 1);
 
-            if (numResponses.get(response) > Config.ALLOWED_FAILURES) {
+            if (numResponses.get(response) == Config.ALLOWED_FAILURES+1) {
                 if (response.getSuccess()) {
                     Logger.LOG("Successful transaction: " + response.getMessage());
                 } else {

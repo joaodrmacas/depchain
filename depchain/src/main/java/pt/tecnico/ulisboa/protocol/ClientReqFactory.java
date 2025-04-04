@@ -22,7 +22,8 @@ public class ClientReqFactory {
         
         switch (reqType) {
             case BALANCE_OF_DEP_COIN:
-                request = new BalanceOfDepCoinReq(senderId, count);
+                String ofAddr = json.get("ofAddr").getAsString();
+                request = new BalanceOfDepCoinReq(senderId, count, ofAddr);
                 break;
                 
             case TRANSFER_DEP_COIN:

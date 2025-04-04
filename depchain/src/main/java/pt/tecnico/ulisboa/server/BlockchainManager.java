@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,6 +16,7 @@ import org.hyperledger.besu.evm.EvmSpecVersion;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.fluent.EVMExecutor;
 import org.hyperledger.besu.evm.fluent.SimpleWorld;
+import org.hyperledger.besu.evm.fluent.SimpleAccount;
 import org.hyperledger.besu.evm.tracing.StandardJsonTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -22,6 +24,7 @@ import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.contracts.ContractMethod;
+import pt.tecnico.ulisboa.protocol.BalanceOfDepCoinReq;
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.ClientReq.ClientReqType;
 import pt.tecnico.ulisboa.protocol.ClientResp;
@@ -56,6 +59,7 @@ public class BlockchainManager {
             this.contracts = new HashMap<>();
             this.world = persistenceManager.loadGenesisBlock(blockchain, contracts); // this changes the blockchain and
                                                                                      // the contract map
+
             Block lastBlock = blockchain.get(blockchain.size() - 1);
             this.clientAddresses = new HashMap<>();
             for (Map.Entry<Integer, String> entry : Config.CLIENT_ID_2_ADDR.entrySet()) {
@@ -112,6 +116,21 @@ public class BlockchainManager {
         }
     }
 
+    public ClientResp getBalanceOfDepCoin(BalanceOfDepCoinReq req) {
+
+        Logger.LOG(req.toString());
+
+        Address address = Address.fromHexString(req.getAddress());
+
+        MutableAccount account = world.getAccount(address);
+        if (account == null) {
+            Logger.LOG("Account not found: " + address);
+            return new ClientResp(false, req.getCount(), "Account not found: " + address);
+        }
+        BigInteger balance = account.getBalance().toBigInteger();
+        return new ClientResp(true, req.getCount(), "Balance of " + address + ": " + balance);
+    }
+
     public boolean needsConsensus(ClientReq tx) {
         if (tx.getReqType() == ClientReqType.CONTRACT_CALL) {
             ContractCallReq contractCallReq = (ContractCallReq) tx;
@@ -165,6 +184,10 @@ public class BlockchainManager {
                 case TRANSFER_DEP_COIN:
                     TransferDepCoinReq transferReq = (TransferDepCoinReq) tx;
                     resp = transferDepCoin(transferReq);
+                    break;
+                case BALANCE_OF_DEP_COIN:
+                    BalanceOfDepCoinReq balanceReq = (BalanceOfDepCoinReq) tx;
+                    resp = getBalanceOfDepCoin(balanceReq);
                     break;
                 default:
                     System.out.println("Invalid request type");

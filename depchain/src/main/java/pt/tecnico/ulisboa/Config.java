@@ -34,9 +34,12 @@ public class Config {
     public final static String BLOCK_DIRPATH = "blocks";
     public static final int BLOCK_SIZE = 5;
     public static final int ADMIN_ID = -1;
-    public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
+    public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23000);
     public static final HashMap<Integer, String> CLIENT_ID_2_ADDR = new HashMap<Integer, String>() {
         {
+            put(-4, "0x000000000000000000000000000000000000000e");
+            put(-3, "0x000000000000000000000000000000000000000d");
+            put(-2, "0x000000000000000000000000000000000000000c");
             put(-1, "0x000000000000000000000000000000000000000b");
             put(0, "0x0000000000000000000000000000000000000001");
             put(1, "0x0000000000000000000000000000000000000002");

@@ -17,7 +17,7 @@ server:
 	mvn exec:java -Dexec.mainClass="pt.tecnico.ulisboa.server.Server" -Dexec.args="1 src/main/java/pt/tecnico/ulisboa/keys"
 
 client:
-	mvn exec:java -Dexec.mainClass="pt.tecnico.ulisboa.client.Client" -Dexec.args="1 src/main/java/pt/tecnico/ulisboa/keys"
+	mvn exec:java -Dexec.mainClass="pt.tecnico.ulisboa.client.Client" -Dexec.args="-2 src/main/java/pt/tecnico/ulisboa/keys"
 
 
 consensus:

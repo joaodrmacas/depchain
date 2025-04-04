@@ -115,6 +115,12 @@ public abstract class AplManager {
         }
     }
 
+    public void sendToAll(Serializable message) {
+        for (APLImpl apl : aplInstances.values()) {
+            apl.send(message);
+        }
+    }
+
     // This method is used to test the integrity of the message
     public void sendAndTamper(int destId, Serializable message) {
         APLImpl apl = aplInstances.get(destId);
@@ -167,7 +173,7 @@ public abstract class AplManager {
                         continue;
                     }
 
-                    Logger.LOG("Received packet from sender ID: " + senderId);
+                    // Logger.LOG("Received packet from sender ID: " + senderId);
 
                     // receive fragment
                     byte[] actualData = Arrays.copyOf(packet.getData(), packet.getLength());
@@ -197,8 +203,8 @@ public abstract class AplManager {
 
                     byte[] data = FragmentedMessage.reassembleFragments(frags);
 
-                    Logger.LOG("Original message size: " + frags[0].getOriginalMessageSize());
-                    Logger.LOG("Reassembled message size: " + data.length);
+                    // Logger.LOG("Original message size: " + frags[0].getOriginalMessageSize());
+                    // Logger.LOG("Reassembled message size: " + data.length);
 
                     // Get the APL for this sender and dispatch the data of the packet
                     APLImpl apl = aplInstances.get(senderId);
