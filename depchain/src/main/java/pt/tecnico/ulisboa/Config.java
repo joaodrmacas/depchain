@@ -74,6 +74,7 @@ public class Config {
             mergedContractMethods.put("balanceOf", ContractUtils.getFunctionSelector("balanceOf(address)"));
             mergedContractMethods.put("allowance", ContractUtils.getFunctionSelector("allowance(address,address)"));
             mergedContractMethods.put("buy", ContractUtils.getFunctionSelector("buy()"));
+            mergedContractMethods.put("owner", ContractUtils.getFunctionSelector("owner()"));
             put("MergedContract", mergedContractMethods);
         }
     };

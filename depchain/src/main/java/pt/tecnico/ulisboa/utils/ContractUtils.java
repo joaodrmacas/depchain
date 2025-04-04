@@ -171,7 +171,6 @@ public class ContractUtils {
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
                 // print the jsonObject
-                Logger.LOG("JSON Object: " + jsonObject.toString());
 
                 if (jsonObject.has("error")) {
                     String errorMessage = jsonObject.get("error").getAsString();

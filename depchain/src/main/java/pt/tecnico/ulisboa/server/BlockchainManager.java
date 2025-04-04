@@ -235,8 +235,6 @@ public class BlockchainManager {
 
         // Prepare call data and execute
 
-        Logger.LOG("Args: " + req.getArgs());
-
         Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
         executor.callData(callData);
         executor.execute();
@@ -257,7 +255,7 @@ public class BlockchainManager {
         executor.ethValue(Wei.of(value));
 
         // Set contract address and code
-        executor.contract(contract.getAddress());
+        executor.receiver(contract.getAddress());
         MutableAccount contractAccount = world.getAccount(contract.getAddress());
         executor.code(contractAccount.getCode());
     }
