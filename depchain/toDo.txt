@@ -2,7 +2,6 @@
 > [braços] servers verificar as assinaturas dos clients requests durante o collected (problema para o duarte pensar)
 > [braços] adicionar client a receber mensagens decentes para se conseguir verificar se os contratos tao a funcionar fixe
 > client a mandar para todos os servers com time between cada um
-> client mandar varios requests enquanto espera por resposta
 > Relatório
 
 
@@ -12,8 +11,5 @@ Extra:
 
 
 Tests:
-> o que vai a consensus é um bloco da blockchain
-> client recebe f+1 messages iguais dos servers e só aí aceita
 > testes de consensus (servers byzantinos)
 > testes de clients byzantinos
-> todas as funçoes dos contratos

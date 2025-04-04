@@ -26,4 +26,3 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
 
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
      -Dexec.args="-1 ${ROOTDIR}/keys"
-

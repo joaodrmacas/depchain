@@ -36,6 +36,10 @@ public class TransferDepCoinReq extends ClientReq {
         return amount;
     }
 
+    public void setReceiver(String receiver) {
+        this.receiverAddr = receiver;
+    }
+
     @Override
     public String toString() {
         return "TransferDepCoinReq{" +

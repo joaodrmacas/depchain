@@ -19,6 +19,23 @@ server:
 client:
 	mvn exec:java -Dexec.mainClass="pt.tecnico.ulisboa.client.Client" -Dexec.args="-2 src/main/java/pt/tecnico/ulisboa/keys"
 
+quietnode:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_quietnode.sh
+
+delayednode:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_delayednode.sh
+
+selectivedrop:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_selectivedrop.sh
+
+tampererreq:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_clientreqtamperer.sh
+
+floodingnode:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_floodingnode.sh
+
+replaynode:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_replaynode.sh
 
 consensus:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/consensus_4servers.sh
