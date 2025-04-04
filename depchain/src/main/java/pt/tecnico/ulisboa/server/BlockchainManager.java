@@ -82,11 +82,13 @@ public class BlockchainManager {
         Address receiver = req.getReceiver();
         BigInteger amount = req.getAmount();
 
-        // Get the current world state
-        MutableWorldState worldState = (MutableWorldState) world;
-
-        // Create a transaction context
-        WorldUpdater worldUpdater = worldState.updater();
+        WorldUpdater worldUpdater = (WorldUpdater) world;
+        // if (world instanceof WorldUpdater) {
+        //     worldUpdater = (WorldUpdater) world;
+        // } else {
+        //     // Get a proper updater from the world state
+        //     worldUpdater = world.updater();
+        // }
 
         // Get accounts from the updater
         MutableAccount senderAccount = worldUpdater.getOrCreate(sender);
@@ -196,7 +198,7 @@ public class BlockchainManager {
             return resp;
         } catch (Exception e) {
             Logger.LOG("Failed to handle decided value: " + e.getMessage());
-            return new ClientResp(false, null, "Failed to handle decided value: " + e.getMessage());
+            return new ClientResp(false, tx.getCount(), "Failed to handle decided value: " + e.getMessage());
         }
     }
 
