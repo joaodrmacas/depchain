@@ -40,11 +40,7 @@ public class ClientMessageHandler implements MessageHandler {
             numResponses.put(response, numResponses.getOrDefault(response, 0) + 1);
 
             if (numResponses.get(response) == Config.ALLOWED_FAILURES + 1) {
-                if (response.getSuccess()) {
-                    System.out.println("Successful transaction: " + response.getMessage());
-                } else {
-                    System.out.println("Failed transaction: " + response.getMessage());
-                }
+                System.out.println("Received f+1 of the following: " + response.toString() + " for seqnum: " + seqnum);
             }
 
         } catch (IOException | ClassNotFoundException e) {

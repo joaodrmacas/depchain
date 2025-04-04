@@ -35,10 +35,6 @@ public class ContractCallReq extends ClientReq {
         this.args = parseArgs(args);
     }
 
-    public ContractCallReq(int senderId, Long count, String contractName, String methodName) {
-        this(senderId, count, contractName, methodName, BigInteger.ZERO, new Object[] {});
-    }
-
     public ContractCallReq(int senderId, Long count, String contractName, String methodName, Object... args) {
         this(senderId, count, contractName, methodName, BigInteger.ZERO, args);
     }
@@ -112,19 +108,19 @@ public class ContractCallReq extends ClientReq {
         json.addProperty("contractName", contractName);
         json.addProperty("methodName", methodName);
         json.addProperty("value", value.toString());
-        
+
         // Convert args array to a JSON array instead of a comma-separated string
         if (args != null && args.length > 0) {
             JsonArray argsArray = new JsonArray();
             for (String arg : args) {
                 argsArray.add(arg);
             }
-            json.add("argsArray", argsArray);            
+            json.add("argsArray", argsArray);
         } else {
             json.add("argsArray", new JsonArray());
             json.addProperty("args", "");
         }
-        
+
         return json;
     }
 
@@ -134,7 +130,7 @@ public class ContractCallReq extends ClientReq {
         this.contractName = json.get("contractName").getAsString();
         this.methodName = json.get("methodName").getAsString();
         this.value = new BigInteger(json.get("value").getAsString());
-        
+
         if (json.has("argsArray") && json.get("argsArray").isJsonArray()) {
             JsonArray argsArray = json.getAsJsonArray("argsArray");
             this.args = new String[argsArray.size()];
