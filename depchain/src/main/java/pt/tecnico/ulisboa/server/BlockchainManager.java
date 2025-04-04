@@ -259,6 +259,8 @@ public class BlockchainManager {
 
         for (int i = 0; i < method.getOutputs().size(); i++) {
             AbiType outputType = method.getOutputs().get(i).getType();
+            // print the output type
+            Logger.LOG("Output type: " + outputType);
             Object returnValue = extractReturnValue(outputType);
             returnValues.add(returnValue);
         }
@@ -269,6 +271,7 @@ public class BlockchainManager {
     private Object extractReturnValue(AbiType outputType) {
         switch (outputType) {
             case UINT256:
+                Logger.LOG("Extracting UINT256 from return data");
                 return ContractUtils.extractBigIntegerFromReturnData(output);
             case BOOL:
                 return ContractUtils.extractBooleanFromReturnData(output);

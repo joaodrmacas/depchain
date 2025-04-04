@@ -14,7 +14,7 @@ import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ClientMessageHandler implements MessageHandler {
-    private ConcurrentHashMap<Long,ConcurrentHashMap<ClientResp, Integer>> requestResponses;
+    private ConcurrentHashMap<Long, ConcurrentHashMap<ClientResp, Integer>> requestResponses;
 
     public ClientMessageHandler() {
         this.requestResponses = new ConcurrentHashMap<>();
@@ -39,11 +39,11 @@ public class ClientMessageHandler implements MessageHandler {
 
             numResponses.put(response, numResponses.getOrDefault(response, 0) + 1);
 
-            if (numResponses.get(response) == Config.ALLOWED_FAILURES+1) {
+            if (numResponses.get(response) == Config.ALLOWED_FAILURES + 1) {
                 if (response.getSuccess()) {
-                    Logger.LOG("Successful transaction: " + response.getMessage());
+                    System.out.println("Successful transaction: " + response.getMessage());
                 } else {
-                    Logger.LOG("Failed transaction: " + response.getMessage());
+                    System.out.println("Failed transaction: " + response.getMessage());
                 }
             }
 
