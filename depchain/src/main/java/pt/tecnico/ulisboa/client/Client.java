@@ -13,10 +13,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.hyperledger.besu.datatypes.Address;
 
@@ -24,7 +20,6 @@ import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.BalanceOfDepCoinReq;
 import pt.tecnico.ulisboa.protocol.ClientReq;
-import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
@@ -78,27 +73,31 @@ public class Client {
             System.out.println("- BALANCEOF_DEPCOIN <client_id>");
             System.out.println("  Example: BALANCEOF_DEPCOIN 1");
             System.out.println("  Check the balance of a client in DepCoin\n");
-
             System.out.println("Contract Call Format: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             System.out.println("\nExample Contract Commands:");
             System.out.println("1. MergedContract balanceOf");
             System.out.println("   - Check your token balance");
+            System.out.println("   - Alternative: MergedContract balanceOf <account_id>");
             System.out.println("2. MergedContract transfer <to_id> <amount>");
             System.out.println("   - Example: MergedContract transfer 2 100");
             System.out.println("3. MergedContract transferFrom <from_id> <to_id> <amount>");
             System.out.println("   - Example: MergedContract transferFrom 1 2 50");
             System.out.println("4. MergedContract approve <spender_id> <amount>");
             System.out.println("   - Example: MergedContract approve 3 200");
-            System.out.println("5. MergedContract allowance <owner_id>"); // TODO: isto nao devia ter 2 args?
-            System.out.println("   - Example: MergedContract allowance 1");
-            System.out.println("6. MergedContract isBlacklisted <account_id>");
-            System.out.println("   - Example: MergedContract isBlacklisted 2");
+            System.out.println("5. MergedContract allowance <owner_id> <spender_id>");
+            System.out.println("   - Example: MergedContract allowance 1 2");
+            System.out.println("   - Alternative: MergedContract allowance <owner_id>");
+            System.out.println("     (Uses your client ID as the spender)");
+            System.out.println("6. MergedContract isBlacklisted");
+            System.out.println("   - Check if your account is blacklisted");
+            System.out.println("   - Alternative: MergedContract isBlacklisted <account_id>");
             System.out.println("7. MergedContract addToBlacklist <account_id>");
             System.out.println("   - Example: MergedContract addToBlacklist 4");
             System.out.println("8. MergedContract removeFromBlacklist <account_id>");
             System.out.println("   - Example: MergedContract removeFromBlacklist 4");
             System.out.println("9. MergedContract buy <amount>");
             System.out.println("   - Example: MergedContract buy 500");
+            System.out.println("   - Spends the specified amount to purchase tokens");
             System.out.println("10. EXIT - Terminate the client");
             System.out.println("\nAvailable Contracts:");
             for (String contractName : Config.CONTRACT_NAME_2_ADDR.keySet()) {
@@ -106,7 +105,6 @@ public class Client {
             }
             System.out.println("====================================");
             System.out.print("Enter a command: ");
-
             String input = scanner.nextLine().trim();
             if (input == null || input.isEmpty()) {
                 continue;
@@ -251,15 +249,14 @@ public class Client {
             switch (functionName) {
                 // No arguments functions
                 case "balanceOf":
-                    if (args.length != 0) {
-                        throw new IllegalArgumentException("balanceOf takes no arguments");
-                    }
-                    return new ContractCallReq(clientId, count, contractName, functionName,
-                            Config.CLIENT_ID_2_ADDR.get(clientId));
-
-                // Single address functions
                 case "isBlacklisted":
-                case "allowance":
+                    if (args.length == 0) {
+                        return new ContractCallReq(clientId, count, contractName, functionName,
+                                Config.CLIENT_ID_2_ADDR.get(clientId));
+                    }
+                    // This is supposed to fall through to the next case if an arg is provided
+
+                    // Single address functions
                 case "addToBlacklist":
                 case "removeFromBlacklist":
                     if (args.length != 1) {
@@ -279,25 +276,39 @@ public class Client {
                     BigInteger amount = new BigInteger(args[1]);
                     return new ContractCallReq(clientId, count, contractName, functionName, to, amount);
 
+                // Allowance function (2 addresses)
+                case "allowance":
+                    if (args.length == 2) {
+                        Address allower = parseAddress(args[0]);
+                        Address allowee = parseAddress(args[1]);
+                        return new ContractCallReq(clientId, count, contractName, functionName, allower, allowee);
+                    }
+                    if (args.length == 1) {
+                        Address allower = parseAddress(args[0]);
+                        Address allowee = parseAddress(this.clientId.toString());
+                        return new ContractCallReq(clientId, count, contractName, functionName, allower, allowee);
+                    }
+                    throw new IllegalArgumentException(
+                            functionName + "requires from ID, to ID, and amount arguments");
+
                 // Transfer from function (2 addresses + amount)
                 case "transferFrom":
                     if (args.length != 3) {
                         throw new IllegalArgumentException(
-                                "transferFrom requires from ID, to ID, and amount arguments");
+                                functionName + "requires from ID, to ID, and amount arguments");
                     }
                     Address from = parseAddress(args[0]);
                     Address to2 = parseAddress(args[1]);
                     BigInteger amount2 = new BigInteger(args[2]);
                     return new ContractCallReq(clientId, count, contractName, functionName, from, to2, amount2);
 
-                // Buy function (amount)
+                // Buy function
                 case "buy":
                     if (args.length != 1) {
-                        throw new IllegalArgumentException("buy requires an amount argument");
+                        throw new IllegalArgumentException(functionName + "requires the amount you want to spend");
                     }
-                    BigInteger buyAmount = new BigInteger(args[0]);
-                    BigInteger value = buyAmount.multiply(Config.DEPCOIN_PER_IST);
-                    return new ContractCallReq(clientId, count, contractName, functionName, value, buyAmount);
+                    BigInteger amoutToSpend = new BigInteger(args[0]);
+                    return new ContractCallReq(clientId, count, contractName, functionName, amoutToSpend);
 
                 default:
                     throw new IllegalArgumentException("Unsupported method: " + functionName);

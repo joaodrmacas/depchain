@@ -84,10 +84,10 @@ public class BlockchainManager {
 
         WorldUpdater worldUpdater = (WorldUpdater) world;
         // if (world instanceof WorldUpdater) {
-        //     worldUpdater = (WorldUpdater) world;
+        // worldUpdater = (WorldUpdater) world;
         // } else {
-        //     // Get a proper updater from the world state
-        //     worldUpdater = world.updater();
+        // // Get a proper updater from the world state
+        // worldUpdater = world.updater();
         // }
 
         // Get accounts from the updater
@@ -207,7 +207,6 @@ public class BlockchainManager {
             // Validate contract and method
             Logger.LOG("CONTRACT CALL: " + req.toString());
 
-
             Contract contract = contracts.get(req.getContractName());
             if (contract == null) {
                 Logger.LOG("Contract not found: " + req.getContractName());
@@ -234,9 +233,6 @@ public class BlockchainManager {
         setupExecutionContext(req, contract);
 
         // Prepare call data and execute
-
-        Logger.LOG("Args: " + req.getArgs());
-
         Bytes callData = Bytes.concatenate(method.getSignature(), req.getArgs());
         executor.callData(callData);
         executor.execute();
