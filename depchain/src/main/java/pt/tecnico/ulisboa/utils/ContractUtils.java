@@ -30,7 +30,6 @@ import com.google.gson.JsonElement;
 
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.server.Block;
-import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class ContractUtils {
@@ -129,6 +128,8 @@ public class ContractUtils {
         String returnData = memory.substring(2 + offset * 2, 2 + offset * 2 + size * 2);
 
         // Convert to BigInteger to handle large hex values
+        // Log before returning
+        Logger.LOG("Extracted return data: " + returnData);
         return new BigInteger(returnData, 16);
     }
 
@@ -161,9 +162,16 @@ public class ContractUtils {
             outputCopy.write(output.toByteArray());
 
             String[] lines = outputCopy.toString().split("\\r?\\n");
+            // print the lines
+            // Logger.LOG("Output lines: ");
+            // for (String line : lines) {
+            //     Logger.LOG(line);
+            // }
+            // Check if the last line is a JSON object
             if (lines.length > 0) {
                 JsonObject jsonObject = JsonParser.parseString(lines[lines.length - 1]).getAsJsonObject();
                 // print the jsonObject
+
                 if (jsonObject.has("error")) {
                     String errorMessage = jsonObject.get("error").getAsString();
                     throw new RuntimeException("Execution error: " + errorMessage);

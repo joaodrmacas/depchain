@@ -24,7 +24,7 @@ public class Config {
     public final static int CLIENT_TIMEOUT_MS = 2000;
     public final static int DEFAULT_TIMEOUT = 10000;
     public final static int MAX_FRAGMENT_SIZE = 1024;
-    public final static int MAX_TX_PER_BLOCK = 5;
+    public final static int MAX_TX_PER_BLOCK = 1;
 
     public final static int DEFAULT_CLIENT_PORT = 10010;
     public final static int DEFAULT_SERVER_CLIENT_SOCKETS_PORT = 9090;
@@ -32,11 +32,14 @@ public class Config {
 
     public final static String GENESIS_BLOCK_PATH = "genesis_block.json";
     public final static String BLOCK_DIRPATH = "blocks";
-    public static final int BLOCK_SIZE = 5; // TODO: change this value?
+    public static final int BLOCK_SIZE = 1;
     public static final int ADMIN_ID = -1;
-    public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23);
+    public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23000);
     public static final HashMap<Integer, String> CLIENT_ID_2_ADDR = new HashMap<Integer, String>() {
         {
+            put(-4, "0x000000000000000000000000000000000000000e");
+            put(-3, "0x000000000000000000000000000000000000000d");
+            put(-2, "0x000000000000000000000000000000000000000c");
             put(-1, "0x000000000000000000000000000000000000000b");
             put(0, "0x0000000000000000000000000000000000000001");
             put(1, "0x0000000000000000000000000000000000000002");
@@ -71,6 +74,7 @@ public class Config {
             mergedContractMethods.put("balanceOf", ContractUtils.getFunctionSelector("balanceOf(address)"));
             mergedContractMethods.put("allowance", ContractUtils.getFunctionSelector("allowance(address,address)"));
             mergedContractMethods.put("buy", ContractUtils.getFunctionSelector("buy()"));
+            mergedContractMethods.put("owner", ContractUtils.getFunctionSelector("owner()"));
             put("MergedContract", mergedContractMethods);
         }
     };

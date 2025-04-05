@@ -219,7 +219,7 @@ public class APLImpl implements APL {
             return;
         }
 
-        Logger.LOG(destPort + ") Received message: " + message.toStringExtended());
+        // Logger.LOG(destPort + ") Received message: " + message.toStringExtended());
 
         switch (message.getType()) {
             case Message.DATA_MESSAGE_TYPE:
@@ -285,7 +285,7 @@ public class APLImpl implements APL {
 
         // Send authenticated acknowledgment
         try {
-            Logger.LOG(destPort + ")" + "SENDING ACKNOWLEDGMENT FOR KEY");
+            // Logger.LOG(destPort + ")" + "SENDING ACKNOWLEDGMENT FOR KEY");
             sendAuthenticatedAcknowledgment(keyMessage.getSeqNum());
         } catch (Exception e) {
             Logger.LOG("Failed to send acknowledgment: " + e.getMessage());
@@ -301,24 +301,18 @@ public class APLImpl implements APL {
             return;
         }
 
-        for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
-            Logger.LOG("Pending message: " + entry.getKey());
-        }
+        // for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
+        //     Logger.LOG("Pending message: " + entry.getKey());
+        // }
 
         // Remove the message from the pending list
         if (!pendingMessages.containsKey(seqNum)) {
-            Logger.LOG("Received ACK for unsent message: " + seqNum);
+            // Logger.LOG("Received ACK for unsent message: " + seqNum);
             return;
         }
 
-        Logger.LOG("Received ACK for message: " + seqNum);
-        // Logger.LOG("attempting to remove message: " + seqNum + " from pending
-        // list\n...");
-        // print messages in pending list
-        // Logger.LOG("Pending messages before:");
-        // for (Long key : pendingMessages.keySet()) {
-        // Logger.LOG("Pending message: " + key);
-        // }
+        // Logger.LOG("Received ACK for message: " + seqNum);
+        
         pendingMessages.remove(seqNum);
 
         // print messages in pending list
@@ -377,7 +371,7 @@ public class APLImpl implements APL {
 
             AckMessage ackMessage = new AckMessage(seqNum, hmac);
 
-            Logger.LOG(destPort + ") " + "Sending ACK of seqNum: " + seqNum);
+            // Logger.LOG(destPort + ") " + "Sending ACK of seqNum: " + seqNum);
 
             byte[] byteMsg = ackMessage.serialize();
 
@@ -457,8 +451,6 @@ public class APLImpl implements APL {
                     Logger.LOG(destPort + ") " + "Retransmitting message with seqNum: " + seqNum +
                             "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
                     try {
-                        // TODO: isto está extremely disgusting, se quisermos melhorar isto temos de dar
-                        // refactor para ir tudo como um fragment
                         fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {
                         Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);

@@ -1,26 +1,23 @@
 package pt.tecnico.ulisboa.server;
 
 import java.util.List;
+import java.io.Serializable;
 import java.util.ArrayList;
 
-import org.hyperledger.besu.evm.fluent.SimpleWorld;
-
 import pt.tecnico.ulisboa.Config;
-import pt.tecnico.ulisboa.client.Client;
 import pt.tecnico.ulisboa.protocol.ClientReq;
-import pt.tecnico.ulisboa.server.Transaction;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.types.Consensable;
 
-public class Block implements Consensable {
+public class Block implements Consensable, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private final int maxTxPerBlock = Config.MAX_TX_PER_BLOCK;
 
-    private final Integer blockId;
+    private Integer blockId;
     private final String prevHash;
-    private String blockHash;
-    private List<ClientReq> transactions;
-    private int transactionCount = 0;
+    private final String blockHash;
+    private final List<ClientReq> transactions;
 
     // constructor to load a already existing block
     public Block(String prevHash, Integer blockId, String blockHash, List<ClientReq> transactions) {
@@ -30,41 +27,40 @@ public class Block implements Consensable {
         this.transactions = transactions;
     }
 
-    // constructor for a new block
-    public Block(Integer blockId, String prevHash) {
-        this.blockId = blockId;
-        this.prevHash = prevHash;
-        this.blockHash = null;
-        this.transactions = new ArrayList<>();
-    }
-
-    // constructor for genesis block
+    // constructor for genesis block and for server to create an empty block.
     public Block() {
         this.blockId = 0;
         this.prevHash = null;
-        this.blockHash = CryptoUtils.hashSHA256("".getBytes());
         this.transactions = new ArrayList<>();
+        this.blockHash = computeBlockHash();
     }
 
-    public void finalizeBlock() {
+    // constructor for genesis block and for server to create an empty block.
+    public Block(String prevHash, int blockId, List<ClientReq> txs) {
+        this.blockId = blockId;
+        this.prevHash = prevHash;
+        this.transactions = new ArrayList<>(txs);
+        this.blockHash = computeBlockHash();
+    }
+
+    public String computeBlockHash() {
         StringBuilder blockData = new StringBuilder();
         blockData.append(prevHash != null ? prevHash : "");
         for (ClientReq tx : transactions) {
             blockData.append(tx.toString());
         }
-        this.blockHash = CryptoUtils.hashSHA256(blockData.toString().getBytes());
+        return CryptoUtils.hashSHA256(blockData.toString().getBytes());
     }
 
     public void appendTransaction(ClientReq transaction) {
-        if (transactionCount >= maxTxPerBlock) {
+        if (transactions.size() >= maxTxPerBlock) {
             throw new IllegalStateException("Block is full");
         }
-        transactionCount++;
         transactions.add(transaction);
     }
 
     public boolean isFull() {
-        return transactionCount >= maxTxPerBlock;
+        return transactions.size() >= maxTxPerBlock;
     }
 
     public int getTransactionCount() {
@@ -86,6 +82,11 @@ public class Block implements Consensable {
     public List<ClientReq> getTransactions() {
         return transactions;
     }
+
+    public void setId(Integer blockId) {
+        this.blockId = blockId;
+    }
+
 
     public void printBlock() {
         System.out.println("┌───────────────────────────────────────────────────────────────┐");
@@ -111,5 +112,4 @@ public class Block implements Consensable {
     public int hashCode() {
         return blockHash.hashCode();
     }
-
 }

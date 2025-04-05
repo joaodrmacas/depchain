@@ -13,10 +13,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.hyperledger.besu.datatypes.Address;
 
@@ -24,7 +20,6 @@ import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.ServerAplManager;
 import pt.tecnico.ulisboa.protocol.BalanceOfDepCoinReq;
 import pt.tecnico.ulisboa.protocol.ClientReq;
-import pt.tecnico.ulisboa.protocol.ClientResp;
 import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.protocol.RegisterReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
@@ -39,11 +34,6 @@ public class Client {
     private Integer clientId;
     private Long count = 1L;
     private String keysDirectory;
-
-    private CountDownLatch responseLatch;
-
-    private ConcurrentHashMap<ClientResp, Integer> currentRequestResponses = new ConcurrentHashMap<>();
-    private AtomicReference<ClientResp> acceptedResponse = new AtomicReference<>();
 
     private ClientMessageHandler messageHandler;
 
@@ -66,9 +56,7 @@ public class Client {
     public Client(int clientId, String addr, int port, String keysDirectory) {
         this.clientId = clientId;
         this.keysDirectory = keysDirectory;
-        responseLatch = new CountDownLatch(1);
-        this.messageHandler = new ClientMessageHandler(count, currentRequestResponses, responseLatch, acceptedResponse);
-
+        this.messageHandler = new ClientMessageHandler();
         setup(addr, port);
     }
 
@@ -82,27 +70,34 @@ public class Client {
             System.out.println("- TRANSFER_DEPCOIN <to_id> <amount>");
             System.out.println("  Example: TRANSFER_DEPCOIN 2 100");
             System.out.println("  Transfers DepCoin directly between accounts\n");
-
+            System.out.println("- BALANCEOF_DEPCOIN <client_id>");
+            System.out.println("  Example: BALANCEOF_DEPCOIN 1");
+            System.out.println("  Check the balance of a client in DepCoin\n");
             System.out.println("Contract Call Format: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             System.out.println("\nExample Contract Commands:");
             System.out.println("1. MergedContract balanceOf");
             System.out.println("   - Check your token balance");
+            System.out.println("   - Alternative: MergedContract balanceOf <account_id>");
             System.out.println("2. MergedContract transfer <to_id> <amount>");
             System.out.println("   - Example: MergedContract transfer 2 100");
             System.out.println("3. MergedContract transferFrom <from_id> <to_id> <amount>");
             System.out.println("   - Example: MergedContract transferFrom 1 2 50");
             System.out.println("4. MergedContract approve <spender_id> <amount>");
             System.out.println("   - Example: MergedContract approve 3 200");
-            System.out.println("5. MergedContract allowance <owner_id>");
-            System.out.println("   - Example: MergedContract allowance 1");
-            System.out.println("6. MergedContract isBlacklisted <account_id>");
-            System.out.println("   - Example: MergedContract isBlacklisted 2");
+            System.out.println("5. MergedContract allowance <owner_id> <spender_id>");
+            System.out.println("   - Example: MergedContract allowance 1 2");
+            System.out.println("   - Alternative: MergedContract allowance <owner_id>");
+            System.out.println("     (Uses your client ID as the spender)");
+            System.out.println("6. MergedContract isBlacklisted");
+            System.out.println("   - Check if your account is blacklisted");
+            System.out.println("   - Alternative: MergedContract isBlacklisted <account_id>");
             System.out.println("7. MergedContract addToBlacklist <account_id>");
             System.out.println("   - Example: MergedContract addToBlacklist 4");
             System.out.println("8. MergedContract removeFromBlacklist <account_id>");
             System.out.println("   - Example: MergedContract removeFromBlacklist 4");
             System.out.println("9. MergedContract buy <amount>");
             System.out.println("   - Example: MergedContract buy 500");
+            System.out.println("   - Spends the specified amount to purchase tokens");
             System.out.println("10. EXIT - Terminate the client");
             System.out.println("\nAvailable Contracts:");
             for (String contractName : Config.CONTRACT_NAME_2_ADDR.keySet()) {
@@ -110,7 +105,6 @@ public class Client {
             }
             System.out.println("====================================");
             System.out.print("Enter a command: ");
-
             String input = scanner.nextLine().trim();
             if (input == null || input.isEmpty()) {
                 continue;
@@ -124,34 +118,21 @@ public class Client {
 
             try {
                 sendRequest(input);
-                // Wait for response
-                Logger.LOG("Waiting for server responses...");
-                if (!waitForResponse()) {
-                    Logger.LOG("Timed out waiting for enough responses");
-                } else {
-                    Logger.DEBUG("GOT A RESPONSE");
-                    ClientResp response = acceptedResponse.get();
-                    if (response.getSuccess()) {
-                        Logger.LOG("Accepted response: " + response.getMessage());
-                    } else {
-                        Logger.LOG("Rejected response: " + response.getMessage());
-                    }
-                }
             } catch (Exception e) {
-                Logger.LOG("Failed to send message." + e.getMessage());
+                System.out.println("Failed to send message: " + e.getMessage());
             }
         }
         scanner.close();
     }
 
     private void sendRequest(String input) {
-
         String[] parts = input.trim().split("\\s+");
         if (parts.length == 0) {
             System.out.println("Invalid format. Please enter a valid command.");
             return;
         }
 
+        boolean isStateful = true;
         ClientReq req = null;
         String command = parts[0].toUpperCase();
 
@@ -171,20 +152,20 @@ public class Client {
 
             BigInteger amount = new BigInteger(parts[2]);
             req = new TransferDepCoinReq(clientId, count, toAddress, amount);
-        }
-        else if (command.equals("BALANCE_OF")){
+        } else if (command.equals("BALANCEOF_DEPCOIN")) {
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Invalid BALANCE_OF format. Usage: BALANCE_OF <client_id>");
             }
 
-            int clientId = Integer.parseInt(parts[1]);
-            String clientAddress = Config.CLIENT_ID_2_ADDR.get(clientId);
+            int ofId = Integer.parseInt(parts[1]);
+            String clientAddress = Config.CLIENT_ID_2_ADDR.get(ofId);
             if (clientAddress == null) {
                 throw new IllegalArgumentException("Unknown client ID: " + clientId);
             }
 
-            BigInteger amount = new BigInteger(parts[2]);
-            req = new BalanceOfDepCoinReq(clientId, count);
+            isStateful = false;
+            Logger.LOG("Client address: " + clientAddress);
+            req = new BalanceOfDepCoinReq(clientId, count, clientAddress);
         }
         // Contract call handling
         else {
@@ -197,6 +178,12 @@ public class Client {
             String contractName = parts[0];
             String functionName = parts[1];
 
+            // TODO: change this hardcode for a config map or something
+            if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted")
+                    || functionName.equals("allowance")) {
+                isStateful = false;
+            }
+
             req = buildContractRequest(contractName, functionName,
                     Arrays.copyOfRange(parts, 2, parts.length));
         }
@@ -205,11 +192,7 @@ public class Client {
             if (count == 1) { // First message. Send public key to servers
                 sendPublicKeyToServers();
             }
-            // Initialize response tracking for the new request
-            responseLatch = new CountDownLatch(1);
-            currentRequestResponses.clear();
-            acceptedResponse.set(null);
-            messageHandler.updateForNewRequest(count, responseLatch);
+
             Logger.LOG("Count: " + count);
 
             // Sign the request
@@ -219,7 +202,16 @@ public class Client {
 
             // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
-            aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
+            messageHandler.addRequestToWait(count);
+
+            if (isStateful) {
+                // Send write request for consensus
+                aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
+            } else {
+                // Send read
+                aplManager.sendToAll(req);
+            }
+
             count++;
             return; // Successfully sent a request
         } else {
@@ -257,55 +249,69 @@ public class Client {
             switch (functionName) {
                 // No arguments functions
                 case "balanceOf":
-                    if (args.length != 0) {
-                        throw new IllegalArgumentException("balanceOf takes no arguments");
-                    }
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, Config.CLIENT_ID_2_ADDR.get(clientId));
-
-                // Single address functions
                 case "isBlacklisted":
-                case "allowance":
+                    if (args.length == 0) {
+                        return new ContractCallReq(clientId, count, contractName, functionName,
+                                Config.CLIENT_ID_2_ADDR.get(clientId));
+                    }
+                    // This is supposed to fall through to the next case if an arg is provided
+
+                    // Single address functions
                 case "addToBlacklist":
                 case "removeFromBlacklist":
                     if (args.length != 1) {
-                        throw new IllegalArgumentException(methodSignature + " requires one client ID argument");
+                        throw new IllegalArgumentException(functionName + " requires one client ID argument");
                     }
                     Address address = parseAddress(args[0]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, address);
+                    return new ContractCallReq(clientId, count, contractName, functionName, address);
 
                 // Address and amount functions
                 case "transfer":
                 case "approve":
                     if (args.length != 2) {
                         throw new IllegalArgumentException(
-                                methodSignature + " requires client ID and amount arguments");
+                                functionName + " requires client ID and amount arguments");
                     }
                     Address to = parseAddress(args[0]);
                     BigInteger amount = new BigInteger(args[1]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, to, amount);
+                    return new ContractCallReq(clientId, count, contractName, functionName, to, amount);
+
+                // Allowance function (2 addresses)
+                case "allowance":
+                    if (args.length == 2) {
+                        Address allower = parseAddress(args[0]);
+                        Address allowee = parseAddress(args[1]);
+                        return new ContractCallReq(clientId, count, contractName, functionName, allower, allowee);
+                    }
+                    if (args.length == 1) {
+                        Address allower = parseAddress(args[0]);
+                        Address allowee = parseAddress(this.clientId.toString());
+                        return new ContractCallReq(clientId, count, contractName, functionName, allower, allowee);
+                    }
+                    throw new IllegalArgumentException(
+                            functionName + "requires from ID, to ID, and amount arguments");
 
                 // Transfer from function (2 addresses + amount)
                 case "transferFrom":
                     if (args.length != 3) {
                         throw new IllegalArgumentException(
-                                "transferFrom requires from ID, to ID, and amount arguments");
+                                functionName + "requires from ID, to ID, and amount arguments");
                     }
                     Address from = parseAddress(args[0]);
                     Address to2 = parseAddress(args[1]);
                     BigInteger amount2 = new BigInteger(args[2]);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, from, to2, amount2);
+                    return new ContractCallReq(clientId, count, contractName, functionName, from, to2, amount2);
 
-                // Buy function (amount)
+                // Buy function
                 case "buy":
                     if (args.length != 1) {
-                        throw new IllegalArgumentException("buy requires an amount argument");
+                        throw new IllegalArgumentException(functionName + "requires the amount you want to spend");
                     }
-                    BigInteger buyAmount = new BigInteger(args[0]);
-                    BigInteger value = buyAmount.multiply(Config.DEPCOIN_PER_IST);
-                    return new ContractCallReq(clientId, count, contractAddress, methodSignature, value, buyAmount);
+                    BigInteger amoutToSpend = new BigInteger(args[0]);
+                    return new ContractCallReq(clientId, count, contractName, functionName, amoutToSpend);
 
                 default:
-                    throw new IllegalArgumentException("Unsupported method: " + methodSignature);
+                    throw new IllegalArgumentException("Unsupported method: " + functionName);
             }
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid number format in arguments");
@@ -332,35 +338,18 @@ public class Client {
         }
     }
 
-    public boolean waitForResponse() {
-        try {
-            return responseLatch.await(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Logger.LOG("Interrupted while waiting for response");
-            return false;
-        }
-    }
-
     private void sendPublicKeyToServers() {
-        // Create new latch for key registration
-        responseLatch = new CountDownLatch(1);
-        currentRequestResponses.clear();
-        acceptedResponse.set(null);
-
-        // Update message handler with the current sequence number and new latch
-        messageHandler.updateForNewRequest(count, responseLatch);
 
         PublicKey publicKey = keyPair.getPublic();
 
         Logger.LOG("PUBLIC KEY: " + publicKey);
 
-        // // TODO: fix this to send periodically (...). Only send to leader change
+        // // TODO: fix this to send periodically (...). Only send to leader change (?? this should send to all servers)
         // later plsp ls pls
         for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
             aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
-                    publicKeyBytes, 0), // TODO: isto ta nojento mas funciona
+                    publicKeyBytes, 0),
                     Config.CLIENT_TIMEOUT_MS);
         }
         // aplManager.sendWithTimeout(0, new RegisterReq(

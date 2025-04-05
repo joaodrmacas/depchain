@@ -58,8 +58,8 @@ public class DataMessage extends AuthenticatedMessage {
             Logger.LOG("Failed to deserialize content: " + e.getMessage());
         }
 
-        if (content instanceof ConsensusMessage<?>) {
-            ConsensusMessage<?> consensusMessage = (ConsensusMessage<?>) content;
+        if (content instanceof ConsensusMessage) {
+            ConsensusMessage consensusMessage = (ConsensusMessage) content;
             str += "Consensus{" + consensusMessage + "}";
         } else if (content instanceof RegisterReq) {
             RegisterReq registerReq = (RegisterReq) content;

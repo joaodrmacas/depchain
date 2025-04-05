@@ -6,7 +6,6 @@ public class ClientResp extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
 
     private boolean success;
-    private Long seqNum;
     private String message;
 
     public ClientResp(boolean success, Long seqNum) {
@@ -36,11 +35,16 @@ public class ClientResp extends BlockchainMessage {
         if (o == null || getClass() != o.getClass())
             return false;
         ClientResp that = (ClientResp) o;
-        return success == that.success && Objects.equals(seqNum, that.seqNum) && Objects.equals(message, that.message);
+        return success == that.success && Objects.equals(count, that.count) && Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(success, seqNum, message);
+        return Objects.hash(success, count, message);
+    }
+
+    @Override
+    public String toString() {
+        return "ClientResp{" + "success=" + success + ", count=" + count + ", message='" + message + '\'' + '}';
     }
 }

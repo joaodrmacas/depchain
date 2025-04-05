@@ -17,7 +17,6 @@ public class RegisterReq extends BlockchainMessage {
         return key;
     }
 
-    @Override
     public int getSenderId() {
         return senderId;
     }
