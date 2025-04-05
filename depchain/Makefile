@@ -28,7 +28,7 @@ delayednode:
 selectivedrop:
 	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_selectivedrop.sh
 
-tampererreq:
+clientreqtamperer:
 	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_clientreqtamperer.sh
 
 floodingnode:
@@ -36,6 +36,9 @@ floodingnode:
 
 replaynode:
 	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_replaynode.sh
+
+serverreqtamperer:
+	bash ./src/main/java/pt/tecnico/ulisboa/tests/byztest_serverreqtamperer.sh
 
 consensus:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/consensus_4servers.sh

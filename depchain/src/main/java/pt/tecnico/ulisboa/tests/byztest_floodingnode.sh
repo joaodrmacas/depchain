@@ -29,7 +29,7 @@ echo "MergedContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPAC
 CLIENT_PID=$!
 
 # Wait and terminate client
-sleep 8
+sleep 10
 kill "$CLIENT_PID" 2>/dev/null
 
 # Check result

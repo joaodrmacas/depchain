@@ -344,12 +344,12 @@ public class Client {
 
         Logger.LOG("PUBLIC KEY: " + publicKey);
 
-        // // TODO: fix this to send periodically (...). Only send to leader change
+        // // TODO: fix this to send periodically (...). Only send to leader change (?? this should send to all servers)
         // later plsp ls pls
         for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
             byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
             aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
-                    publicKeyBytes, 0), // TODO: isto ta nojento mas funciona
+                    publicKeyBytes, 0),
                     Config.CLIENT_TIMEOUT_MS);
         }
         // aplManager.sendWithTimeout(0, new RegisterReq(

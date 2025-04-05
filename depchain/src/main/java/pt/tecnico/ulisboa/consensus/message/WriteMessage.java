@@ -16,6 +16,10 @@ public class WriteMessage extends ConsensusMessage {
         return value;
     }
 
+    public void setValue(Consensable value) {
+        this.value = value;
+    }
+
     @Override
     public String toString() {
         return "WRITE(" + "v=" + value + ", e=" + epochNumber + ")";

@@ -87,6 +87,7 @@ public class Block implements Consensable, Serializable {
         this.blockId = blockId;
     }
 
+
     public void printBlock() {
         System.out.println("┌───────────────────────────────────────────────────────────────┐");
         System.out.println("│ Block ID: " + blockId + "                                    │");

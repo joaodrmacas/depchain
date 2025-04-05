@@ -59,8 +59,6 @@ public class ServerMessageHandler implements MessageHandler {
             return;
         }
         clientKus.put(senderId, ku);
-
-        // TODO: change this? genesis block? what defines admin address balance?
         Random random = new Random();
         int randomNumber = random.nextInt(100);
         clientAddresses.put(senderId, ContractUtils.generateAddressFromId(senderId));

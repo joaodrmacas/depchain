@@ -22,6 +22,8 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.ClientRequestTamperServer" \
     -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_clientreqtamperer_server_03.log" 2>&1 &
 
+#estes testes estão feitos para apenas 1 tx por bloco
+#TODO: quando for para testar isto, tem de ser o server byzantino a propor o consensus.
 # Run client in background
 CLIENT_LOG="${ROOTDIR}/logs/byztest_clientreqtamperer_client_01.log"
 echo "MergedContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
@@ -29,7 +31,7 @@ echo "MergedContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPAC
 CLIENT_PID=$!
 
 # Wait and terminate client
-sleep 8
+sleep 10
 kill "$CLIENT_PID" 2>/dev/null
 
 # Check result

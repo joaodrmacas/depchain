@@ -239,7 +239,6 @@ public class BlockchainPersistenceManager {
                         account.setStorageValue(slot, value);
                     }
                 }
-                //TODO: tirar o logger.error
                 if (!accountJson.has("name")) {
                     Logger.ERROR("Missing contract name");
                 }
@@ -359,7 +358,6 @@ public class BlockchainPersistenceManager {
             if (account.getAddress() != null) {
                 stateObj.add(account.getAddress().toHexString(), accountJson);
             } else {
-                // TODO: nao percebo o que leva isto ser executado
                 // stateObj.add("unknow_account"+count, accountJson);
                 // count++;
             }

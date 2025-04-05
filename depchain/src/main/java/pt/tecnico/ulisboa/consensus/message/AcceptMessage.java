@@ -16,6 +16,10 @@ public class AcceptMessage extends ConsensusMessage {
         return value;
     }
 
+    public void setValue(Consensable value) {
+        this.value = value;
+    }
+
     @Override
     public String toString() {
         return "ACCEPT(" + "v=" + value + ", e=" + epochNumber + ")";

@@ -14,16 +14,16 @@ bash ${ROOTDIR}/scripts/kill.sh
 
 # Initialize servers
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
-    -Dexec.args="0 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_selectivedrop_server_00.log" 2>&1 &
+    -Dexec.args="0 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_serverreqtamperer_server_00.log" 2>&1 &
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
-    -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_selectivedrop_server_01.log" 2>&1 &
+    -Dexec.args="1 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_serverreqtamperer_server_01.log" 2>&1 &
 mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.Server" \
-    -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_selectivedrop_server_02.log" 2>&1 &
-mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.SelectiveDropServer" \
-    -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_selectivedrop_server_03.log" 2>&1 &
+    -Dexec.args="2 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_serverreqtamperer_server_02.log" 2>&1 &
+mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.ServerRequestTamperServer" \
+    -Dexec.args="3 ${ROOTDIR}/keys" > "${ROOTDIR}/logs/byztest_serverreqtamperer_server_03.log" 2>&1 &
 
 # Run client in background
-CLIENT_LOG="${ROOTDIR}/logs/byztest_selectivedrop_client_01.log"
+CLIENT_LOG="${ROOTDIR}/logs/byztest_serverreqtamperer_client_01.log"
 echo "MergedContract addToBlacklist 1" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="-1 ${ROOTDIR}/keys" > "$CLIENT_LOG" 2>&1 &
 CLIENT_PID=$!
