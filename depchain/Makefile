@@ -45,3 +45,6 @@ consensus:
 
 kill:
 	bash ./src/main/java/pt/tecnico/ulisboa/scripts/kill.sh
+
+cut_logs:
+	bash ./src/main/java/pt/tecnico/ulisboa/scripts/cut_logs.sh

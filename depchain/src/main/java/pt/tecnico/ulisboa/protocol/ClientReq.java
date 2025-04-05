@@ -74,4 +74,9 @@ public abstract class ClientReq extends BlockchainMessage {
         return super.equals(obj) && senderId == other.senderId;
     }
 
+    @Override
+    public int hashCode() {
+        return 31*super.hashCode() + senderId;
+    }
+
 }

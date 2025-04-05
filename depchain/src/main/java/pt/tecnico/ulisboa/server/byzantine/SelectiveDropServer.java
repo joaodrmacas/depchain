@@ -73,16 +73,4 @@ public class SelectiveDropServer extends Server {
         super.sendToMember(memberId, msg);
     }
 
-    @Override
-    public ConsensusMessage pollConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
-        // If message is from a targeted node, sometimes pretend we didn't receive it
-        if (targetedNodes.contains(senderId) && random.nextDouble() < 0.8) {
-            Logger.LOG("Selectively ignoring messages from targeted node " + senderId);
-            Thread.sleep(timeout > 0 ? timeout : 1000); // Simulate timeout
-            return null;
-        }
-        
-        // Normal behavior otherwise
-        return super.pollConsensusMessageOrWait(senderId, timeout);
-    }
 }

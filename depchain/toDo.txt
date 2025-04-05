@@ -1,3 +1,4 @@
+> [carro] txs in a block not decided get back to the queue if not already used
 > [carro] melhorar o consensus com a info do stor 1st stage
 > [braços] servers verificar as assinaturas dos clients requests durante o collected (problema para o duarte pensar)
 > [braços] adicionar client a receber mensagens decentes para se conseguir verificar se os contratos tao a funcionar fixe

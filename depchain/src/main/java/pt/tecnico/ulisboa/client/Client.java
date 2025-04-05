@@ -119,7 +119,7 @@ public class Client {
             try {
                 sendRequest(input);
             } catch (Exception e) {
-                Logger.LOG("Failed to send message." + e.getMessage());
+                System.out.println("Failed to send message: " + e.getMessage());
             }
         }
         scanner.close();

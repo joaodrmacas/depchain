@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.tuweni.bytes.Bytes;
@@ -158,11 +159,11 @@ public class BlockchainManager {
         try {
             if (blockchain.size() == 0) {
                 Logger.ERROR("Blockchain is empty, genesis block was not added");
-                block.setId(0);
+            } else if (!isValidBlock(block)) {
+                Logger.ERROR("Invalid block, not adding to blockchain");
             } else {
                 blockchain.add(block);
                 Block lastBlock = blockchain.get(blockchain.size() - 1);
-                block.setPrevHash(lastBlock.getHash());
                 block.setId(lastBlock.getId() + 1);
             }
             blockchain.add(block);
@@ -294,4 +295,33 @@ public class BlockchainManager {
         }
     }
 
+    public boolean isValidBlock(Block block) {
+        Block lastBlock = blockchain.get(blockchain.size() - 1);
+
+        if (lastBlock == null) {
+            Logger.LOG("No last block");
+            
+            lastBlock = new Block(null, -1, null, new ArrayList<>());
+        }
+
+        if (!block.getId().equals(lastBlock.getId() + 1)) {
+            Logger.LOG("Invalid block ID: " + block.getId() + ", expected: " + (lastBlock.getId() + 1));
+        }
+
+        if (!block.getPrevHash().equals(lastBlock.getHash())) {
+            Logger.LOG("Invalid previous hash: " + block.getPrevHash() + ", expected: " + lastBlock.getHash());
+            return false;
+        }
+        
+        if (!block.computeBlockHash().equals(block.getHash())) {
+            Logger.LOG("Invalid block hash: " + block.getHash() + ", expected: " + block.computeBlockHash());
+            return false;
+        }
+
+        return true;
+    }
+
+    public Block generateNewBlock(List<ClientReq> txs) {
+        return new Block(blockchain.get(blockchain.size() - 1).getHash(), blockchain.size(), txs);
+    }
 }

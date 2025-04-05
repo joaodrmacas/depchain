@@ -9,8 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
+import pt.tecnico.ulisboa.protocol.ClientReq;
+import pt.tecnico.ulisboa.server.Block;
 import pt.tecnico.ulisboa.server.Server;
-import pt.tecnico.ulisboa.utils.types.Consensable;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class BFTConsensus {
@@ -28,7 +29,7 @@ public class BFTConsensus {
         AtomicBoolean readPhaseDone = new AtomicBoolean(true);
         
         while (true) {
-            Consensable valueToBeProposed = null;
+            Block blockToBeProposed = null;
 
             AtomicInteger firstAwaken = new AtomicInteger(-1);
 
@@ -88,11 +89,11 @@ public class BFTConsensus {
             }
 
             // Wait to be awaken by new tx from clients
-            Future<?> newValueTask = this.service.submit(() -> {
+            Future<?> newBlockTask = this.service.submit(() -> {
                 while (true) {
-                    Consensable value = null;
+                    Block block = null;
                     try {
-                        value = member.peekBlockToConsensusOrWait(-1);
+                        block = member.peekBlockToConsensusOrWait(-1);
                     } catch (InterruptedException e) {
                         Logger.LOG("Interrupted while peeking block to consensus");
                         return null;
@@ -105,7 +106,7 @@ public class BFTConsensus {
                         return null;
                     }
 
-                    if (value != null) {
+                    if (block != null) {
                         Logger.DEBUG("New blocked detected");
                         firstAwaken.set(Config.NUM_MEMBERS);
                         Logger.DEBUG("firstAwaken set to " + firstAwaken.get());
@@ -114,7 +115,7 @@ public class BFTConsensus {
                 }
             });
 
-            waitingTasks.add(newValueTask);
+            waitingTasks.add(newBlockTask);
 
             try {
                 Logger.DEBUG("Waiting for work");
@@ -135,17 +136,27 @@ public class BFTConsensus {
                 Logger.ERROR("Error while waiting for first awaken", e);
             }
 
-            // Try one last time to peek a value (new tx from clients)
-            valueToBeProposed = member.peekBlockToConsensus();
+            // Try one last time to peek a block
+            blockToBeProposed = member.peekBlockToConsensus();
 
-            EpochConsensus consensus = new EpochConsensus(member, epochNumber, consensusIndex, valueToBeProposed, readPhaseDone);
+            EpochConsensus consensus = new EpochConsensus(member, epochNumber, consensusIndex, blockToBeProposed, readPhaseDone);
 
-            Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with value " + valueToBeProposed);
-            Consensable value = consensus.start();
+            Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with block " + blockToBeProposed);
+            Block block = (Block) consensus.start();
 
-            member.pushDecidedBlock(value);
+            // TODO: we have to garantee that this validation is done right
+            if (member.isValidBlock(block)) {
+                Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on block " + block);
+                member.pushDecidedBlock(block);
 
-            Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on value " + value);
+                for (ClientReq tx : block.getTransactions()) {
+                    member.addDecidedTx(tx);
+                }
+
+            } else {
+                Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on an invalid block " + block);
+            }
+
         
             consensusIndex++;
 

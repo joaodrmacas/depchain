@@ -105,6 +105,7 @@ public class EpochConsensus {
     public Consensable epoch() throws AbortedSignal {
         Logger.LOG("Starting epoch");
 
+        // in the start of the epoch, we try to get a value to propose if we dont have any
         if (this.state.getMostRecentQuorumWritten().getValue() == null) {
             Consensable valueToBeProposed = member.peekBlockToConsensus();
             this.state.setMostRecentQuorumWritten(new WriteTuple(valueToBeProposed, 0));
@@ -425,6 +426,8 @@ public class EpochConsensus {
                         task.cancel(true);
                     }
                 }
+
+                break;
             }
         }
         

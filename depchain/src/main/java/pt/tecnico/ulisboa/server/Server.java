@@ -8,9 +8,12 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -22,6 +25,7 @@ import java.util.concurrent.Executors;
 import org.hyperledger.besu.datatypes.Address;
 
 import pt.tecnico.ulisboa.Config;
+import pt.tecnico.ulisboa.client.Client;
 import pt.tecnico.ulisboa.consensus.BFTConsensus;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessage;
 import pt.tecnico.ulisboa.consensus.message.ConsensusMessageHandler;
@@ -45,14 +49,13 @@ public class Server {
     private ConcurrentHashMap<Integer, PublicKey> clientPublicKeys = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, Address> userAddresses = new ConcurrentHashMap<>();
 
-    private Block currentBlock = new Block();
-    private ObservedResource<Queue<Block>> blocksForConsensus = new ObservedResource<>(new ConcurrentLinkedQueue<>());
+    private ObservedResource<List<ClientReq>> receivedTxs = new ObservedResource<>( Collections.synchronizedList(new ArrayList<>()));
     private ObservedResource<Queue<ClientReq>> txToBeExecuted = new ObservedResource<>(new ConcurrentLinkedQueue<>());
     private ObservedResource<Queue<Block>> decidedBlocks = new ObservedResource<>(new ConcurrentLinkedQueue<>());
-
-    private Set<Block> decidedBlocksSet = ConcurrentHashMap.newKeySet();
-
     private Map<Integer, ObservedResource<Queue<ConsensusMessage>>> consensusMessages = new HashMap<>();
+
+    private Set<ClientReq> decidedTxsSet = ConcurrentHashMap.newKeySet();
+
     private BlockchainManager blockchainManager = new BlockchainManager();
 
     // TODO: should be closed: exec.shutdown();
@@ -111,13 +114,12 @@ public class Server {
         Thread transactionExecutorThread = new Thread(() -> {
             try {
                 while (true) {
-                    ClientReq tx = txToBeExecuted.getResource().poll();
+                    ClientReq tx = pollTxToExecuteOrWait();
                     if (tx != null) {
                         ClientResp response = blockchainManager.executeTx(tx);
                         Logger.DEBUG("Sending response to client " + tx.getSenderId() + ": " + response.toString());
                         clientManager.send(tx.getSenderId(), response);
                     }
-                    txToBeExecuted.waitForChange(-1);
                 }
             } catch (Exception e) {
                 Logger.ERROR("Transaction executor thread failed with exception", e);
@@ -129,22 +131,14 @@ public class Server {
         Thread blockHandlerThread = new Thread(() -> {
             try {
                 while (true) {
-                    Block block = decidedBlocks.getResource().poll();
-
-                    // TODO: verify if the decided block has the same transactions as the decided
-                    // transactions
-                    // TODO: If not, go through my block and check which are not in the decided.
-                    // Take those and add to the beginning of the queue (?) //helpppppppppp
+                    Block block = pollDecidedBlockOrWait();
 
                     if (block != null) {
-                        blockchainManager.addBlockToBlockchain(block);
                         for (ClientReq tx : block.getTransactions()) {
-                            txToBeExecuted.getResource().add(tx);
-                            txToBeExecuted.notifyChange();
+                            pushTxToExecute(tx);
                         }
+                        blockchainManager.addBlockToBlockchain(block);
                     }
-                    // consensus thread already changes the decided queue
-                    decidedBlocks.waitForChange(-1);
                 }
             } catch (Exception e) {
                 Logger.ERROR("Value handler thread failed with exception", e);
@@ -307,12 +301,60 @@ public class Server {
         return content.toString();
     }
 
-    public void pushTxToBlock(ClientReq tx) {
-        currentBlock.appendTransaction(tx);
-        if (currentBlock.isFull()) {
-            blocksForConsensus.getResource().add(currentBlock);
-            blocksForConsensus.notifyChange();
-            currentBlock = new Block();
+    public void pushTxToReceived(ClientReq tx) {
+        if (decidedTxsSet.contains(tx)) {
+            Logger.DEBUG("Transaction pushed already decided: " + tx.toString());
+            return;
+        }
+
+        receivedTxs.getResource().add(tx);
+
+        if (receivedTxs.getResource().size() >= Config.MAX_TX_PER_BLOCK) {
+            Logger.DEBUG("A new block is ready to be fetched");
+            receivedTxs.notifyChange();
+        }
+    }
+
+    public Block peekBlockToConsensus() {
+        List<ClientReq> rcvTxs = receivedTxs.getResource();
+
+        if (rcvTxs.size() < Config.MAX_TX_PER_BLOCK) {
+            Logger.DEBUG("Not enough transactions to create a block: " + rcvTxs.size());
+            return null;
+        }
+
+        List<ClientReq> txs = new ArrayList<>();
+        for (int i=0; i < Config.MAX_TX_PER_BLOCK && i < rcvTxs.size(); i++) {
+            ClientReq tx = rcvTxs.get(i);
+            if (decidedTxsSet.contains(tx)) {
+                Logger.DEBUG("Transaction peeked already decided: " + tx.toString());
+                rcvTxs.remove(i--);
+                continue;
+            }
+
+            txs.add(tx);
+        }
+
+        if (txs.size() < Config.MAX_TX_PER_BLOCK) {
+            Logger.DEBUG("Not enough transactions to create a block: " + txs.size());
+            return null;
+        }
+
+        return blockchainManager.generateNewBlock(txs);
+    }
+    
+    public Block peekBlockToConsensusOrWait(Integer timeout) throws InterruptedException {
+        while (true) {
+            Block value = peekBlockToConsensus();
+            if (value != null) {
+                return value;
+            }
+
+            boolean hasTimedOut = !receivedTxs.waitForChange(timeout);
+
+            if (hasTimedOut) {
+                return null;
+            }
         }
     }
 
@@ -321,75 +363,30 @@ public class Server {
         txToBeExecuted.notifyChange();
     }
 
-    public Block peekBlockToConsensus() {
+    public ClientReq pollTxToExecuteOrWait() throws InterruptedException {
         while (true) {
-            Block value = blocksForConsensus.getResource().peek();
-            if (value != null) {
-                if (decidedBlocksSet.contains(value)) {
-                    Logger.DEBUG("Transaction already decided: " + value);
-
-                    synchronized (blocksForConsensus.getResource()) {
-                        Block firstValue = blocksForConsensus.getResource().peek();
-                        if (firstValue.equals(value)) {
-                            blocksForConsensus.getResource().poll();
-                        }
-                    }
-
-                    continue;
-                }
-                return value;
+            ClientReq tx = txToBeExecuted.getResource().poll();
+            if (tx != null) {
+                return tx;
             }
-            return null;
-        }
-    }
-
-    public Block peekBlockToConsensusOrWait(Integer timeout) throws InterruptedException {
-        while (true) {
-            Block value = blocksForConsensus.getResource().peek();
-            if (value != null) {
-                if (decidedBlocksSet.contains(value)) {
-                    Logger.DEBUG("Transaction already decided: " + value);
-
-                    synchronized (blocksForConsensus.getResource()) {
-                        Block firstValue = blocksForConsensus.getResource().peek();
-                        if (firstValue.equals(value)) {
-                            blocksForConsensus.getResource().poll();
-                        }
-                    }
-
-                    continue;
-                }
-                return value;
-            }
-
-            boolean hasTimedOut = !blocksForConsensus.waitForChange(timeout);
-
-            if (hasTimedOut) {
-                return null;
-            }
+            txToBeExecuted.waitForChange(-1);
         }
     }
 
     public void pushDecidedBlock(Consensable value) {
         Block block = (Block) value;
         Logger.DEBUG("Pushing decided block: " + block);
-        decidedBlocksSet.add(block);
         decidedBlocks.getResource().add(block);
         decidedBlocks.notifyChange();
     }
 
-    public ConsensusMessage pollConsensusMessageOrWait(int senderId, int timeout) throws InterruptedException {
+    public Block pollDecidedBlockOrWait() throws InterruptedException {
         while (true) {
-            ConsensusMessage msg = consensusMessages.get(senderId).getResource().poll();
-            if (msg != null) {
-                return msg;
+            Block block = decidedBlocks.getResource().poll();
+            if (block != null) {
+                return block;
             }
-
-            boolean hasTimedOut = !consensusMessages.get(senderId).waitForChange(timeout);
-
-            if (hasTimedOut) {
-                return null;
-            }
+            decidedBlocks.waitForChange(-1);
         }
     }
 
@@ -433,7 +430,7 @@ public class Server {
     public void printReceivedTxs() {
         String str = "***** BEGIN Received transactions: \n";
 
-        for (Block value : blocksForConsensus.getResource()) {
+        for (ClientReq value : receivedTxs.getResource()) {
             str += value.toString() + "\n";
         }
 
@@ -477,8 +474,7 @@ public class Server {
         Logger.DEBUG("Received transaction: " + tx.toString());
         try {
             if (needsConsensus(tx)) {
-                pushTxToBlock(tx);
-                blocksForConsensus.notifyChange();
+                pushTxToReceived(tx);
             } else {
                 pushTxToExecute(tx);
             }
@@ -489,5 +485,13 @@ public class Server {
 
     public ExecutorService getExecutor() {
         return exec;
+    }
+
+    public boolean isValidBlock(Block block) {
+        return blockchainManager.isValidBlock(block);
+    }
+
+    public void addDecidedTx(ClientReq tx) {
+        decidedTxsSet.add(tx);
     }
 }
