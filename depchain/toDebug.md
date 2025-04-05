@@ -10,14 +10,14 @@
 | Command | Status | Format |
 |---------|--------|--------|
 | **balanceOf** | ✅ WORKING | `[<account_id>]` |
-| **transfer** | ❌ | `<to_id> <amount>` |
-| **transferFrom** | ❌ | `<from_id> <to_id> <amount>` |
+| **transfer** | ✅ WORKING | `<to_id> <amount>` |
+| **transferFrom** | ✅ WORKING | `<from_id> <to_id> <amount>` |
 | **approve** | ✅ WORKING | `<spender_id> <amount>` |
 | **allowance** | ✅ WORKING | `<owner_id> [<spender_id>]` |
 | **isBlacklisted** | ✅ WORKING | `[<account_id>]` |
-| **addToBlacklist** | ❌ | `<account_id>` |
-| **removeFromBlacklist** | ❌ | `<account_id>` |
-| **buy** | ❌ | `<amount>` |
+| **addToBlacklist** | ✅ WORKING | `<account_id>` |
+| **removeFromBlacklist** | ✅ WORKING | `<account_id>` |
+| **buy** | ✅ WORKING | `<amount>` |
 
 ## Administrative Commands
 | Command | Status | Format |

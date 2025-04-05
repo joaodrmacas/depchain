@@ -4,13 +4,22 @@
 > [braços] adicionar client a receber mensagens decentes para se conseguir verificar se os contratos tao a funcionar fixe
 > client a mandar para todos os servers com time between cada um
 > Relatório
-
+> Meter os erros a printar bem para o client nao ver so uma hexstring e nao perceber o que aconteceu.
 
 Extra:
 > gas
 > aceitarmos nftstransactions
-
+> user a criar contratos (ou dar fake disto. comecar ja com mais um contrato e dizer ao stor que o user criou. esta era top de se fazer so para a discussao)
 
 Tests:
 > testes de consensus (servers byzantinos)
 > testes de clients byzantinos
+
+
+Duvidas:
+> rn um client consegue ver balances de outros clients... é suposto? Acho que é chill ya.
+> como temos, slef allowances sao permitidas. nao sei se faz grande sentido.
+> como temos, se um gajo der transFrom de si mesmo para outro gajo, só funciona se ele antes der uma allowance a esse gajo. Deviamos mudar para se o from e o msg.sender forem o mm aquilo se comportar como o transfer normal??
+
+ATENCAO:
+> rn um client bizantino pode fazer o que quiser ou nao? sque nao por causa das assinaturas nvm tava a pensar ele meter o id de outro gajo e tavamos cooked mas nvm.

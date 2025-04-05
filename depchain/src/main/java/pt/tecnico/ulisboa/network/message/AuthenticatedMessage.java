@@ -16,7 +16,7 @@ public abstract class AuthenticatedMessage extends Message {
         return hmac;
     }
 
-    public void setMac(byte[] hmac) {
+    public void setHmac(byte[] hmac) {
         this.hmac = hmac;
     }
 

@@ -20,9 +20,10 @@ public abstract class Message implements Serializable {
     private long seqNum;
 
     // For retransmission mechanism
-    private int counter = 1;
-    private int cooldown = 1;
-    protected int timeout = (int) Math.round(Config.DEFAULT_TIMEOUT * 0.05);
+    private static final int retransmissionTime = Config.RETRANSMISSION_TIME; // in ms
+    private int counter = 0; // in ms
+    private int cooldown = retransmissionTime; // in ms
+    protected int timeout = (int) Math.round(Config.DEFAULT_TIMEOUT); // in ms
 
     public Message(byte[] content, long seqNum) {
         this.content = content;
@@ -61,12 +62,12 @@ public abstract class Message implements Serializable {
         this.cooldown = cooldown;
     }
 
-    public int getTimeout(){
+    public int getTimeout() {
         return this.timeout;
     }
 
     public void incrementCounter() {
-        this.counter++;
+        this.counter += retransmissionTime;
     }
 
     public int getCooldown() {
@@ -84,7 +85,7 @@ public abstract class Message implements Serializable {
                 Logger.LOG("Empty message received");
                 return null;
             }
-            
+
             byte type = dis.readByte();
             switch (type) {
                 case DATA_MESSAGE_TYPE:

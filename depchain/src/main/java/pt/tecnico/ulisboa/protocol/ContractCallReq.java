@@ -4,6 +4,7 @@ import java.math.BigInteger;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 
 import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
@@ -71,8 +72,9 @@ public class ContractCallReq extends ClientReq {
         return methodName;
     }
 
-    public BigInteger getValue() {
-        return value;
+    public Wei getValue() {
+        // Convert the value to Wei (1 Dep = 10^18 Wei)
+        return Wei.of(value.multiply(BigInteger.TEN.pow(18)));
     }
 
     public Bytes getArgs() {

@@ -23,6 +23,7 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
+import pt.tecnico.ulisboa.contracts.AbiParameter;
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.contracts.ContractMethod;
 import pt.tecnico.ulisboa.protocol.BalanceOfDepCoinReq;
@@ -96,7 +97,8 @@ public class BlockchainManager {
         MutableAccount receiverAccount = worldUpdater.getOrCreate(receiver);
 
         // Check balance
-        Wei weiAmount = Wei.of(amount);
+        // Convert amount to Wei. 1 DepCoin = 10^18 Wei
+        Wei weiAmount = Wei.of(amount.multiply(BigInteger.TEN.pow(18)));
         if (senderAccount.getBalance().lessThan(weiAmount)) {
             Logger.LOG("Sender does not have enough balance");
             return new ClientResp(false, req.getCount(), "Sender does not have enough balance");
@@ -130,7 +132,9 @@ public class BlockchainManager {
             Logger.LOG("Account not found: " + address);
             return new ClientResp(false, req.getCount(), "Account not found: " + address);
         }
-        BigInteger balance = account.getBalance().toBigInteger();
+        // Convert balance from Wei to DepCoin
+        BigInteger balanceInWei = account.getBalance().toBigInteger();
+        BigInteger balance = balanceInWei.divide(BigInteger.TEN.pow(18));
         return new ClientResp(true, req.getCount(), "Balance of " + address + ": " + balance);
     }
 
@@ -221,9 +225,7 @@ public class BlockchainManager {
             }
 
             return executeCall(req, contract, method);
-        } catch (
-
-        Exception e) {
+        } catch (Exception e) {
             Logger.LOG("Failed to execute contract call: " + e.getMessage());
             return new ClientResp(false, req.getCount(), "Failed to execute contract call: " + e.getMessage());
         }
@@ -240,46 +242,44 @@ public class BlockchainManager {
         ContractUtils.checkForExecutionErrors(output);
 
         // Process return values
-        ArrayList<Object> returnValues = processReturnValues(method);
+        String returnMessage = processReturnValues(method);
 
-        Logger.LOG("Contract call executed successfully. Return values: " + returnValues);
-        return new ClientResp(true, req.getCount(), "Contract call executed successfully" + returnValues.toString());
+        Logger.LOG("Contract call executed successfully. " + returnMessage);
+        return new ClientResp(true, req.getCount(), "Contract call executed successfully. " + returnMessage);
     }
 
     private void setupExecutionContext(ContractCallReq req, Contract contract) {
         // Set sender and value
         Address sender = clientAddresses.get(req.getSenderId());
-        BigInteger value = req.getValue();
+        Wei depValue = req.getValue();
         executor.sender(sender);
-        executor.ethValue(Wei.of(value));
-
-        // Set contract address and code
+        executor.ethValue(depValue); // Set contract address and code
         executor.receiver(contract.getAddress());
         MutableAccount contractAccount = world.getAccount(contract.getAddress());
         executor.code(contractAccount.getCode());
     }
 
-    private ArrayList<Object> processReturnValues(ContractMethod method) {
-        ArrayList<Object> returnValues = new ArrayList<>();
+    private String processReturnValues(ContractMethod method) {
+        String returnMessage = "";
 
         for (int i = 0; i < method.getOutputs().size(); i++) {
-            AbiType outputType = method.getOutputs().get(i).getType();
-            // print the output type
-            Logger.LOG("Output type: " + outputType);
-            Object returnValue = extractReturnValue(outputType);
-            returnValues.add(returnValue);
+            AbiParameter output = method.getOutputs().get(i);
+            // print the output parameter
+            Logger.LOG("Output type: " + output);
+            String returnValue = extractReturnValue(output.getType());
+            returnMessage += output.getName() + ": " + returnValue + "\n";
         }
 
-        return returnValues;
+        return returnMessage;
     }
 
-    private Object extractReturnValue(AbiType outputType) {
+    private String extractReturnValue(AbiType outputType) {
         switch (outputType) {
             case UINT256:
                 Logger.LOG("Extracting UINT256 from return data");
-                return ContractUtils.extractBigIntegerFromReturnData(output);
+                return ContractUtils.extractBigIntegerFromReturnData(output).toString();
             case BOOL:
-                return ContractUtils.extractBooleanFromReturnData(output);
+                return ContractUtils.extractBooleanFromReturnData(output) ? "true" : "false";
             default:
                 Logger.LOG("Unsupported output type: " + outputType);
                 return null;
@@ -300,7 +300,7 @@ public class BlockchainManager {
 
         if (lastBlock == null) {
             Logger.LOG("No last block");
-            
+
             lastBlock = new Block(null, -1, null, new ArrayList<>());
         }
 
@@ -312,7 +312,7 @@ public class BlockchainManager {
             Logger.LOG("Invalid previous hash: " + block.getPrevHash() + ", expected: " + lastBlock.getHash());
             return false;
         }
-        
+
         if (!block.computeBlockHash().equals(block.getHash())) {
             Logger.LOG("Invalid block hash: " + block.getHash() + ", expected: " + block.computeBlockHash());
             return false;

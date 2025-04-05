@@ -27,6 +27,7 @@ import javax.crypto.SecretKey;
 
 import pt.tecnico.ulisboa.Config;
 import pt.tecnico.ulisboa.network.message.AckMessage;
+import pt.tecnico.ulisboa.network.message.AuthenticatedMessage;
 import pt.tecnico.ulisboa.network.message.DataMessage;
 import pt.tecnico.ulisboa.network.message.FragmentedMessage;
 import pt.tecnico.ulisboa.network.message.KeyMessage;
@@ -259,8 +260,9 @@ public class APLImpl implements APL {
                 }
             } else {
                 Logger.LOG(
-                    "Received message was from the future: Message seqnum: " + message.getSeqNum() + ". From: " + senderId
-                            + ". Last received: " + lastReceivedSeqNum.get());
+                        "Received message was from the future: Message seqnum: " + message.getSeqNum() + ". From: "
+                                + senderId
+                                + ". Last received: " + lastReceivedSeqNum.get());
             }
             return true;
         }
@@ -302,7 +304,7 @@ public class APLImpl implements APL {
         }
 
         // for (Map.Entry<Long, Message> entry : pendingMessages.entrySet()) {
-        //     Logger.LOG("Pending message: " + entry.getKey());
+        // Logger.LOG("Pending message: " + entry.getKey());
         // }
 
         // Remove the message from the pending list
@@ -312,7 +314,7 @@ public class APLImpl implements APL {
         }
 
         // Logger.LOG("Received ACK for message: " + seqNum);
-        
+
         pendingMessages.remove(seqNum);
 
         // print messages in pending list
@@ -360,7 +362,6 @@ public class APLImpl implements APL {
         }
     }
 
-
     private void sendAuthenticatedAcknowledgment(long dataSeqNum) throws Exception {
         try {
             SecretKey secretKey = getSecretKey();
@@ -396,7 +397,8 @@ public class APLImpl implements APL {
     }
 
     private void startRetransmissionScheduler() {
-        scheduler.scheduleAtFixedRate(() -> {
+        scheduler.scheduleAtFixedRate(() -> { // TODO: nunca vi pior codigo que o desta funcao na minha vida inteira
+                                              // frfr ongoh no cap
             Set<Long> timedOutSeqNums = new HashSet<>();
 
             // Check timeouts
@@ -412,6 +414,14 @@ public class APLImpl implements APL {
 
             // handle timeouts
             if (!timedOutSeqNums.isEmpty()) {
+                // print the word aqui 20 times in 20 dif lines
+                for (int i = 0; i < 20; i++) {
+                    Logger.LOG("aqui");
+                }
+                // print the timed out messages
+                Logger.LOG("Timed out messages: " + timedOutSeqNums);
+                // print the pending messages
+                Logger.LOG("Pending messages: " + pendingMessages.keySet());
                 for (Long seqNum : timedOutSeqNums) {
                     pendingMessages.remove(seqNum);
                 }
@@ -430,15 +440,24 @@ public class APLImpl implements APL {
                 messagesToUpdate.sort((m1, m2) -> Long.compare(m2.getSeqNum(), m1.getSeqNum()));
 
                 // Update sequence numbers
-                for (Message msg : messagesToUpdate) {
+                for (Message msg : messagesToUpdate) { // TODO: por favor o que é isto que codigo assustador
                     pendingMessages.remove(msg.getSeqNum());
                     msg.setSeqNum(msg.getSeqNum() - timedOutSeqNums.size());
+                    // if message is a AuthenticatedMessage, update the hmac
+                    if (msg instanceof AuthenticatedMessage) {
+                        AuthenticatedMessage authenticatedMessage = (AuthenticatedMessage) msg;
+                        byte[] hmac = generateHMAC(authenticatedMessage.getContent(), authenticatedMessage.getSeqNum(),
+                                getSecretKey());
+                        authenticatedMessage.setHmac(hmac);
+                    }
                     pendingMessages.put(msg.getSeqNum(), msg);
-                    // TODO: reset the timeout of the message?
                 }
 
                 nextSeqNum.addAndGet(-timedOutSeqNums.size());
                 Logger.LOG("Port: " + this.destPort + " Next seqnum: " + nextSeqNum.get());
+
+                // print the pending messages
+                Logger.LOG("Pending messages after: " + pendingMessages.keySet());
 
                 return;
             }
@@ -449,13 +468,13 @@ public class APLImpl implements APL {
 
                 if (message.getCounter() >= message.getCooldown()) {
                     Logger.LOG(destPort + ") " + "Retransmitting message with seqNum: " + seqNum +
-                            "\nWaited cooldown: " + message.getCooldown() * 0.05 + "s");
+                            "\nWaited cooldown: " + message.getCooldown()+ "ms");
                     try {
                         fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {
                         Logger.ERROR("Failed to retransmit message: " + e.getMessage(), e);
                     }
-                    message.setCounter(1);
+                    message.setCounter(0);
                     message.doubleCooldown(); // Exponential backoff
                 } else {
                     message.incrementCounter();

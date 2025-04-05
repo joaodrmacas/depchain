@@ -18,7 +18,8 @@ public class DataMessage extends AuthenticatedMessage {
 
     public DataMessage(byte[] content, long seqNum, byte[] hmac, int timeout) {
         this(content, seqNum, hmac);
-        this.timeout = (int) Math.round(timeout * 0.05);
+        this.timeout = (int) Math.round(timeout / 0.05);
+        Logger.LOG("Timeout set to " + this.timeout);
     }
 
     public int getTimeout() {
@@ -67,11 +68,12 @@ public class DataMessage extends AuthenticatedMessage {
         } else if (content instanceof ClientReq) {
             ClientReq clientReq = (ClientReq) content;
             str += "ClientReq{" + clientReq + "}";
-        }
-        else {
+        } else if (content instanceof String) {
+            str += "String{" + new String((byte[]) content) + "}";
+        } else {
             str += "UNKNOWN";
         }
 
         return str;
     }
-}  
+}

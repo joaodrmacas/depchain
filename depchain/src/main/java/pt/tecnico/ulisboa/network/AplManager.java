@@ -20,14 +20,14 @@ import pt.tecnico.ulisboa.utils.types.ArrayWithCounter;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
 public abstract class AplManager {
-    private final DatagramSocket socket;
+    private DatagramSocket socket;
 
     private final String nodeAddress;
     private final Integer nodePort;
     private final ConcurrentHashMap<Integer, APLImpl> aplInstances = new ConcurrentHashMap<>();
     protected final Map<String, Integer> senderIdMap = new ConcurrentHashMap<>();
     private final PrivateKey privateKey;
-    private AtomicBoolean isRunning = new AtomicBoolean(false);
+    private AtomicBoolean isListening = new AtomicBoolean(false);
     private final Map<Integer, Map<String, ArrayWithCounter<FragmentedMessage>>> fragmentBuffers = new ConcurrentHashMap<>();
 
     public AplManager(String address, Integer port, PrivateKey privateKey) throws SocketException, IOException {
@@ -154,15 +154,19 @@ public abstract class AplManager {
 
     // Start the message dispatcher thread
     public void startListening() {
-        isRunning.set(true);
+        this.isListening.set(true);
         new Thread(() -> {
             byte[] buffer = new byte[Config.BUFFER_SIZE];
 
-            while (isRunning.get()) {
+            while (true) {
                 try {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     socket.receive(packet);
 
+                    if (!isListening()) {
+                        Logger.LOG("Not listening, dropping packet.");
+                        continue;
+                    }
                     // Determine the sender
                     Integer senderId = getSenderId(packet.getAddress().getHostAddress(), packet.getPort());
                     if (senderId == null) {
@@ -214,10 +218,16 @@ public abstract class AplManager {
                         Logger.LOG("No APL instance found for sender ID: " + senderId);
                     }
 
-                } catch (Exception e) {
-                    if (isRunning.get()) {
-                        Logger.ERROR("Error receiving packet", e);
+                }
+                // catch socket is closed exection
+                catch (SocketException e) {
+                    if (socket.isClosed()) {
+                        Logger.LOG("Socket closed, stopping listener.");
+                        break;
                     }
+                    Logger.ERROR("Socket exception: " + e.getMessage());
+                } catch (Exception e) {
+                    Logger.LOG("Error receiving packet" + e);
                 }
             }
         }).start();
@@ -226,20 +236,30 @@ public abstract class AplManager {
 
     protected abstract void handleUnknownSender(DatagramPacket data);
 
-    public void stopListening() {
-        isRunning.set(false);
+    public boolean isListening() {
+        return this.isListening.get();
+    }
+
+    // this is only used for testing purposes
+    public void setListening(boolean listening) {
+        this.isListening.set(listening);
+        Logger.LOG("AplManager is now " + (listening ? "" : "Not ") + "listening.");
     }
 
     // Clean shutdown
     public void close() {
-        isRunning.set(false);
-
         // Close all APL instances
         for (APLImpl apl : aplInstances.values()) {
             apl.close();
         }
 
         aplInstances.clear();
+        try {
+            Thread.sleep(500); // Wait for threads to finish
+        } catch (InterruptedException e) {
+            Logger.ERROR("Thread sleep interrupted", e);
+            Thread.currentThread().interrupt(); // Restore the interrupted status
+        }
 
         // Close the socket
         if (socket != null && !socket.isClosed()) {
