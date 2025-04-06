@@ -25,6 +25,11 @@ public class BalanceOfDepCoinReq extends ClientReq {
     }
 
     @Override
+    public boolean isValid() {
+        return super.isValid();
+    }
+
+    @Override
     public ClientReqType getReqType() {
         return ClientReqType.BALANCE_OF_DEP_COIN;
     }

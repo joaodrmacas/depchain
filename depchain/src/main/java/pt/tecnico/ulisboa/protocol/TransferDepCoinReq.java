@@ -41,6 +41,11 @@ public class TransferDepCoinReq extends ClientReq {
     }
 
     @Override
+    public boolean isValid() {
+        return super.isValid();
+    }
+
+    @Override
     public String toString() {
         return "TransferDepCoinReq{" +
                 "receiver='" + receiverAddr + '\'' +

@@ -33,23 +33,34 @@ public class EpochConsensus {
     private EventCounter<Consensable> abortCounts = new EventCounter<>();
     private boolean hasBroadcastedNewEpoch = false;
     private CompletionService<Boolean> service;
-    private WritesOrAccepts woa;
+    private WritesOrAccepts woa = new WritesOrAccepts();
+    private boolean broadcastedAccept = false;
 
     private class WritesOrAccepts {
-        private Consensable value;
-        private boolean toAccept;
+        private Consensable value = null;
+        private State state = null;
 
-        public WritesOrAccepts(Consensable value, boolean toAccept) {
-            this.value = value;
-            this.toAccept = toAccept;
+        private enum State {
+            WRITES,
+            ACCEPTS
         }
 
         public Consensable getValue() {
             return value;
         }
 
-        public boolean isToAccept() {
-            return toAccept;
+        public State getState() {
+            return state;
+        }
+
+        public void set(Consensable value, State state) {
+            this.value = value;
+            this.state = state;
+        }
+
+        public void clear() {
+            this.value = null;
+            this.state = null;
         }
     }
 
@@ -73,16 +84,38 @@ public class EpochConsensus {
                 valueDecided = epoch();
             } catch (AbortedSignal abs) {
                 Logger.LOG("Aborted: " + abs.getMessage());
-
+                
                 while (true) {
                     try {
                         receiveFromAll(ConsensusMessage.MessageType.NEWEPOCH);
+                        Logger.DEBUG("receive NEWEPOCH done");
                     } catch (AbortedSignal abs2) {
-                        Logger.LOG("Aborted: " + abs2.getMessage());
+                        Logger.DEBUG("Aborted again: " + abs2.getMessage());
                     }
 
                     if (shouldChangeEpoch())
                         break;
+                    
+                    if (this.woa.getState() == WritesOrAccepts.State.ACCEPTS) {
+                        Logger.LOG("Quorum of accepts reached: " + this.woa.getValue());
+                        Logger.DEBUG("ac: " + acceptCounts);
+                        Logger.DEBUG("wc: " + writeCounts);
+
+                        broadcastAccept(this.woa.getValue());
+
+                        return this.woa.getValue();
+                    }
+                    else if (this.woa.getState() == WritesOrAccepts.State.WRITES) {
+                        Logger.LOG("Quorum of writes reached: " + this.woa.getValue());
+                        Logger.DEBUG("ac: " + acceptCounts);
+                        Logger.DEBUG("wc: " + writeCounts);
+                        
+                        writeCounts.stop();
+
+                        broadcastAccept(this.woa.getValue());
+
+                        this.woa.clear();
+                    }
                 }
 
                 // TODO: just a debug thing
@@ -110,9 +143,11 @@ public class EpochConsensus {
             Consensable valueToBeProposed = member.peekBlockToConsensus();
             this.state.setMostRecentQuorumWritten(new WriteTuple(valueToBeProposed, 0));
         }
+        
+        this.woa.clear();
 
+        // one iteration loop
         while (true) {
-            woa = null;
             // Leader
             if (getLeader(this.epochNumber.get()) == member.getId()) {
                 // aborts this epoch if is leader and has no value to propose
@@ -127,7 +162,7 @@ public class EpochConsensus {
                     Logger.LOG("send READs done");
 
                     receiveFromAll(ConsensusMessage.MessageType.STATE);
-                    if (woa != null) {
+                    if (this.woa.getState() != null) {
                         break;
                     }
 
@@ -153,10 +188,10 @@ public class EpochConsensus {
                     wentWrong = !receiveFrom(ConsensusMessage.MessageType.READ, leaderId);
                     if (wentWrong) {
                         Logger.LOG("Received READ went wrong");
-                        broadcastAbort();
-                        this.woa = checkForEvents();
+                        abort();
                     }
-                    if (this.woa != null) {
+
+                    if (this.woa.getState() != null) {
                         break;
                     }
 
@@ -171,10 +206,10 @@ public class EpochConsensus {
                 wentWrong = !receiveFrom(ConsensusMessage.MessageType.COLLECTED, leaderId);
                 if (wentWrong) {
                     Logger.LOG("Received COLLECTED went wrong");
-                    broadcastAbort();
-                    this.woa = checkForEvents();
+                    abort();
                 }
-                if (this.woa != null) {
+
+                if (this.woa.getState() != null) {
                     break;
                 }
 
@@ -196,6 +231,12 @@ public class EpochConsensus {
             }
 
             Consensable valueToWrite = decideFromCollected();
+
+            if (!member.isValidConsensable(valueToWrite)) {
+                Logger.LOG("Value to write is not valid");
+                abort();
+            }
+
             sendToAll(new WriteMessage(valueToWrite, this.epochNumber.get(), this.consensusIndex));
 
             Logger.LOG("send WRITEs done");
@@ -205,8 +246,8 @@ public class EpochConsensus {
 
             Logger.LOG("receive WRITEs done");
 
-            // if no value to write or accept we can proceed so we abort to a new epoch
-            if (this.woa == null) {
+            // if no value to write or accept we abort
+            if (this.woa.getState() == null) {
                 Logger.LOG("No value to write");
 
                 if (Logger.IS_DEBUGGING()) {
@@ -219,22 +260,22 @@ public class EpochConsensus {
 
             break; // end the one iteration loop
         }
+        
+        // stop the write counts since we are done with the writes
+        writeCounts.stop();
 
         Consensable valueDecided = this.woa.getValue();
-        acceptCounts.inc(valueDecided, member.getId());
+        this.woa.clear();
 
-        sendToAll(new AcceptMessage(valueDecided, this.epochNumber.get(), this.consensusIndex));
+        broadcastAccept(valueDecided);
 
-        Logger.LOG("send ACCEPTs done");
-
-        writeCounts.reset();
-
-        receiveFromAll(ConsensusMessage.MessageType.ACCEPT);
-
-        Logger.LOG("receive ACCEPTs done");
+        if (this.woa.getState() != WritesOrAccepts.State.ACCEPTS) {
+            receiveFromAll(ConsensusMessage.MessageType.ACCEPT);
+            Logger.LOG("receive ACCEPTs done");
+        }
 
         // if no value to accept we can proceed so we abort to a new epoch
-        if (this.woa == null || !this.woa.isToAccept()) {
+        if (this.woa.getState() != WritesOrAccepts.State.ACCEPTS) {
             Logger.LOG("No value to accept");
             abort();
         }
@@ -304,6 +345,8 @@ public class EpochConsensus {
     }
 
     public void broadcastAbort() {
+        if (hasBroadcastedNewEpoch) return;
+
         Logger.LOG("Broadcasting abort");
 
         abortCounts.inc(member.getId());
@@ -318,24 +361,34 @@ public class EpochConsensus {
         hasBroadcastedNewEpoch = true;
     }
 
+    public void broadcastAccept(Consensable value) {
+        if (broadcastedAccept) return;
+
+        Logger.LOG("Broadcasting accept");
+
+        acceptCounts.inc(value, member.getId());
+        sendToAll(new AcceptMessage(value, this.epochNumber.get(), this.consensusIndex));
+        broadcastedAccept = true;
+    }
+    
     public void resetCounters() {
         writeCounts = new EventCounter<>();
         acceptCounts = new EventCounter<>();
         abortCounts = new EventCounter<>();
     }
 
-    public WritesOrAccepts checkForEvents() throws AbortedSignal {
+    public void checkForEvents() throws AbortedSignal {
         checkForAborts();
 
-        Consensable value = acceptCounts.getExeeded(2 * Config.ALLOWED_FAILURES);
+        Consensable value = acceptCounts.getExceeded(2 * Config.ALLOWED_FAILURES);
         if (value != null) {
             Logger.LOG("Quorum of accepts reached: " + value);
             Logger.DEBUG("ac: " + acceptCounts);
             Logger.DEBUG("wc: " + writeCounts);
-            return new WritesOrAccepts(value, true);
+            this.woa.set(value, WritesOrAccepts.State.ACCEPTS);
         }
 
-        value = writeCounts.getExeeded(2 * Config.ALLOWED_FAILURES);
+        value = writeCounts.getExceeded(2 * Config.ALLOWED_FAILURES);
         if (value != null) {
             Logger.LOG("Quorum of writes reached: " + value);
             Logger.DEBUG("ac: " + acceptCounts);
@@ -346,10 +399,8 @@ public class EpochConsensus {
                         new WriteTuple(value, this.epochNumber.get()));
             }
 
-            return new WritesOrAccepts(value, false);
+            this.woa.set(value, WritesOrAccepts.State.WRITES);
         }
-
-        return null;
     }
 
     public void checkForAborts() throws AbortedSignal {
@@ -367,7 +418,8 @@ public class EpochConsensus {
     }
 
     public boolean shouldChangeEpoch() {
-        return abortCounts.exceeded(2*Config.ALLOWED_FAILURES);
+        return abortCounts.exceeded(2*Config.ALLOWED_FAILURES)
+                || abortCounts.counted(getLeader(this.epochNumber.get()));
     }
 
     public void sendToAll(ConsensusMessage message) {
@@ -398,13 +450,13 @@ public class EpochConsensus {
             // Thread that listens to each link
             // interpreting each message receive and deciding after
             final int _i = i;
-            Future<?> task = this.service.submit(() -> receiveLoop(_i, type));
+            Future<?> task = this.service.submit(() -> receiveLoop(_i, type, Config.CONSENSUS_LINK_TIMEOUT));
             tasks.add(task);
 
             Logger.DEBUG("Task " + i + " started");
         }
 
-        Logger.LOG("Waiting for all tasks to finish");
+        Logger.DEBUG("Waiting for all tasks to finish");
 
         // Wait for all threads to finish
         for (int i = 0; i < Config.NUM_MEMBERS-1; i++) {
@@ -413,11 +465,11 @@ public class EpochConsensus {
 
                 Logger.DEBUG((i+1) + " tasks finished");
             } catch (InterruptedException e) {
-                Logger.LOG("Thread interrupted: " + e);
+                Logger.DEBUG("Thread interrupted: " + e);
             }
 
-            this.woa = checkForEvents();
-            if (this.woa != null) {
+            checkForEvents();
+            if (this.woa.getState() != null) {
                 Logger.DEBUG("Quorum reached");
 
                 // Cancel all remaining tasks since we've reached a quorum
@@ -431,7 +483,7 @@ public class EpochConsensus {
             }
         }
         
-        Logger.LOG("All tasks finished");
+        Logger.DEBUG("All tasks finished");
     }
 
     // returns true if nothing went wrong
@@ -448,14 +500,20 @@ public class EpochConsensus {
             // Thread that listens to each link
             // interpreting each message receive and deciding after
             final int _i = i;
-            Future<Boolean> future = this.service.submit(() -> receiveLoop(_i, type));
-            if (i == senderId) senderTask = future;
+            if (i == senderId) {
+                senderTask = this.service.submit(() -> receiveLoop(_i, type, Config.CONSENSUS_LINK_TIMEOUT));
+            }
             else {
-                otherTasks.add(future);
+                otherTasks.add(this.service.submit(() -> receiveLoop(_i, type, -1)));
             }
         }
 
         try {
+            if (senderTask == null) {
+                Logger.LOG("Sender task is null");
+                return false;
+            }
+
             // Wait for sender thread to finish
             wentWrong = !senderTask.get();
 
@@ -473,7 +531,7 @@ public class EpochConsensus {
             }
         }
 
-        this.woa = checkForEvents();
+        checkForEvents();
 
         return !wentWrong;
     }
@@ -481,7 +539,7 @@ public class EpochConsensus {
 
     // returns a boolean indicating if it anything went wrong, useful when
     // communicating with the leader
-    public Boolean receiveLoop(int senderId, ConsensusMessage.MessageType type) {
+    public Boolean receiveLoop(int senderId, ConsensusMessage.MessageType type, int timeout) {
         Logger.DEBUG(senderId + ") Receive loop started for " + type);
         
         int leaderId = getLeader(this.epochNumber.get());
@@ -489,7 +547,6 @@ public class EpochConsensus {
         // Prevents byzantine process to send useless messages to keep the leader stuck
         long startTime = System.currentTimeMillis();
 
-        int timeout = Config.CONSENSUS_LINK_TIMEOUT;
         while (System.currentTimeMillis() - startTime < 2 * timeout) {
             //Logger.DEBUG("Recv loop: time left: " + (2 * Config.LINK_TIMEOUT - (System.currentTimeMillis() - startTime)));
             ConsensusMessage msg = null;

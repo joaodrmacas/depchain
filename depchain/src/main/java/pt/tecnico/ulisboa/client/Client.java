@@ -132,7 +132,7 @@ public class Client {
             return;
         }
 
-        boolean isStateful = true;
+        boolean changesState = true;
         ClientReq req = null;
         String command = parts[0].toUpperCase();
 
@@ -163,7 +163,7 @@ public class Client {
                 throw new IllegalArgumentException("Unknown client ID: " + clientId);
             }
 
-            isStateful = false;
+            changesState = false;
             Logger.LOG("Client address: " + clientAddress);
             req = new BalanceOfDepCoinReq(clientId, count, clientAddress);
         }
@@ -181,7 +181,7 @@ public class Client {
             // TODO: change this hardcode for a config map or something
             if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted")
                     || functionName.equals("allowance")) {
-                isStateful = false;
+                changesState = false;
             }
 
             req = buildContractRequest(contractName, functionName,
@@ -197,14 +197,13 @@ public class Client {
 
             // Sign the request
             Logger.LOG("Signing request: " + req);
-            String signature = CryptoUtils.signData(req.toString(), keyPair.getPrivate());
-            req.setSignature(signature);
+            req.sign(keyPair.getPrivate());
 
             // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
             messageHandler.addRequestToWait(count);
 
-            if (isStateful) {
+            if (changesState) {
                 // Send write request for consensus
                 aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
             } else {

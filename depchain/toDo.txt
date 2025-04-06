@@ -1,10 +1,11 @@
-> [carro] txs in a block not decided get back to the queue if not already used
 > [carro] melhorar o consensus com a info do stor 1st stage
-> [braços] servers verificar as assinaturas dos clients requests durante o collected (problema para o duarte pensar)
-> [braços] adicionar client a receber mensagens decentes para se conseguir verificar se os contratos tao a funcionar fixe
 > client a mandar para todos os servers com time between cada um
-> Relatório
 > Meter os erros a printar bem para o client nao ver so uma hexstring e nao perceber o que aconteceu.
+> Relatório
+
+Semi-extra (era muito melhor para a DEMO)
+> mudar LOGs desnecessários para DEBUG
+> mudar infos necessárias no client de LOG ou DEBUG para System.out.println()
 
 Extra:
 > gas
@@ -23,3 +24,5 @@ Duvidas:
 
 ATENCAO:
 > rn um client bizantino pode fazer o que quiser ou nao? sque nao por causa das assinaturas nvm tava a pensar ele meter o id de outro gajo e tavamos cooked mas nvm.
+
+git commit -am "EpochChanged done, needs testing + members verify if block is valid (including signature of clients) after collected + new consensus wait for block to be added to blockchain + abort from leader => instant abort"

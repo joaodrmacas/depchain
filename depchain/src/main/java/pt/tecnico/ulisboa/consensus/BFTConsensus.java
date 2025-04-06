@@ -144,20 +144,19 @@ public class BFTConsensus {
             Logger.DEBUG("Starting consensus " + consensusIndex + " for epoch " + epochNumber.get() + " with block " + blockToBeProposed);
             Block block = (Block) consensus.start();
 
-            // TODO: we have to garantee that this validation is done right
-            if (member.isValidBlock(block)) {
-                Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on block " + block);
-                member.pushDecidedBlock(block);
+            Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on block " + block);
+            
+            member.addBlockToBlockchain(block);
 
+            // thread just to push the transactions to execute
+            // so it doesnt stall the consensus
+            new Thread(() -> {
                 for (ClientReq tx : block.getTransactions()) {
+                    member.pushTxToExecute(tx);
                     member.addDecidedTx(tx);
                 }
+            }).start();
 
-            } else {
-                Logger.LOG("Consensus " + consensusIndex + " for epoch " + epochNumber.get() + " decided on an invalid block " + block);
-            }
-
-        
             consensusIndex++;
 
             // only when one consensus is done, we are sure we dont need to read the next

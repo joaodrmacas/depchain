@@ -128,24 +128,6 @@ public class Server {
 
         });
 
-        Thread blockHandlerThread = new Thread(() -> {
-            try {
-                while (true) {
-                    Block block = pollDecidedBlockOrWait();
-
-                    if (block != null) {
-                        for (ClientReq tx : block.getTransactions()) {
-                            pushTxToExecute(tx);
-                        }
-                        blockchainManager.addBlockToBlockchain(block);
-                    }
-                }
-            } catch (Exception e) {
-                Logger.ERROR("Value handler thread failed with exception", e);
-                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
-            }
-        });
-
         BFTConsensus consensusLoop = new BFTConsensus(this);
         Thread consensusThread = new Thread(() -> {
             try {
@@ -158,11 +140,9 @@ public class Server {
 
         transactionExecutorThread.setName("Transaction-Executor-Thread");
         consensusThread.setName("BFT-Consensus-Thread");
-        blockHandlerThread.setName("Block-Handler-Thread");
 
         transactionExecutorThread.start();
         consensusThread.start();
-        blockHandlerThread.start();
     }
 
     public void setup(String address, int portRegister, int port) {
@@ -309,7 +289,7 @@ public class Server {
 
         receivedTxs.getResource().add(tx);
 
-        if (receivedTxs.getResource().size() >= Config.MAX_TX_PER_BLOCK) {
+        if (receivedTxs.getResource().size() >= Config.TX_PER_BLOCK) {
             Logger.DEBUG("A new block is ready to be fetched");
             receivedTxs.notifyChange();
         }
@@ -318,13 +298,13 @@ public class Server {
     public Block peekBlockToConsensus() {
         List<ClientReq> rcvTxs = receivedTxs.getResource();
 
-        if (rcvTxs.size() < Config.MAX_TX_PER_BLOCK) {
+        if (rcvTxs.size() < Config.TX_PER_BLOCK) {
             Logger.DEBUG("Not enough transactions to create a block: " + rcvTxs.size());
             return null;
         }
 
         List<ClientReq> txs = new ArrayList<>();
-        for (int i=0; i < Config.MAX_TX_PER_BLOCK && i < rcvTxs.size(); i++) {
+        for (int i=0; i < Config.TX_PER_BLOCK && i < rcvTxs.size(); i++) {
             ClientReq tx = rcvTxs.get(i);
             if (decidedTxsSet.contains(tx)) {
                 Logger.DEBUG("Transaction peeked already decided: " + tx.toString());
@@ -335,7 +315,7 @@ public class Server {
             txs.add(tx);
         }
 
-        if (txs.size() < Config.MAX_TX_PER_BLOCK) {
+        if (txs.size() < Config.TX_PER_BLOCK) {
             Logger.DEBUG("Not enough transactions to create a block: " + txs.size());
             return null;
         }
@@ -488,10 +468,21 @@ public class Server {
     }
 
     public boolean isValidBlock(Block block) {
-        return blockchainManager.isValidBlock(block);
+        return blockchainManager.isValidBlock(block, clientPublicKeys);
+    }
+
+    public boolean isValidConsensable(Consensable value) {
+        if (value != null && value instanceof Block) {
+            return isValidBlock((Block) value);
+        }
+        return false;
     }
 
     public void addDecidedTx(ClientReq tx) {
         decidedTxsSet.add(tx);
+    }
+
+    public void addBlockToBlockchain(Block block) {
+        blockchainManager.addBlockToBlockchain(block);
     }
 }

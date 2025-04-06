@@ -3,6 +3,7 @@ package pt.tecnico.ulisboa.server;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -163,8 +164,6 @@ public class BlockchainManager {
         try {
             if (blockchain.size() == 0) {
                 Logger.ERROR("Blockchain is empty, genesis block was not added");
-            } else if (!isValidBlock(block)) {
-                Logger.ERROR("Invalid block, not adding to blockchain");
             } else {
                 blockchain.add(block);
                 Block lastBlock = blockchain.get(blockchain.size() - 1);
@@ -295,7 +294,7 @@ public class BlockchainManager {
         }
     }
 
-    public boolean isValidBlock(Block block) {
+    public boolean isValidBlock(Block block, Map<Integer, PublicKey> clientsPublicKeys) {
         Block lastBlock = blockchain.get(blockchain.size() - 1);
 
         if (lastBlock == null) {
@@ -313,12 +312,7 @@ public class BlockchainManager {
             return false;
         }
 
-        if (!block.computeBlockHash().equals(block.getHash())) {
-            Logger.LOG("Invalid block hash: " + block.getHash() + ", expected: " + block.computeBlockHash());
-            return false;
-        }
-
-        return true;
+        return block.isValid(clientsPublicKeys);
     }
 
     public Block generateNewBlock(List<ClientReq> txs) {

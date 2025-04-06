@@ -88,6 +88,11 @@ public class ContractCallReq extends ClientReq {
     }
 
     @Override
+    public boolean isValid() {
+        return super.isValid();
+    }
+
+    @Override
     public ClientReqType getReqType() {
         return ClientReqType.CONTRACT_CALL;
     }

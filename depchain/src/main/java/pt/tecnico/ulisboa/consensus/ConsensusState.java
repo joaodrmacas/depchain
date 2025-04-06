@@ -49,10 +49,7 @@ public class ConsensusState implements Serializable {
     }
 
     public boolean verifySignature(PublicKey pubKey) {
-        if (this.signature != null) {
-            return CryptoUtils.verifySignature(this.dataToSign(), this.signature, pubKey);
-        }
-        return false;
+        return this.signature != null && CryptoUtils.verifySignature(this.dataToSign(), this.signature, pubKey);
     }
 
     public void sign(PrivateKey privKey) {

@@ -1,6 +1,11 @@
 package pt.tecnico.ulisboa.protocol;
 
+import java.security.PrivateKey;
+import java.security.PublicKey;
+
 import com.google.gson.JsonObject;
+
+import pt.tecnico.ulisboa.utils.CryptoUtils;
 
 public abstract class ClientReq extends BlockchainMessage {
     private static final long serialVersionUID = 1L;
@@ -30,8 +35,16 @@ public abstract class ClientReq extends BlockchainMessage {
         return signature;
     }
 
-    public void setSignature(String signature) {
+    protected void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    public void sign(PrivateKey privateKey) {
+        this.signature = CryptoUtils.signData(this.toString(), privateKey);
+    }
+
+    public boolean verifySignature(PublicKey publicKey) {
+        return this.signature != null && CryptoUtils.verifySignature(this.toString(), this.signature, publicKey);
     }
 
     // Enum for request types
@@ -39,6 +52,11 @@ public abstract class ClientReq extends BlockchainMessage {
         CONTRACT_CALL,
         TRANSFER_DEP_COIN,
         BALANCE_OF_DEP_COIN
+    } 
+
+    // TODO: How should this look like?
+    public boolean isValid() {
+        return true;
     }
 
     @Override
@@ -78,5 +96,4 @@ public abstract class ClientReq extends BlockchainMessage {
     public int hashCode() {
         return 31*super.hashCode() + senderId;
     }
-
 }

@@ -5,13 +5,17 @@ import java.util.HashSet;
 import java.util.Map;
 
 import pt.tecnico.ulisboa.utils.types.Consensable;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class EventCounter<T extends Consensable> {
     private Map<T, Integer> counter = new HashMap<>();
     private HashSet<Integer> alreadyCounted = new HashSet<>();
+    private boolean stopped = false;
 
     public synchronized void inc(T value, int id) {
         if (alreadyCounted.contains(id)) {
+            // already counted this id
+            Logger.LOG("Already counted " + id);
             return;
         }
 
@@ -19,11 +23,17 @@ public class EventCounter<T extends Consensable> {
         counter.put(value, counter.getOrDefault(value, 0) + 1);
     }
 
+    public synchronized boolean counted(int id) {
+        return alreadyCounted.contains(id);
+    }
+
     public synchronized void inc(int id) {
         inc(null, id);
     }
 
     public synchronized boolean exceeded(T value, int max_counts) {
+        if (stopped) return false;
+        
         Integer count = counter.get(value);
         if (count == null) {
             return false;
@@ -36,7 +46,9 @@ public class EventCounter<T extends Consensable> {
         return exceeded(null, max_counts);
     }
 
-    public synchronized T getExeeded(int max_counts) {
+    public synchronized T getExceeded(int max_counts) {
+        if (stopped) return null;
+
         for (Map.Entry<T, Integer> entry : counter.entrySet()) {
             if (entry.getValue() > max_counts) {
                 return entry.getKey();
@@ -49,9 +61,10 @@ public class EventCounter<T extends Consensable> {
         return counter.getOrDefault(value, 0);
     }
 
-    public synchronized void reset() {
-        counter.clear();
-        alreadyCounted.clear();
+
+
+    public synchronized void stop() {
+        stopped = true;
     }
 
     @Override

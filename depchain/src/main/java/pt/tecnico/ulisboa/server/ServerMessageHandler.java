@@ -1,8 +1,6 @@
 package pt.tecnico.ulisboa.server;
 
 import java.security.PublicKey;
-import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.hyperledger.besu.datatypes.Address;
@@ -16,7 +14,6 @@ import pt.tecnico.ulisboa.utils.ContractUtils;
 import pt.tecnico.ulisboa.utils.CryptoUtils;
 import pt.tecnico.ulisboa.utils.SerializationUtils;
 import pt.tecnico.ulisboa.utils.types.Logger;
-import pt.tecnico.ulisboa.utils.types.ObservedResource;
 
 public class ServerMessageHandler implements MessageHandler {
     private Server server;
@@ -59,8 +56,6 @@ public class ServerMessageHandler implements MessageHandler {
             return;
         }
         clientKus.put(senderId, ku);
-        Random random = new Random();
-        int randomNumber = random.nextInt(100);
         clientAddresses.put(senderId, ContractUtils.generateAddressFromId(senderId));
     }
 
@@ -70,12 +65,12 @@ public class ServerMessageHandler implements MessageHandler {
             Logger.LOG("Client key not found for id: " + message.getSenderId());
             return;
         }
-        if (!CryptoUtils.verifySignature(message.toString(), message.getSignature(), clientKU)) {
+        if (!message.verifySignature(clientKU)) {
             Logger.LOG("Invalid signature for message: " + message);
             return;
         }
         Logger.LOG("Valid signature for message: " + message.getCount());
-        
+
         server.handleClientRequest(message);
     }
 }

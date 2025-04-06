@@ -24,7 +24,7 @@ public class Config {
     public final static int CLIENT_TIMEOUT_MS = 2000;
     public final static int DEFAULT_TIMEOUT = 10000;
     public final static int MAX_FRAGMENT_SIZE = 1024;
-    public final static int MAX_TX_PER_BLOCK = 1;
+    public final static int TX_PER_BLOCK = 3;
 
     public final static int DEFAULT_CLIENT_PORT = 10010;
     public final static int DEFAULT_SERVER_CLIENT_SOCKETS_PORT = 9090;
@@ -32,7 +32,6 @@ public class Config {
 
     public final static String GENESIS_BLOCK_PATH = "genesis_block.json";
     public final static String BLOCK_DIRPATH = "blocks";
-    public static final int BLOCK_SIZE = 1;
     public static final int ADMIN_ID = -1;
     public static final BigInteger DEPCOIN_PER_IST = BigInteger.valueOf(23000);
     public static final HashMap<Integer, String> CLIENT_ID_2_ADDR = new HashMap<Integer, String>() {
