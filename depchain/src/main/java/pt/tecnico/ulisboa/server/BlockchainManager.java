@@ -39,12 +39,12 @@ import pt.tecnico.ulisboa.utils.types.Logger;
 public class BlockchainManager {
     private SimpleWorld world;
 
-    private ArrayList<Block> blockchain;
+    protected ArrayList<Block> blockchain;
     BlockchainPersistenceManager persistenceManager;
 
     // map of client ids to their respective addresses
-    private Map<Integer, Address> clientAddresses;
-    private Map<String, Contract> contracts;
+    protected Map<Integer, Address> clientAddresses;
+    protected Map<String, Contract> contracts;
     private final EVMExecutor executor;
     private final ByteArrayOutputStream output;
 
@@ -79,7 +79,7 @@ public class BlockchainManager {
     }
 
     // Trasnfer depcoin from one account to another
-    public ClientResp transferDepCoin(TransferDepCoinReq req) {
+    private ClientResp transferDepCoin(TransferDepCoinReq req) {
         // parse the args
         Address sender = clientAddresses.get(req.getSenderId());
         Address receiver = req.getReceiver();
@@ -122,7 +122,7 @@ public class BlockchainManager {
         }
     }
 
-    public ClientResp getBalanceOfDepCoin(BalanceOfDepCoinReq req) {
+    private ClientResp getBalanceOfDepCoin(BalanceOfDepCoinReq req) {
 
         Logger.LOG(req.toString());
 
