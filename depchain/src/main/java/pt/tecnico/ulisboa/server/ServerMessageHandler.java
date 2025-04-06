@@ -52,9 +52,16 @@ public class ServerMessageHandler implements MessageHandler {
     public void handleRegisterRequest(int senderId, RegisterReq message) {
         PublicKey ku = CryptoUtils.bytesToPublicKey(message.getKey());
         if (clientKus.containsKey(senderId)) {
+            // TODO: we should warn the client that it is already registered
             Logger.LOG("Client already registered");
             return;
         }
+        if (senderId >= 0) {
+            // TODO: we should warn the client that it is not a valid id
+            Logger.LOG("Client id must be negative");
+            return;
+        }
+
         clientKus.put(senderId, ku);
         clientAddresses.put(senderId, ContractUtils.generateAddressFromId(senderId));
     }

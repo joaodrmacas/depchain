@@ -26,7 +26,7 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.ClientRequestTam
 #TODO: quando for para testar isto, tem de ser o server byzantino a propor o consensus.
 # Run client in background
 CLIENT_LOG="${ROOTDIR}/logs/byztest_clientreqtamperer_client_01.log"
-echo "MergedContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
+echo "ISTContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="-1 ${ROOTDIR}/keys" > "$CLIENT_LOG" 2>&1 &
 CLIENT_PID=$!
 

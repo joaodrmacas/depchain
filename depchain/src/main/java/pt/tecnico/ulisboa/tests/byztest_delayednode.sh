@@ -24,7 +24,7 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.DelayedServer" \
 
 # Run client in background
 CLIENT_LOG="${ROOTDIR}/logs/byztest_selectivedrop_client_01.log"
-echo "MergedContract addToBlacklist 1" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
+echo "ISTContract addToBlacklist 1" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="-1 ${ROOTDIR}/keys" > "$CLIENT_LOG" 2>&1 &
 CLIENT_PID=$!
 

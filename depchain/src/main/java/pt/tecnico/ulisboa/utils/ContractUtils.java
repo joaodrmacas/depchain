@@ -155,7 +155,6 @@ public class ContractUtils {
     public static void checkForExecutionErrors(ByteArrayOutputStream output) {
         try {
             // Create a copy of the output stream to avoid consuming it
-            // TODO: acho que nao precisa de ser copiado
             ByteArrayOutputStream outputCopy = new ByteArrayOutputStream();
             outputCopy.write(output.toByteArray());
 

@@ -396,9 +396,9 @@ public class APLImpl implements APL {
         }
     }
 
+    // TODO: should be refactored
     private void startRetransmissionScheduler() {
-        scheduler.scheduleAtFixedRate(() -> { // TODO: nunca vi pior codigo que o desta funcao na minha vida inteira
-                                              // frfr ongoh no cap
+        scheduler.scheduleAtFixedRate(() -> {
             Set<Long> timedOutSeqNums = new HashSet<>();
 
             // Check timeouts
@@ -440,7 +440,8 @@ public class APLImpl implements APL {
                 messagesToUpdate.sort((m1, m2) -> Long.compare(m2.getSeqNum(), m1.getSeqNum()));
 
                 // Update sequence numbers
-                for (Message msg : messagesToUpdate) { // TODO: por favor o que é isto que codigo assustador
+                // TODO: should be refactored, special this part
+                for (Message msg : messagesToUpdate) {
                     pendingMessages.remove(msg.getSeqNum());
                     msg.setSeqNum(msg.getSeqNum() - timedOutSeqNums.size());
                     // if message is a AuthenticatedMessage, update the hmac
@@ -468,7 +469,7 @@ public class APLImpl implements APL {
 
                 if (message.getCounter() >= message.getCooldown()) {
                     Logger.LOG(destPort + ") " + "Retransmitting message with seqNum: " + seqNum +
-                            "\nWaited cooldown: " + message.getCooldown()+ "ms");
+                            "\nWaited cooldown: " + message.getCooldown() + "ms");
                     try {
                         fragmentAndSend(message.serialize(), seqNum);
                     } catch (Exception e) {

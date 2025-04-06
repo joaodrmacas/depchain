@@ -6,7 +6,7 @@
 | **TRANSFER_DEPCOIN** | ✅ WORKING | `<to_id> <amount>` |
 | **BALANCEOF_DEPCOIN** | ✅ WORKING | `<client_id>` |
 
-## MergedContract Functions
+## ISTContract Functions
 | Command | Status | Format |
 |---------|--------|--------|
 | **balanceOf** | ✅ WORKING | `[<account_id>]` |
@@ -22,6 +22,7 @@
 ## Administrative Commands
 | Command | Status | Format |
 |---------|--------|--------|
-| **EXIT** | ❌ | - |
+| **EXIT** | ✅ WORKING | - |
 
 *Note: Square brackets `[]` indicate optional parameters*
+*Note: everything working. No debug needed.*

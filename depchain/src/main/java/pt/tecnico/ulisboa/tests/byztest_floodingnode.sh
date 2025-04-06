@@ -24,7 +24,7 @@ mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.server.byzantine.MessageFloodingS
 
 # Run client in background
 CLIENT_LOG="${ROOTDIR}/logs/byztest_messageflooding_client_01.log"
-echo "MergedContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
+echo "ISTContract transfer 1 100" | mvn exec:java -Dexec.mainClass="${ROOTPACKAGE}.client.Client" \
     -Dexec.args="-1 ${ROOTDIR}/keys" > "$CLIENT_LOG" 2>&1 &
 CLIENT_PID=$!
 

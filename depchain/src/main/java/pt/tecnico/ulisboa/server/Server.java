@@ -58,7 +58,6 @@ public class Server {
 
     private BlockchainManager blockchainManager = new BlockchainManager();
 
-    // TODO: should be closed: exec.shutdown();
     private ExecutorService exec = Executors.newFixedThreadPool(Config.NUM_MEMBERS * 10);
 
     public static void main(String[] args) {
@@ -123,7 +122,6 @@ public class Server {
                 }
             } catch (Exception e) {
                 Logger.ERROR("Transaction executor thread failed with exception", e);
-                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
             }
 
         });
@@ -134,7 +132,6 @@ public class Server {
                 consensusLoop.start();
             } catch (Exception e) {
                 Logger.ERROR("Consensus thread failed with exception", e);
-                // TODO: Handle recovery or shutdown as appropriate (this should not happen tho)
             }
         });
 

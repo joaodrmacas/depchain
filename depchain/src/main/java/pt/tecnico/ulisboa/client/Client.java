@@ -75,28 +75,28 @@ public class Client {
             System.out.println("  Check the balance of a client in DepCoin\n");
             System.out.println("Contract Call Format: <CONTRACT_NAME> <FUNCTION_NAME> [ARGS...]");
             System.out.println("\nExample Contract Commands:");
-            System.out.println("1. MergedContract balanceOf");
+            System.out.println("1. ISTContract balanceOf");
             System.out.println("   - Check your token balance");
-            System.out.println("   - Alternative: MergedContract balanceOf <account_id>");
-            System.out.println("2. MergedContract transfer <to_id> <amount>");
-            System.out.println("   - Example: MergedContract transfer 2 100");
-            System.out.println("3. MergedContract transferFrom <from_id> <to_id> <amount>");
-            System.out.println("   - Example: MergedContract transferFrom 1 2 50");
-            System.out.println("4. MergedContract approve <spender_id> <amount>");
-            System.out.println("   - Example: MergedContract approve 3 200");
-            System.out.println("5. MergedContract allowance <owner_id> <spender_id>");
-            System.out.println("   - Example: MergedContract allowance 1 2");
-            System.out.println("   - Alternative: MergedContract allowance <owner_id>");
+            System.out.println("   - Alternative: ISTContract balanceOf <account_id>");
+            System.out.println("2. ISTContract transfer <to_id> <amount>");
+            System.out.println("   - Example: ISTContract transfer 2 100");
+            System.out.println("3. ISTContract transferFrom <from_id> <to_id> <amount>");
+            System.out.println("   - Example: ISTContract transferFrom 1 2 50");
+            System.out.println("4. ISTContract approve <spender_id> <amount>");
+            System.out.println("   - Example: ISTContract approve 3 200");
+            System.out.println("5. ISTContract allowance <owner_id> <spender_id>");
+            System.out.println("   - Example: ISTContract allowance 1 2");
+            System.out.println("   - Alternative: ISTContract allowance <owner_id>");
             System.out.println("     (Uses your client ID as the spender)");
-            System.out.println("6. MergedContract isBlacklisted");
+            System.out.println("6. ISTContract isBlacklisted");
             System.out.println("   - Check if your account is blacklisted");
-            System.out.println("   - Alternative: MergedContract isBlacklisted <account_id>");
-            System.out.println("7. MergedContract addToBlacklist <account_id>");
-            System.out.println("   - Example: MergedContract addToBlacklist 4");
-            System.out.println("8. MergedContract removeFromBlacklist <account_id>");
-            System.out.println("   - Example: MergedContract removeFromBlacklist 4");
-            System.out.println("9. MergedContract buy <amount>");
-            System.out.println("   - Example: MergedContract buy 500");
+            System.out.println("   - Alternative: ISTContract isBlacklisted <account_id>");
+            System.out.println("7. ISTContract addToBlacklist <account_id>");
+            System.out.println("   - Example: ISTContract addToBlacklist 4");
+            System.out.println("8. ISTContract removeFromBlacklist <account_id>");
+            System.out.println("   - Example: ISTContract removeFromBlacklist 4");
+            System.out.println("9. ISTContract buy <amount>");
+            System.out.println("   - Example: ISTContract buy 500");
             System.out.println("   - Spends the specified amount to purchase tokens");
             System.out.println("10. EXIT - Terminate the client");
             System.out.println("\nAvailable Contracts:");
@@ -178,12 +178,6 @@ public class Client {
             String contractName = parts[0];
             String functionName = parts[1];
 
-            // TODO: change this hardcode for a config map or something
-            if (functionName.equals("balanceOf") || functionName.equals("isBlacklisted")
-                    || functionName.equals("allowance")) {
-                changesState = false;
-            }
-
             req = buildContractRequest(contractName, functionName,
                     Arrays.copyOfRange(parts, 2, parts.length));
         }
@@ -199,17 +193,10 @@ public class Client {
             Logger.LOG("Signing request: " + req);
             req.sign(keyPair.getPrivate());
 
-            // TODO: Only sending to the leader. Should be good tho(?)
             Logger.LOG("Sending request: " + req);
             messageHandler.addRequestToWait(count);
 
-            if (changesState) {
-                // Send write request for consensus
-                aplManager.sendWithTimeout(Config.LEADER_ID, req, Config.CLIENT_TIMEOUT_MS);
-            } else {
-                // Send read
-                aplManager.sendToAll(req);
-            }
+            aplManager.sendToAll(req);
 
             count++;
             return; // Successfully sent a request
@@ -338,24 +325,12 @@ public class Client {
     }
 
     private void sendPublicKeyToServers() {
-
         PublicKey publicKey = keyPair.getPublic();
 
         Logger.LOG("PUBLIC KEY: " + publicKey);
 
-        // // TODO: fix this to send periodically (...). Only send to leader change (?? this should send to all servers)
-        // later plsp ls pls
-        for (int serverId = 0; serverId < Config.NUM_MEMBERS; serverId++) {
-            byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
-            aplManager.sendWithTimeout(serverId, new RegisterReq(clientId,
-                    publicKeyBytes, 0),
-                    Config.CLIENT_TIMEOUT_MS);
-        }
-        // aplManager.sendWithTimeout(0, new RegisterReq(
-        // clientId,
-        // CryptoUtils.publicKeyToBytes(publicKey),
-        // count), Config.CLIENT_TIMEOUT_MS);
-
+        byte[] publicKeyBytes = CryptoUtils.publicKeyToBytes(publicKey);
+        aplManager.sendToAll(new RegisterReq(clientId, publicKeyBytes, 0L));
     }
 
     private void setup(String addr, int port) {

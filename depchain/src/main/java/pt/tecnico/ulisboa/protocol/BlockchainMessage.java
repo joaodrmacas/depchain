@@ -35,7 +35,6 @@ public abstract class BlockchainMessage implements Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        // TODO: acho que isto ta mal nao?
         if (obj instanceof BlockchainMessage) {
             BlockchainMessage other = (BlockchainMessage) obj;
             return type.equals(other.type) && count.equals(other.count);

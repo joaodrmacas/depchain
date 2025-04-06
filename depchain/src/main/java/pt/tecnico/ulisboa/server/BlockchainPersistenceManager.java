@@ -12,10 +12,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.tuweni.bytes.Bytes;
-import org.apache.tuweni.crypto.Hash;
 import org.apache.tuweni.units.bigints.UInt256;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
@@ -36,8 +34,8 @@ import pt.tecnico.ulisboa.contracts.AbiParameter.AbiType;
 import pt.tecnico.ulisboa.contracts.Contract;
 import pt.tecnico.ulisboa.contracts.ContractMethod;
 import pt.tecnico.ulisboa.protocol.ClientReq;
-import pt.tecnico.ulisboa.utils.types.Logger;
 import pt.tecnico.ulisboa.protocol.ClientReqFactory;
+import pt.tecnico.ulisboa.utils.types.Logger;
 
 public class BlockchainPersistenceManager {
 
@@ -314,9 +312,7 @@ public class BlockchainPersistenceManager {
 
                 accountJson.add("storage", storageJson);
 
-                // name
-                // TODO: temos de mudar isto. Ta hardcoded e mudar o nome de merged para istcoin contract
-                String contractName = "MergedContract";
+                String contractName = "ISTContract";
                 accountJson.addProperty("name", contractName);
 
 

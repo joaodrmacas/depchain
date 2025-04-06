@@ -114,7 +114,6 @@ public class Block implements Consensable, Serializable {
         this.blockId = blockId;
     }
 
-
     public void printBlock() {
         System.out.println("┌───────────────────────────────────────────────────────────────┐");
         System.out.println("│ Block ID: " + blockId + "                                    │");
@@ -129,8 +128,10 @@ public class Block implements Consensable, Serializable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
         Block other = (Block) obj;
         return this.blockHash.equals(other.blockHash);
     }

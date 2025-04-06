@@ -121,6 +121,8 @@ public abstract class AplManager {
         }
     }
 
+    
+
     // This method is used to test the integrity of the message
     public void sendAndTamper(int destId, Serializable message) {
         APLImpl apl = aplInstances.get(destId);
