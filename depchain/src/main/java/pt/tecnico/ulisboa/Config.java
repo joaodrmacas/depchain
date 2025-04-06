@@ -22,7 +22,7 @@ public class Config {
     public final static int CLIENT_TIMEOUT_MS = 2000;
     public final static int DEFAULT_TIMEOUT = 10000;
     public final static int MAX_FRAGMENT_SIZE = 1024;
-    public final static int TX_PER_BLOCK = 3;
+    public final static int TX_PER_BLOCK = 1;
 
     public final static int DEFAULT_CLIENT_PORT = 10010;
     public final static int DEFAULT_SERVER_CLIENT_SOCKETS_PORT = 9090;
