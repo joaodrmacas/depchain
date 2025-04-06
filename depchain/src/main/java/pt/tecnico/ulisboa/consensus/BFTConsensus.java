@@ -148,14 +148,10 @@ public class BFTConsensus {
             
             member.addBlockToBlockchain(block);
 
-            // thread just to push the transactions to execute
-            // so it doesnt stall the consensus
-            new Thread(() -> {
-                for (ClientReq tx : block.getTransactions()) {
-                    member.pushTxToExecute(tx);
-                    member.addDecidedTx(tx);
-                }
-            }).start();
+            for (ClientReq tx : block.getTransactions()) {
+                member.pushTxToExecute(tx);
+                member.addDecidedTx(tx);
+            }
 
             consensusIndex++;
 
