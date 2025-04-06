@@ -396,7 +396,6 @@ public class APLImpl implements APL {
         }
     }
 
-    // TODO: should be refactored
     private void startRetransmissionScheduler() {
         scheduler.scheduleAtFixedRate(() -> {
             Set<Long> timedOutSeqNums = new HashSet<>();
@@ -440,7 +439,6 @@ public class APLImpl implements APL {
                 messagesToUpdate.sort((m1, m2) -> Long.compare(m2.getSeqNum(), m1.getSeqNum()));
 
                 // Update sequence numbers
-                // TODO: should be refactored, special this part
                 for (Message msg : messagesToUpdate) {
                     pendingMessages.remove(msg.getSeqNum());
                     msg.setSeqNum(msg.getSeqNum() - timedOutSeqNums.size());

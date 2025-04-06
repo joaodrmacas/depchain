@@ -54,7 +54,6 @@ public abstract class ClientReq extends BlockchainMessage {
         BALANCE_OF_DEP_COIN
     } 
 
-    // TODO: How should this look like?
     public boolean isValid() {
         return true;
     }

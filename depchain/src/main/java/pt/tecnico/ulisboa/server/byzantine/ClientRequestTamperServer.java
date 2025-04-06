@@ -1,11 +1,9 @@
 package pt.tecnico.ulisboa.server.byzantine;
 
-import java.math.BigInteger;
 import java.util.Random;
 
 import pt.tecnico.ulisboa.protocol.ClientReq;
 import pt.tecnico.ulisboa.protocol.TransferDepCoinReq;
-import pt.tecnico.ulisboa.protocol.ContractCallReq;
 import pt.tecnico.ulisboa.server.Server;
 import pt.tecnico.ulisboa.utils.types.Logger;
 
@@ -42,7 +40,6 @@ public class ClientRequestTamperServer extends Server {
         }
     }
 
-    //TODO: isto nao funciona, tem que ser feito no write do consensus.
     @Override
     public void handleClientRequest(ClientReq tx) {
         // Target a specifc person

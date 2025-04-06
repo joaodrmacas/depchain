@@ -118,9 +118,6 @@ public class EpochConsensus {
                     }
                 }
 
-                // TODO: just a debug thing
-                Logger.ERROR("SHOULD NOT CHANGE EPOCH");
-
                 this.epochNumber.incrementAndGet();
 
                 readPhaseDone.set(false);
